@@ -1,0 +1,163 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-family-sans: "Inter", sans-serif;
+
+  --color-primary: #4f8ef7;
+  --color-primary-dark: #3a7de0;
+  --color-primary-light: #eaf3ff;
+
+  --color-success: #2ecc71;
+  --color-success-light: #e9fbf2;
+  --color-warning: #f4b400;
+  --color-warning-light: #fff9e6;
+  --color-danger: #e74c3c;
+  --color-danger-light: #feeceb;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #1a2332;
+  --color-muted: #64748b;
+  --color-subtle: #94a3b8;
+}
+
+/* ─── Semantic theme variables (light) ─────────────────────────────── */
+:root {
+  --app-font-size: 16px;
+
+  --bg: #f8fafc;
+  --hero-title: #1a2332;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --text: #1a2332;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --primary: #4f8ef7;
+  --primary-dark: #3a7de0;
+  --primary-light: #eaf3ff;
+  --success: #2ecc71;
+  --success-light: #e9fbf2;
+  --warning: #f4b400;
+  --warning-light: #fff9e6;
+  --danger: #e74c3c;
+  --danger-light: #feeceb;
+  --header-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+}
+
+/* ─── Dark theme variables ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --hero-title: #1a2332;
+  --surface: #1e293b;
+  --surface-2: #0f172a;
+  --surface-3: #334155;
+  --border: #334155;
+  --border-light: #273244;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --primary: #60a5fa;
+  --primary-dark: #3a7de0;
+  --primary-light: #1e3a5f;
+  --success: #34d399;
+  --success-light: #123b2a;
+  --warning: #fbbf24;
+  --warning-light: #3a3010;
+  --danger: #f87171;
+  --danger-light: #3b1a1a;
+  --header-bg: #1e293b;
+  --sidebar-bg: #1e293b;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: var(--app-font-size);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+.animate-scale-in {
+  animation: scaleIn 0.25s ease forwards;
+}
+.animate-slide-in {
+  animation: slideInLeft 0.3s ease forwards;
+}

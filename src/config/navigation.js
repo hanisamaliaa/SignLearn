@@ -1,0 +1,107 @@
+import {
+  BookIcon,
+  ChartIcon,
+  GridIcon,
+  HomeIcon,
+  SettingsIcon,
+  UserIcon,
+  UsersIcon,
+  VideoIcon,
+} from "../components/ui/Icons";
+
+export const userNavItems = [
+  {
+    label: "Dashboard",
+    page: "user/dashboard",
+    path: "/dashboard",
+    icon: HomeIcon,
+    roles: ["user"],
+  },
+  {
+    label: "Kursus",
+    page: "user/courses",
+    path: "/courses",
+    icon: BookIcon,
+    roles: ["user"],
+  },
+  {
+    label: "Progress Belajar",
+    page: "user/progress",
+    path: "/progress",
+    icon: ChartIcon,
+    roles: ["user"],
+  },
+  {
+    label: "Profil",
+    page: "user/profile",
+    path: "/profile",
+    icon: UserIcon,
+    roles: ["user"],
+  },
+  {
+    label: "Pengaturan",
+    page: "user/settings",
+    path: "/settings",
+    icon: SettingsIcon,
+    roles: ["user"],
+  },
+];
+
+export const adminNavItems = [
+  {
+    label: "Dashboard",
+    page: "admin/dashboard",
+    path: "/admin/dashboard",
+    icon: HomeIcon,
+    section: "Overview",
+    roles: ["admin"],
+  },
+  {
+    label: "Pengguna",
+    page: "admin/users",
+    path: "/admin/users",
+    icon: UsersIcon,
+    section: "Manajemen",
+    roles: ["admin"],
+  },
+  {
+    label: "Kursus",
+    page: "admin/courses",
+    path: "/admin/courses",
+    icon: BookIcon,
+    section: "Manajemen",
+    roles: ["admin"],
+  },
+  {
+    label: "Pelajaran",
+    page: "admin/lessons",
+    path: "/admin/lessons",
+    icon: VideoIcon,
+    section: "Manajemen",
+    roles: ["admin"],
+  },
+  {
+    label: "Kuis",
+    page: "admin/quizzes",
+    path: "/admin/quizzes",
+    icon: GridIcon,
+    section: "Manajemen",
+    roles: ["admin"],
+  },
+  {
+    label: "Laporan",
+    page: "admin/reports",
+    path: "/admin/reports",
+    icon: ChartIcon,
+    section: "Analitik",
+    roles: ["admin"],
+  },
+  {
+    label: "Pengaturan",
+    page: "admin/settings",
+    path: "/admin/settings",
+    icon: SettingsIcon,
+    section: "Sistem",
+    roles: ["admin"],
+  },
+];

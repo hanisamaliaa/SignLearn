@@ -1,0 +1,10 @@
+{
+  "description": "SignLearn is a responsive Learning Management System designed for learning Indonesian Sign Language, offering tailored courses for diverse learners and a user-friendly interface.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
