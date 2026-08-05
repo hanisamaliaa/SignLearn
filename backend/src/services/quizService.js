@@ -5,7 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
  *
  * Business rule: minimum passing score is 70 (KKM).
  */
-export const MIN_PASSING_SCORE = 70;
+export const MIN_PASSING_SCORE = 55;
 
 export function isPassing(score) {
   return score >= MIN_PASSING_SCORE;
