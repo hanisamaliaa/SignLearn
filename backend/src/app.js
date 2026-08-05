@@ -5,39 +5,55 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 
 import { env } from "./config/env.js";
+import routes from "./routes/index.js";
 import {
   errorHandler,
   notFoundHandler,
 } from "./middleware/error.middleware.js";
-import routes from "./routes/index.js";
 
 const app = express();
 
-// ─── Security middleware ───────────────────────────────────────────────
+// ==============================
+// Security
+// ==============================
 app.use(helmet());
 
-// CORS — allow configured origins (or all in development).
+// ==============================
+// Body Parser (HARUS sebelum routes)
+// ==============================
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// ==============================
+// CORS
+// ==============================
 app.use(
   cors({
     origin(origin, callback) {
-      if (!env.isProduction || !origin) return callback(null, true);
-      if (env.corsOrigins.includes(origin)) return callback(null, true);
+      if (!env.isProduction || !origin) {
+        return callback(null, true);
+      }
+
+      if (env.corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   }),
 );
 
-// ─── Body parsing ──────────────────────────────────────────────────────
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-
-// ─── Logging ───────────────────────────────────────────────────────────
+// ==============================
+// Logging
+// ==============================
 if (!env.isProduction) {
   app.use(morgan("dev"));
 }
 
-// ─── Global rate limit ─────────────────────────────────────────────────
+// ==============================
+// Rate Limit
+// ==============================
 app.use(
   rateLimit({
     windowMs: env.rateLimit.windowMs,
@@ -47,16 +63,30 @@ app.use(
   }),
 );
 
-// ─── API routes ────────────────────────────────────────────────────────
-app.use("/api", routes);
-
-// Health check
+// ==============================
+// Health Check
+// ==============================
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", uptime: process.uptime() });
+  res.status(200).json({
+    success: true,
+    status: "OK",
+    uptime: process.uptime(),
+  });
 });
 
-// ─── 404 & error handling ──────────────────────────────────────────────
+// ==============================
+// API Routes
+// ==============================
+app.use("/api", routes);
+
+// ==============================
+// 404 Handler
+// ==============================
 app.use(notFoundHandler);
+
+// ==============================
+// Error Handler
+// ==============================
 app.use(errorHandler);
 
 export default app;

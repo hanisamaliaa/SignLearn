@@ -1,26 +1,26 @@
 import dotenv from "dotenv";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config();
 
-// Load .env from the project root (backend/).
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
-
-function parsePort(value, fallback) {
+const parsePort = (value, fallback) => {
   const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : fallback;
-}
+  return Number.isNaN(n) ? fallback : n;
+};
 
-function parseBool(value, fallback = false) {
-  if (value === undefined || value === null) return fallback;
-  return String(value).toLowerCase() === "true";
-}
+const parseBool = (value) => {
+  if (typeof value !== "string") return false;
+  return ["true", "1", "yes", "on"].includes(value.toLowerCase());
+};
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   isProduction: process.env.NODE_ENV === "production",
   port: parsePort(process.env.PORT, 5000),
+
+  databaseUrl: process.env.DATABASE_URL,
+
+  supabaseUrl: process.env.SUPABASE_URL,
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
 
   db: {
     host: process.env.DB_HOST || "localhost",
