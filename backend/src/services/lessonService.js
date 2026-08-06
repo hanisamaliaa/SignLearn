@@ -1,5 +1,9 @@
 import * as lessonRepository from "../repositories/lessonRepository.js";
 
+export async function getAllLessons() {
+  return await lessonRepository.getAllLessons();
+}
+
 export async function getLessonsByCourse(courseId) {
   return await lessonRepository.findByCourseId(courseId);
 }
@@ -17,5 +21,5 @@ export async function updateLesson(id, data) {
 }
 
 export async function deleteLesson(id) {
-  await lessonRepository.remove(id);
+  return await lessonRepository.remove(id);
 }

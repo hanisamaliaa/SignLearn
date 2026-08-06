@@ -3,6 +3,8 @@ import * as lessonController from "../controllers/lessonController.js";
 
 const router = Router();
 
+router.get("/", lessonController.getAllLessons);
+
 router.get("/course/:courseId", lessonController.getLessonsByCourse);
 
 router.get("/:id", lessonController.getLessonById);
