@@ -1,15 +1,28 @@
-/**
- * Progress repository — MySQL data layer. Queries are NOT implemented yet.
- */
+import supabase from "../config/supabase.js";
 
-export async function getUserProgress(userId) {
-  throw new Error("getUserProgress not implemented");
+const TABLE = "lesson_progress";
+
+export async function saveProgress(progress) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .upsert([progress], {
+      onConflict: "user_id,lesson_id",
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
-export async function upsertLessonProgress(userId, lessonId, fields) {
-  throw new Error("upsertLessonProgress not implemented");
-}
+export async function findByUser(userId) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("user_id", userId);
 
-export async function isLessonCompleted(userId, lessonId) {
-  throw new Error("isLessonCompleted not implemented");
+  if (error) throw error;
+
+  return data;
 }

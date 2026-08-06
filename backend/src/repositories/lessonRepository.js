@@ -1,23 +1,58 @@
-/**
- * Lesson repository — MySQL data layer. Queries are NOT implemented yet.
- */
+import supabase from "../config/supabase.js";
 
-export async function listLessonsByCourse(courseId) {
-  throw new Error("listLessonsByCourse not implemented");
+const TABLE = "lessons";
+
+export async function findByCourseId(courseId) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("course_id", courseId)
+    .order("order_number");
+
+  if (error) throw error;
+
+  return data;
 }
 
-export async function findLessonById(id) {
-  throw new Error("findLessonById not implemented");
+export async function findById(id) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
-export async function createLesson(lesson) {
-  throw new Error("createLesson not implemented");
+export async function create(lesson) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert([lesson])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
-export async function updateLesson(id, fields) {
-  throw new Error("updateLesson not implemented");
+export async function update(id, lesson) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(lesson)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
-export async function deleteLesson(id) {
-  throw new Error("deleteLesson not implemented");
+export async function remove(id) {
+  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+
+  if (error) throw error;
 }
