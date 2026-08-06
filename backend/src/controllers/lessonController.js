@@ -1,38 +1,155 @@
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { success, created } from "../utils/apiResponse.js";
+import * as lessonService from "../services/lessonService.js";
+import * as courseService from "../services/courseService.js";
 
-export const getLessonsByCourse = asyncHandler(async (req, res) => {
-  success(
-    res,
-    null,
-    `List lessons for course ${req.params.courseId} — not implemented yet.`,
-  );
-});
+export const getAllLessons = async (req, res, next) => {
+  try {
+    const lessons = await lessonService.getAllLessons();
 
-export const getLessonById = asyncHandler(async (req, res) => {
-  success(
-    res,
-    null,
-    `Get lesson ${req.params.lessonId} — not implemented yet.`,
-  );
-});
+    return res.status(200).json({
+      success: true,
+      message: "Lessons retrieved successfully",
+      data: lessons,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-export const createLesson = asyncHandler(async (req, res) => {
-  created(res, null, "Create lesson — not implemented yet.");
-});
+export async function getLessonsByCourse(req, res, next) {
+  try {
+    const course = await courseService.getCourseById(req.params.courseId);
 
-export const updateLesson = asyncHandler(async (req, res) => {
-  success(
-    res,
-    null,
-    `Update lesson ${req.params.lessonId} — not implemented yet.`,
-  );
-});
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Course not found",
+      });
+    }
 
-export const deleteLesson = asyncHandler(async (req, res) => {
-  success(
-    res,
-    null,
-    `Delete lesson ${req.params.lessonId} — not implemented yet.`,
-  );
-});
+    const lessons = await lessonService.getLessonsByCourse(req.params.courseId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lessons retrieved successfully",
+      data: lessons,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getLessonById(req, res, next) {
+  try {
+    const lesson = await lessonService.getLessonById(req.params.id);
+
+    if (!lesson) {
+      return res.status(404).json({
+        success: false,
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Lesson not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Lesson retrieved successfully",
+      data: lesson,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createLesson(req, res, next) {
+  try {
+    // Pastikan course ada
+    const course = await courseService.getCourseById(req.body.course_id);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Course not found",
+      });
+    }
+
+    const lesson = await lessonService.createLesson(req.body);
+
+    return res.status(201).json({
+      success: true,
+      message: "Lesson created successfully",
+      data: lesson,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateLesson(req, res, next) {
+  try {
+    // Pastikan lesson ada
+    const existingLesson = await lessonService.getLessonById(req.params.id);
+
+    if (!existingLesson) {
+      return res.status(404).json({
+        success: false,
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Lesson not found",
+      });
+    }
+
+    // Jika course_id dikirim, pastikan course ada
+    if (req.body.course_id) {
+      const course = await courseService.getCourseById(req.body.course_id);
+
+      if (!course) {
+        return res.status(404).json({
+          success: false,
+          status: 404,
+          code: "NOT_FOUND",
+          message: "Course not found",
+        });
+      }
+    }
+
+    const lesson = await lessonService.updateLesson(req.params.id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lesson updated successfully",
+      data: lesson,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteLesson(req, res, next) {
+  try {
+    // Pastikan lesson ada
+    const existingLesson = await lessonService.getLessonById(req.params.id);
+
+    if (!existingLesson) {
+      return res.status(404).json({
+        success: false,
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Lesson not found",
+      });
+    }
+
+    await lessonService.deleteLesson(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lesson deleted successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+}

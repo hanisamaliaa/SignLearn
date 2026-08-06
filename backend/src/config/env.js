@@ -45,10 +45,14 @@ const DEV_SECRET_FALLBACK = "dev-only-insecure-secret-do-not-use-in-production";
 function readSecret(key, envValue) {
   if (envValue) {
     if (envValue.length < 32) {
-      errors.push(`${key} terlalu pendek (${envValue.length} karakter, minimal 32).`);
+      errors.push(
+        `${key} terlalu pendek (${envValue.length} karakter, minimal 32).`,
+      );
     }
     if (envValue === DEV_SECRET_FALLBACK) {
-      errors.push(`${key} masih memakai nilai contoh. Ganti dengan secret acak.`);
+      errors.push(
+        `${key} masih memakai nilai contoh. Ganti dengan secret acak.`,
+      );
     }
     return envValue;
   }
@@ -70,7 +74,9 @@ const accessSecret = readSecret(
 );
 
 if (isProduction && !process.env.DATABASE_URL) {
-  errors.push("DATABASE_URL wajib diisi di produksi — backend tidak dapat berjalan tanpa database.");
+  errors.push(
+    "DATABASE_URL wajib diisi di produksi — backend tidak dapat berjalan tanpa database.",
+  );
 }
 
 const corsOrigins = list(process.env.CORS_ORIGINS);

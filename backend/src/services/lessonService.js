@@ -1,31 +1,25 @@
-import { ApiError } from "../utils/ApiError.js";
+import * as lessonRepository from "../repositories/lessonRepository.js";
 
-/**
- * Lesson service — architecture only. Database queries are not implemented yet.
- */
+export async function getAllLessons() {
+  return await lessonRepository.getAllLessons();
+}
 
 export async function getLessonsByCourse(courseId) {
-  throw new ApiError(
-    501,
-    `List lessons for course ${courseId} is not implemented yet.`,
-  );
+  return await lessonRepository.findByCourseId(courseId);
 }
 
-export async function getLessonById(courseId, lessonId) {
-  throw new ApiError(501, `Get lesson ${lessonId} is not implemented yet.`);
+export async function getLessonById(id) {
+  return await lessonRepository.findById(id);
 }
 
-export async function createLesson(courseId) {
-  throw new ApiError(
-    501,
-    `Create lesson for course ${courseId} is not implemented yet.`,
-  );
+export async function createLesson(data) {
+  return await lessonRepository.create(data);
 }
 
-export async function updateLesson(courseId, lessonId) {
-  throw new ApiError(501, `Update lesson ${lessonId} is not implemented yet.`);
+export async function updateLesson(id, data) {
+  return await lessonRepository.update(id, data);
 }
 
-export async function deleteLesson(courseId, lessonId) {
-  throw new ApiError(501, `Delete lesson ${lessonId} is not implemented yet.`);
+export async function deleteLesson(id) {
+  return await lessonRepository.remove(id);
 }
