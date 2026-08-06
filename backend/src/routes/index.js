@@ -5,6 +5,7 @@ import courseRoutes from "./courseRoutes.js";
 import progressRoutes from "./progressRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import adminRoutes from "./adminRoutes.js";
+import lessonRoutes from "./lessonRoutes.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use("/courses", courseRoutes);
 router.use("/progress", progressRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/admin", adminRoutes);
+router.use("/lessons", lessonRoutes);
 
 export default router;
