@@ -1,42 +1,81 @@
-import jwt from "jsonwebtoken";
-import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ERROR_CODES } from "../constants/errorCodes.js";
+import { verifyAccessToken } from "../services/tokenService.js";
 
 /**
- * Verifies the Bearer token and attaches the decoded payload to req.user.
- * Used to protect authenticated routes.
+ * Ekstrak Bearer token dari header Authorization.
+ * @returns {string|null}
+ */
+function extractBearer(req) {
+  const header = req.headers.authorization;
+  if (!header || typeof header !== "string") return null;
+
+  const [scheme, token] = header.split(" ");
+  if (scheme !== "Bearer" || !token) return null;
+
+  return token.trim() || null;
+}
+
+/**
+ * Memverifikasi access token dan mengisi `req.user`.
+ *
+ * `req.user` berisi klaim token saja — id, email, role. Ia TIDAK berisi baris
+ * database. Handler yang butuh data terkini (mis. status akun) harus membaca
+ * dari repository, karena token diterbitkan hingga 15 menit sebelumnya dan
+ * bisa saja akun sudah di-suspend sejak itu.
  */
 export function authenticate(req, _res, next) {
-  const header = req.headers.authorization || "";
-  const [scheme, token] = header.split(" ");
+  const token = extractBearer(req);
 
-  if (scheme !== "Bearer" || !token) {
-    return next(new ApiError(401, "Authentication token is required."));
+  if (!token) {
+    return next(
+      ApiError.unauthorized(
+        "Token autentikasi diperlukan.",
+        ERROR_CODES.TOKEN_MISSING,
+      ),
+    );
   }
 
   try {
-    const payload = jwt.verify(token, env.jwt.secret);
-    req.user = payload;
+    const payload = verifyAccessToken(token);
+    req.user = {
+      id: String(payload.sub),
+      email: payload.email,
+      role: payload.role,
+    };
     return next();
   } catch (err) {
-    return next(new ApiError(401, "Invalid or expired token."));
+    // Dinormalisasi errorHandler menjadi TOKEN_EXPIRED atau TOKEN_INVALID.
+    // Perbedaannya penting: TOKEN_EXPIRED memberi tahu klien untuk mencoba
+    // refresh, sedangkan TOKEN_INVALID berarti sesi harus dibuang.
+    return next(err);
   }
 }
 
 /**
- * Optional auth — attaches req.user if a valid token is present, otherwise
- * continues without one. Used for routes that behave differently for guests.
+ * Mengisi `req.user` bila token valid ada, tetapi tidak menolak bila tidak ada.
+ *
+ * Dipakai endpoint yang berperilaku berbeda untuk tamu — misalnya `/courses`
+ * yang menyertakan progres hanya bila pengguna sudah masuk.
  */
 export function optionalAuthenticate(req, _res, next) {
-  const header = req.headers.authorization || "";
-  const [scheme, token] = header.split(" ");
+  const token = extractBearer(req);
+  if (!token) {
+    req.user = null;
+    return next();
+  }
 
-  if (scheme === "Bearer" && token) {
-    try {
-      req.user = jwt.verify(token, env.jwt.secret);
-    } catch {
-      req.user = null;
-    }
+  try {
+    const payload = verifyAccessToken(token);
+    req.user = {
+      id: String(payload.sub),
+      email: payload.email,
+      role: payload.role,
+    };
+  } catch {
+    // Token rusak diperlakukan sebagai tamu, bukan error. Endpoint ini
+    // memang boleh diakses tanpa autentikasi.
+    req.user = null;
   }
 
   return next();
