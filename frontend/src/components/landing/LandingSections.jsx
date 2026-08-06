@@ -1,316 +1,125 @@
+import { useRef, useState } from "react";
 import {
-  ArrowRightIcon,
-  BookIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  ClockIcon,
-  FileIcon,
-  PlayIcon,
-  SettingsIcon,
-  UserIcon,
-  UsersIcon,
-  VideoIcon,
+  ArrowRightIcon, BellIcon, BookIcon, ChartIcon, CheckCircleIcon,
+  CheckIcon, EyeIcon, FireIcon, GridIcon, LockIcon,
+  PlayIcon, RefreshIcon, StarIcon, TrophyIcon, UserIcon, UsersIcon,
 } from "../ui/Icons";
-import heroImage from "../../assets/bisindo-learning-hero.webp";
 import { Reveal } from "./LandingMotion";
-import { useCountUp, useInView } from "../../hooks/useLandingMotion";
+import heroImage from "../../assets/characters/signlearn-kids-hero.webp";
 
-const TRUST_ITEMS = [
-  { label: "Video dengan subtitle", detail: "Subtitle tersedia pada materi video." },
-  { label: "Belajar sesuai ritme", detail: "Pelajari ulang materi kapan saja." },
-  { label: "Progres tersimpan", detail: "Progres tersimpan secara otomatis." },
+const TOPICS = [
+  { title: "Alfabet", lessons: 6, progress: 65, status: "Sedang dipelajari", icon: BookIcon, tone: "blue" },
+  { title: "Angka", lessons: 5, progress: 100, status: "Selesai", icon: TrophyIcon, tone: "green" },
+  { title: "Keluarga", lessons: 4, progress: 0, status: "Belum dimulai", icon: UsersIcon, tone: "pink" },
+  { title: "Hewan", lessons: 5, progress: 0, status: "Belum dimulai", icon: UserIcon, tone: "yellow" },
+  { title: "Makanan", lessons: 5, progress: 20, status: "Sedang dipelajari", icon: GridIcon, tone: "coral" },
+  { title: "Perasaan", lessons: 4, progress: 0, status: "Belum dimulai", icon: StarIcon, tone: "lavender" },
+  { title: "Aktivitas", lessons: 6, progress: 0, status: "Terkunci", icon: LockIcon, tone: "mint" },
+  { title: "Sapaan", lessons: 4, progress: 0, status: "Terkunci", icon: BellIcon, tone: "blue" },
 ];
 
-const STATISTICS = [
-  { value: 8, label: "Kategori pembelajaran", detail: "Kategori materi utama.", icon: BookIcon },
-  { value: 38, label: "Materi terstruktur", detail: "Pelajaran yang disusun bertahap.", icon: FileIcon },
-  { value: 70, label: "Nilai minimum kuis", detail: "KKM untuk membuka pelajaran berikutnya.", icon: CheckCircleIcon },
-  { value: "Tersimpan", label: "Progres per akun", detail: "Progres tersimpan pada akun pengguna.", icon: UserIcon },
+const STEPS = [
+  { title: "Lihat", text: "Perhatikan gerakan tangan dan ekspresi wajah.", icon: EyeIcon },
+  { title: "Tirukan", text: "Ikuti gerakan secara perlahan dari depan.", icon: UserIcon },
+  { title: "Latihan", text: "Jawab kuis dan permainan singkat.", icon: GridIcon },
+  { title: "Lihat Progres", text: "Kumpulkan bintang dan buka materi berikutnya.", icon: ChartIcon },
 ];
 
-const AUDIENCES = [
-  {
-    title: "Orang Tua",
-    description:
-      "Pelajari BISINDO untuk membangun komunikasi sehari-hari yang lebih dekat bersama anak.",
-    icon: UsersIcon,
-  },
-  {
-    title: "Pelajar Tuli",
-    description:
-      "Perkuat kosakata dan keterampilan BISINDO melalui materi visual yang dapat diulang.",
-    icon: UserIcon,
-  },
-  {
-    title: "Teman Dengar dan Pelajar Umum",
-    description:
-      "Mulai berkomunikasi dengan lebih inklusif melalui jalur belajar yang jelas dan bertahap.",
-    icon: BookIcon,
-  },
+const BENEFITS = [
+  { title: "Belajar Sambil Bermain", text: "Pelajaran singkat, permainan interaktif, dan reward membuat anak tetap termotivasi.", icon: TrophyIcon, tone: "yellow" },
+  { title: "Gerakan Mudah Dilihat", text: "Tangan, wajah, dan posisi tubuh ditampilkan dengan jelas untuk membantu proses belajar.", icon: EyeIcon, tone: "blue" },
+  { title: "Aman dan Ramah Anak", text: "Navigasi sederhana, konten sesuai usia, dan pengalaman belajar tanpa iklan.", icon: CheckCircleIcon, tone: "mint" },
+  { title: "Membangun Komunikasi dan Empati", text: "Anak belajar berkomunikasi sekaligus memahami pentingnya lingkungan yang inklusif.", icon: UsersIcon, tone: "pink" },
 ];
 
-const LEARNING_STEPS = [
-  { title: "Pilih kursus", description: "Mulai dari topik yang paling relevan.", icon: BookIcon },
-  { title: "Tonton video BISINDO", description: "Amati gerakan dengan bingkai visual yang jelas.", icon: VideoIcon },
-  { title: "Lakukan latihan visual", description: "Ulangi materi dan praktikkan gerakannya.", icon: UserIcon },
-  { title: "Kerjakan kuis", description: "Periksa pemahaman setelah setiap pelajaran.", icon: CheckCircleIcon },
-  { title: "Buka pelajaran berikutnya", description: "Lanjutkan setelah mencapai nilai minimum 70.", icon: ArrowRightIcon },
-];
-
-const ACCESSIBILITY_FEATURES = [
-  {
-    title: "Subtitle video",
-    description: "Dialog dan informasi audio didampingi teks pada materi video.",
-    demo: "CC  Halo, selamat belajar",
-    icon: VideoIcon,
-  },
-  {
-    title: "Transkrip materi",
-    description: "Pokok materi dan posisi gerakan tersedia dalam panduan teks yang dapat dibaca ulang.",
-    demo: "Contoh tampilan · Transkrip",
-    icon: FileIcon,
-  },
-  {
-    title: "Kontrol kecepatan",
-    description: "Kecepatan pemutaran ditampilkan secara eksplisit agar pengguna dapat mengikuti ritmenya.",
-    demo: "Contoh tampilan · 0.75×  1×  1.25×",
-    icon: SettingsIcon,
-  },
-  {
-    title: "Navigasi keyboard",
-    description: "Tautan dan kontrol dapat dijangkau tanpa perangkat penunjuk.",
-    demo: "Contoh tampilan · Tab  →  Enter",
-    icon: UserIcon,
-  },
-  {
-    title: "Fokus yang terlihat",
-    description: "Indikator fokus berkontras tinggi membantu menunjukkan posisi navigasi saat ini.",
-    demo: "Contoh tampilan · Fokus aktif",
-    icon: CheckCircleIcon,
-  },
-  {
-    title: "Dukungan reduced motion",
-    description: "Animasi dikurangi ketika preferensi sistem meminta gerakan yang lebih sedikit.",
-    demo: "Contoh tampilan · Gerakan dikurangi",
-    icon: ClockIcon,
-  },
-];
-
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  headingId,
-  align = "center",
-}) {
-  const alignment = align === "left" ? "text-left" : "mx-auto text-center";
-  return (
-    <div className={`max-w-2xl ${alignment}`}>
-      <p className="landing-eyebrow">{eyebrow}</p>
-      <h2 id={headingId} className="mt-3 text-3xl font-bold tracking-tight text-[var(--color-text-900)] sm:text-4xl">
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-4 text-base leading-7 text-[var(--color-text-600)] sm:text-lg">
-          {description}
-        </p>
-      )}
-    </div>
-  );
+function Heading({ eyebrow, title, text, id }) {
+  return <div className="kids-heading"><p className="kids-eyebrow">{eyebrow}</p><h2 id={id}>{title}</h2>{text && <p>{text}</p>}</div>;
 }
 
-export function HeroSection({ onRegister, onLearnMore }) {
+export function KidsHero({ onStart, onTrySign }) {
   return (
-    <section id="tentang" className="landing-hero" aria-labelledby="hero-title">
-      <div className="hero-grid-pattern" aria-hidden="true" />
-      <div className="hero-glow hero-glow-one" aria-hidden="true" />
-      <div className="hero-glow hero-glow-two" aria-hidden="true" />
-      <div className="landing-container relative grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
-        <div className="hero-copy">
-          <p className="landing-eyebrow hero-enter hero-enter-1">Pembelajaran BISINDO yang visual dan inklusif</p>
-          <h1 id="hero-title" className="hero-enter hero-enter-2 mt-5 max-w-3xl text-[clamp(2.35rem,5vw,3.75rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-[var(--color-text-900)]">
-            Belajar <span className="hero-highlight">BISINDO</span> untuk komunikasi yang lebih dekat.
-          </h1>
-          <p className="hero-enter hero-enter-3 mt-6 max-w-2xl text-[1.0625rem] leading-8 text-[var(--color-text-600)] sm:text-lg">
-            Pelajari Bahasa Isyarat Indonesia melalui video singkat, latihan
-            visual, dan kuis terstruktur yang dapat dipelajari sesuai ritme Anda.
-          </p>
-          <div className="hero-enter hero-enter-4 mt-8 flex flex-col gap-3 min-[420px]:flex-row">
-            <button type="button" className="landing-button landing-button-primary hero-primary-cta" onClick={onRegister}>
-              Mulai Belajar Gratis <span className="cta-arrow" aria-hidden="true"><ArrowRightIcon size={17} /></span>
-            </button>
-            <button type="button" className="landing-button landing-button-secondary hero-secondary-cta" onClick={onLearnMore}>
-              <span className="cta-play" aria-hidden="true"><PlayIcon size={12} /></span>
-              Lihat Cara Belajar
-            </button>
+    <section className="kids-hero" aria-labelledby="kids-hero-title">
+      <div className="kids-cloud cloud-one" aria-hidden="true" /><div className="kids-cloud cloud-two" aria-hidden="true" />
+      <div className="kids-container relative grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="kids-hero-copy">
+          <p className="kids-eyebrow">Belajar • Berlatih • Berkomunikasi</p>
+          <h1 id="kids-hero-title">Belajar BISINDO Jadi <span>Lebih Menyenangkan</span></h1>
+          <p className="kids-hero-text">Tonton gerakan dengan jelas, ikuti latihan interaktif, dan kumpulkan bintang bersama karakter SignLearn.</p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button type="button" className="kids-button kids-button-primary kids-button-large" onClick={onStart}>Mulai Pelajaran Pertama <ArrowRightIcon size={18} /></button>
+            <button type="button" className="kids-button kids-button-secondary kids-button-large" onClick={onTrySign}><PlayIcon size={15} /> Coba Gerakan “Halo”</button>
           </div>
-          <ul className="hero-enter hero-enter-5 mt-8 grid gap-3 text-sm font-medium text-slate-700 sm:grid-cols-3" aria-label="Keunggulan SignLearn">
-            {TRUST_ITEMS.map((item) => (
-              <li key={item.label} className="trust-chip" tabIndex="0" title={item.detail}>
-                <span className="trust-chip-icon" aria-hidden="true">
-                  <CheckIcon size={14} strokeWidth={2.5} />
-                </span>
-                <span>{item.label}</span>
-              </li>
-            ))}
+          <ul className="kids-reassurance" aria-label="Keunggulan SignLearn Kids">
+            {["Ramah anak", "Tanpa iklan", "Materi bertahap"].map((item) => <li key={item}><CheckIcon size={15} />{item}</li>)}
           </ul>
         </div>
+        <div className="kids-hero-art">
+          <img src={heroImage} width="1450" height="1086" alt="Lia dan Noah berlatih gerakan tangan bersama Finn, maskot SignLearn Kids" />
+          <span className="kids-float-card float-star" aria-hidden="true"><StarIcon size={20} filled /> +1 bintang</span>
+          <span className="kids-float-card float-sign" aria-hidden="true"><CheckCircleIcon size={20} /> Gerakan hebat!</span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-        <div id="kursus" className="hero-media-wrap hero-enter hero-enter-6 relative mx-auto w-full max-w-[580px]">
-          <div className="hero-media-card">
-            <div className="group relative aspect-[16/10] overflow-hidden bg-slate-100">
-              <img
-                src={heroImage}
-                alt="Pelajar mempraktikkan gerakan tangan saat mengikuti materi BISINDO melalui laptop"
-                width="1586"
-                height="992"
-                className="hero-media-image h-full w-full object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent px-5 pb-5 pt-20 text-white">
-                <button type="button" className="hero-play-button" onClick={onLearnMore} aria-label="Jelajahi cara belajar SignLearn">
-                  <PlayIcon size={14} />
-                </button>
-                <div>
-                  <p className="text-sm font-semibold">Pratinjau pembelajaran visual</p>
-                  <p className="mt-1 text-sm text-slate-200">Gerakan terlihat jelas dalam bingkai video</p>
-                </div>
-              </div>
+export function SignDemoSection() {
+  const playerRef = useRef(null);
+  const [word, setWord] = useState("Halo");
+  const [speed, setSpeed] = useState("1×");
+  const [playing, setPlaying] = useState(false);
+  return (
+    <section id="demo-gerakan" className="kids-section kids-demo-section" aria-labelledby="demo-title">
+      <div className="kids-container">
+        <Reveal><Heading eyebrow="Belajar langsung" id="demo-title" title="Coba Satu Gerakan BISINDO" text="Lihat gerakannya, pelajari artinya, lalu praktikkan secara perlahan." /></Reveal>
+        <div className="mt-10 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+          <Reveal className="kids-demo-copy">
+            <span className="kids-badge">Gerakan hari ini</span><h3>{word}</h3>
+            <p>Gerakan sapaan sederhana untuk memulai percakapan dengan ramah. Perhatikan posisi tangan dan ekspresi wajah.</p>
+            <ol className="kids-demo-steps">{["Perhatikan tangan", "Lihat ekspresi wajah", "Tirukan perlahan"].map((step, index) => <li key={step}><span>{index + 1}</span>{step}</li>)}</ol>
+            <div><p className="font-bold text-[#0F2450]">Pilih kata:</p><div className="mt-3 flex flex-wrap gap-2">{["Halo", "Terima kasih", "Maaf", "Tolong", "Teman"].map((item) => <button type="button" key={item} className={`kids-word-chip ${word === item ? "is-active" : ""}`} onClick={() => setWord(item)}>{item}</button>)}</div></div>
+          </Reveal>
+          <Reveal delay={100} className="kids-player-card">
+            <div ref={playerRef} className="kids-player-screen">
+              <img src={heroImage} alt="Contoh karakter memperagakan gerakan dengan tangan dan wajah terlihat jelas" />
+              <button type="button" className="kids-player-play" aria-label={playing ? "Jeda contoh gerakan" : `Mainkan contoh gerakan ${word}`} onClick={() => setPlaying((value) => !value)}>{playing ? <span aria-hidden="true">Ⅱ</span> : <PlayIcon size={26} />}</button>
+              <span className="kids-player-word">{word}</span>
+              <div className="kids-player-progress" role="progressbar" aria-label="Progres contoh gerakan" aria-valuemin="0" aria-valuemax="100" aria-valuenow={playing ? 45 : 0}><span className={playing ? "is-playing" : ""} /></div>
             </div>
-            <div className="grid gap-3 p-4 sm:grid-cols-2">
-              <div className="media-status">
-                <span className="media-status-icon" aria-hidden="true"><CheckCircleIcon size={18} /></span>
-                <span>Subtitle tersedia</span>
-              </div>
-              <div className="media-status media-progress-status">
-                <span className="media-status-icon" aria-hidden="true"><BookIcon size={18} /></span>
-                <div className="min-w-0 flex-1">
-                  <span>6 dari 10 pelajaran</span>
-                  <div className="media-progress-track" role="progressbar" aria-label="Progres pelajaran" aria-valuemin="0" aria-valuemax="10" aria-valuenow="6">
-                    <span className="media-progress-fill" />
-                  </div>
-                </div>
-              </div>
+            <div className="kids-player-controls">
+              <fieldset><legend>Kecepatan</legend><div className="flex gap-2">{["0.5×", "0.75×", "1×"].map((item) => <button type="button" key={item} className={`kids-speed ${speed === item ? "is-active" : ""}`} onClick={() => setSpeed(item)} aria-pressed={speed === item}>{item}</button>)}</div></fieldset>
+              <button type="button" className="kids-button kids-button-primary" onClick={() => setPlaying(true)}><PlayIcon size={14} /> Mainkan</button>
+              <button type="button" className="kids-button kids-button-tertiary" onClick={() => setPlaying(false)}><RefreshIcon size={16} /> Ulangi</button>
+              <button type="button" className="kids-button kids-button-tertiary" onClick={() => playerRef.current?.requestFullscreen?.()}>Layar penuh</button>
             </div>
-          </div>
-        </div>
-      </div>
-      <a className="hero-scroll-indicator" href="#product-statistics" aria-label="Jelajahi informasi cara belajar">
-        <span>Jelajahi cara belajar</span><span aria-hidden="true">↓</span>
-      </a>
-    </section>
-  );
-}
-
-function StatisticItem({ stat, active }) {
-  const numeric = typeof stat.value === "number";
-  const count = useCountUp(numeric ? stat.value : 0, active);
-  const Icon = stat.icon;
-  return (
-    <div className="stat-item">
-      <span className="stat-icon" aria-hidden="true"><Icon size={20} /></span>
-      <dt className="mt-4 text-sm font-semibold leading-5 text-[var(--color-text-600)]">{stat.label}</dt>
-      <dd className="mt-2 text-3xl font-bold tracking-tight text-[var(--color-primary-800)]">
-        {numeric ? count : stat.value}
-      </dd>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{stat.detail}</p>
-    </div>
-  );
-}
-
-export function ProductStatistics() {
-  const { ref, inView } = useInView();
-  return (
-    <section id="product-statistics" ref={ref} className="product-statistics pb-8 sm:pb-12" aria-label="Informasi produk terverifikasi">
-      <div className="landing-container">
-        <dl className="stats-card grid grid-cols-2 lg:grid-cols-4">
-          {STATISTICS.map((stat) => (
-            <StatisticItem key={stat.label} stat={stat} active={inView} />
-          ))}
-        </dl>
-      </div>
-    </section>
-  );
-}
-
-export function AudienceSection() {
-  return (
-    <section className="landing-section" aria-labelledby="audience-title">
-      <div className="landing-container">
-        <Reveal>
-          <SectionHeading headingId="audience-title" eyebrow="Untuk siapa SignLearn" title="Belajar untuk komunikasi yang lebih inklusif" />
-        </Reveal>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {AUDIENCES.map(({ title, description, icon: Icon }, index) => (
-            <Reveal key={title} delay={index * 90}>
-              <article className="landing-card interactive-card h-full">
-                <span className="landing-feature-icon" aria-hidden="true"><Icon size={24} /></span>
-                <h3 className="mt-5 text-xl font-bold text-slate-900">{title}</h3>
-                <p className="mt-3 leading-7 text-[var(--color-text-600)]">{description}</p>
-              </article>
-            </Reveal>
-          ))}
+            <p className="kids-caption"><strong>Deskripsi gerakan:</strong> Angkat tangan dengan nyaman, arahkan telapak ke depan, dan gunakan ekspresi ramah. Contoh ini tidak memerlukan suara.</p>
+          </Reveal>
         </div>
       </div>
     </section>
   );
 }
 
-export function LearningStepsSection() {
-  const { ref, inView } = useInView();
-  return (
-    <section id="cara-belajar" ref={ref} className={`landing-section bg-white ${inView ? "timeline-visible" : ""}`} aria-labelledby="steps-title">
-      <div className="landing-container">
-        <Reveal>
-          <SectionHeading
-            headingId="steps-title"
-            eyebrow="Alur pembelajaran"
-            title="Belajar secara bertahap"
-            description="Setiap tahap memiliki tujuan yang jelas. Selesaikan kuis dengan nilai minimum 70 untuk membuka pelajaran berikutnya."
-          />
-        </Reveal>
-        <ol className="learning-timeline mt-12">
-          {LEARNING_STEPS.map(({ title, description, icon: Icon }, index) => (
-            <Reveal key={title} delay={index * 90} as="li" className="landing-step">
-              <span className="landing-step-number">{index + 1}</span>
-              <span className="landing-step-icon" aria-hidden="true"><Icon size={19} /></span>
-              <div>
-                <h3 className="font-bold leading-6 text-slate-900">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
-              </div>
-            </Reveal>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
+export function TopicSection({ onStart }) {
+  return <section id="topik" className="kids-section" aria-labelledby="topic-title"><div className="kids-container"><Reveal><Heading eyebrow="Materi pilihan" id="topic-title" title="Pilih Topik yang Ingin Dipelajari" text="Mulai dari topik sederhana dan buka pelajaran baru sedikit demi sedikit." /></Reveal><div className="kids-topic-grid">{TOPICS.map((topic, index) => { const Icon = topic.icon; const locked = topic.status === "Terkunci"; return <Reveal key={topic.title} delay={(index % 4) * 60}><article className={`kids-topic-card tone-${topic.tone} ${locked ? "is-locked" : ""}`} tabIndex={locked ? undefined : 0}><span className="kids-topic-icon" aria-hidden="true"><Icon size={25} /></span><div><h3>{topic.title}</h3><p>{topic.lessons} pelajaran</p></div><span className="kids-topic-status">{locked && <LockIcon size={13} />} {topic.status}</span><div className="kids-topic-progress" role="progressbar" aria-label={`Progres ${topic.title}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={topic.progress}><span style={{ width: `${topic.progress}%` }} /></div>{topic.status === "Sedang dipelajari" && <button type="button" className="kids-card-action" onClick={onStart}>Lanjutkan <ArrowRightIcon size={15} /></button>}</article></Reveal>; })}</div></div></section>;
 }
 
-export function AccessibilitySection() {
-  return (
-    <section id="aksesibilitas" className="landing-section" aria-labelledby="accessibility-title">
-      <div className="landing-container grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-        <Reveal>
-          <SectionHeading
-            headingId="accessibility-title"
-            eyebrow="Aksesibilitas"
-            title="Dirancang untuk pengalaman belajar yang lebih aksesibel"
-            description="Contoh antarmuka berikut menunjukkan bagaimana informasi visual, teks, dan interaksi yang konsisten mendukung pengalaman belajar yang lebih mudah dinavigasi."
-            align="left"
-          />
-        </Reveal>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {ACCESSIBILITY_FEATURES.map(({ title, description, demo, icon: Icon }, index) => (
-            <Reveal key={title} delay={(index % 2) * 80}>
-              <article className="landing-card interactive-card h-full p-5 sm:p-6">
-                <span className="landing-feature-icon" aria-hidden="true"><Icon size={22} /></span>
-                <h3 className="mt-4 text-base font-bold text-slate-900">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-text-600)]">{description}</p>
-                <div className="access-demo" aria-label={demo}>{demo}</div>
-              </article>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+export function LearningJourneySection() {
+  return <section id="cara-belajar" className="kids-section kids-journey-section" aria-labelledby="journey-title"><div className="kids-container"><Reveal><Heading eyebrow="Empat langkah mudah" id="journey-title" title="Cara Belajar di SignLearn" /></Reveal><ol className="kids-journey">{STEPS.map((step, index) => { const Icon = step.icon; return <Reveal key={step.title} as="li" delay={index * 80}><span className="kids-journey-number">{index + 1}</span><span className="kids-journey-icon"><Icon size={25} /></span><h3>{step.title}</h3><p>{step.text}</p></Reveal>; })}</ol></div></section>;
+}
+
+export function BenefitsSection() {
+  return <section className="kids-section" aria-labelledby="benefits-title"><div className="kids-container"><Reveal><Heading eyebrow="Belajar dengan nyaman" id="benefits-title" title="Kenapa Memilih SignLearn Kids?" /></Reveal><div className="kids-benefits-grid">{BENEFITS.map((item, index) => { const Icon = item.icon; return <Reveal key={item.title} delay={index * 70}><article className={`kids-benefit-card tone-${item.tone}`}><span><Icon size={27} /></span><h3>{item.title}</h3><p>{item.text}</p></article></Reveal>; })}</div></div></section>;
+}
+
+export function ProgressPreviewSection({ onProgress }) {
+  return <section id="progres" className="kids-section kids-progress-section" aria-labelledby="progress-title"><div className="kids-container"><div className="kids-progress-card"><Reveal><div><p className="kids-eyebrow">Progres contoh</p><h2 id="progress-title">Setiap Langkah Layak Dirayakan</h2><p className="mt-3 text-[#5C6B76]">Kemajuan kecil membantu anak membangun kebiasaan belajar yang percaya diri.</p><div className="kids-progress-stats"><div><FireIcon /><strong>5 hari</strong><span>berturut-turut</span></div><div><CheckCircleIcon /><strong>7 dari 12</strong><span>pelajaran selesai</span></div><div><StarIcon filled /><strong>120</strong><span>bintang terkumpul</span></div></div><p className="kids-level"><TrophyIcon /> Level: <strong>Penjelajah Isyarat</strong></p><div className="kids-badge-progress" role="progressbar" aria-label="Progres menuju badge berikutnya" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"><span /></div><button type="button" className="kids-button kids-button-primary mt-6" onClick={onProgress}>Lihat Progres Saya</button></div></Reveal><div className="kids-mascot-celebrate" aria-label="Finn merayakan progres belajar"><StarIcon size={44} filled /><strong>Hebat!</strong><span>Finn bangga padamu</span></div></div></div></section>;
+}
+
+export function ParentTrustSection({ onGuide }) {
+  return <section id="orang-tua" className="kids-section kids-parent-section" aria-labelledby="parent-title"><div className="kids-container grid gap-8 lg:grid-cols-[1fr_0.8fr] lg:items-center"><Reveal><Heading eyebrow="Untuk orang tua" id="parent-title" title="Dirancang untuk Anak, Dipercaya oleh Orang Tua" text="Pengalaman belajar yang sederhana membantu orang tua mendampingi tanpa mengambil alih proses belajar anak." /></Reveal><Reveal delay={90} className="kids-trust-panel"><ul>{["Pengalaman belajar tanpa iklan", "Materi disusun secara bertahap", "Pengaturan aksesibilitas yang mudah digunakan"].map((item) => <li key={item}><CheckCircleIcon size={20} />{item}</li>)}</ul><button type="button" className="kids-button kids-button-secondary mt-5" onClick={onGuide}>Lihat Panduan Orang Tua</button></Reveal></div></section>;
+}
+
+export function FinalKidsCTA({ onStart, onExplore }) {
+  return <section className="kids-section pt-0" aria-labelledby="final-title"><div className="kids-container"><Reveal className="kids-final-cta"><div className="kids-mini-mascot" aria-hidden="true"><StarIcon size={30} filled /></div><div><h2 id="final-title">Siap Belajar Berkomunikasi dengan Tangan?</h2><p>Mulai pelajaran BISINDO pertama dan temukan cara baru untuk belajar, berekspresi, dan terhubung.</p><div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><button type="button" className="kids-button kids-button-primary kids-button-large" onClick={onStart}>Mulai Belajar Gratis</button><button type="button" className="kids-button kids-button-secondary kids-button-large" onClick={onExplore}>Jelajahi Materi</button></div></div></Reveal></div></section>;
 }
