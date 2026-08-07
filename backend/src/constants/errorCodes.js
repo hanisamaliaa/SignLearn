@@ -1,0 +1,46 @@
+/**
+ * Kode error yang stabil — sumber kebenaran tunggal.
+ *
+ * Frontend bercabang berdasarkan `code`, TIDAK PERNAH berdasarkan `message`.
+ * Alasannya: begitu ada yang memperbaiki typo di pesan error, logika frontend
+ * yang mencocokkan string akan rusak diam-diam tanpa satu pun test gagal.
+ *
+ * Nilai di sini terikat pada API Contract §3 dan tidak boleh diubah tanpa
+ * menaikkan versi kontrak.
+ */
+export const ERROR_CODES = Object.freeze({
+  VALIDATION_FAILED: "VALIDATION_FAILED",
+  INVALID_CREDENTIALS: "INVALID_CREDENTIALS",
+  TOKEN_MISSING: "TOKEN_MISSING",
+  TOKEN_EXPIRED: "TOKEN_EXPIRED",
+  TOKEN_INVALID: "TOKEN_INVALID",
+  TOKEN_REUSED: "TOKEN_REUSED",
+  FORBIDDEN: "FORBIDDEN",
+  ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
+  ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
+  NOT_FOUND: "NOT_FOUND",
+  DUPLICATE_ENTRY: "DUPLICATE_ENTRY",
+  STALE_RESOURCE: "STALE_RESOURCE",
+  LESSON_LOCKED: "LESSON_LOCKED",
+  QUIZ_ALREADY_PASSED: "QUIZ_ALREADY_PASSED",
+  RATE_LIMITED: "RATE_LIMITED",
+  PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
+  UNSUPPORTED_MEDIA_TYPE: "UNSUPPORTED_MEDIA_TYPE",
+  NOT_IMPLEMENTED: "NOT_IMPLEMENTED",
+  INTERNAL: "INTERNAL",
+});
+
+/** Pemetaan default HTTP status → kode, dipakai ketika kode tidak eksplisit. */
+export const STATUS_TO_CODE = Object.freeze({
+  400: ERROR_CODES.VALIDATION_FAILED,
+  401: ERROR_CODES.TOKEN_INVALID,
+  403: ERROR_CODES.FORBIDDEN,
+  404: ERROR_CODES.NOT_FOUND,
+  409: ERROR_CODES.DUPLICATE_ENTRY,
+  413: ERROR_CODES.PAYLOAD_TOO_LARGE,
+  415: ERROR_CODES.UNSUPPORTED_MEDIA_TYPE,
+  422: ERROR_CODES.VALIDATION_FAILED,
+  429: ERROR_CODES.RATE_LIMITED,
+  500: ERROR_CODES.INTERNAL,
+  501: ERROR_CODES.NOT_IMPLEMENTED,
+});
