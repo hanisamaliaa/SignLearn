@@ -119,8 +119,30 @@ export async function create({ name, email, passwordHash, profile = "general", r
   return findById(rows[0].id);
 }
 
-export async function updatePassword(userId, passwordHash) {
-  await query(
+/**
+ * Mengganti kata sandi, sekaligus membuka kunci akun.
+ *
+ * `client` OPSIONAL — bila diberikan, query berjalan pada koneksi transaksi
+ * itu; bila tidak, pada pool. Konvensi yang sama dipakai
+ * `refreshTokenRepository` dan `passwordResetRepository`.
+ *
+ * ── Kenapa parameter ini penting ──────────────────────────────────────
+ *
+ * `authService.resetPassword` membungkus fungsi ini dan `resetRepo.markUsed`
+ * dalam satu `withTransaction`. Selama fungsi ini mengabaikan `client`, ia
+ * berjalan di koneksi LAIN dari pool — di luar transaksi. Transaksinya tetap
+ * ada, tetapi tidak memuat apa yang dikira: bila `markUsed` gagal, ROLLBACK
+ * hanya membatalkan penandaan token, sementara kata sandi sudah terlanjur
+ * berubah. Pengguna berakhir dengan kata sandi baru DAN token reset yang
+ * masih sah untuk dipakai ulang.
+ *
+ * Penghitung gagal login dan `locked_until` ikut direset: seseorang yang baru
+ * saja mereset kata sandinya karena lupa hampir pasti sudah salah beberapa
+ * kali sebelum itu, dan membiarkannya tetap terkunci membuat reset itu sia-sia.
+ */
+export async function updatePassword(userId, passwordHash, client) {
+  const run = client ? client.query.bind(client) : query;
+  await run(
     `UPDATE users
         SET password_hash = $2,
             failed_login_attempts = 0,
@@ -171,7 +193,7 @@ export async function updateProfile(userId, fields) {
 
   for (const key of allowed) {
     if (fields[key] !== undefined) {
-      values.push(fields[key]);
+      values.push(key === "name" ? String(fields[key]).trim() : fields[key]);
       sets.push(`${key} = $${values.length}`);
     }
   }
@@ -180,4 +202,177 @@ export async function updateProfile(userId, fields) {
 
   await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, values);
   return findById(userId);
+}
+
+// ─── Administrasi pengguna (API Contract §7.3-7.6) ───────────────────────
+
+/**
+ * Allowlist kolom pengurutan.
+ *
+ * `sortBy` TIDAK PERNAH diinterpolasi langsung ke SQL. Kunci dari klien
+ * dicocokkan ke peta ini; yang tidak cocok tidak pernah sampai ke query.
+ * Tanpa ini, `?sortBy=` menjadi jalur SQL injection (API Contract §2.8).
+ */
+const SORTABLE = Object.freeze({
+  name: "u.name",
+  email: "u.email",
+  joinDate: "u.join_date",
+  createdAt: "u.created_at",
+});
+
+/** Membangun klausa WHERE + parameter dari filter listing. */
+function buildFilters({ q, role, status }, startIndex = 1) {
+  const clauses = [];
+  const values = [];
+  let i = startIndex;
+
+  if (q && String(q).trim().length >= 2) {
+    // `%` dan `_` adalah wildcard LIKE dan harus di-escape sebelum dibungkus
+    // wildcard kita sendiri. Parameterisasi mencegah SQL injection, TIDAK
+    // mencegah ini: mencari "100%" tanpa escape mengembalikan seluruh baris.
+    const escaped = String(q).trim().replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    values.push(`%${escaped}%`);
+    clauses.push(`(u.name ILIKE $${i} ESCAPE '\\' OR u.email ILIKE $${i} ESCAPE '\\')`);
+    i++;
+  }
+  if (role) {
+    values.push(role);
+    clauses.push(`r.name = $${i++}`);
+  }
+  if (status) {
+    values.push(status);
+    clauses.push(`u.status = $${i++}`);
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    values,
+    nextIndex: i,
+  };
+}
+
+export async function count(filters = {}) {
+  const { where, values } = buildFilters(filters);
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total
+       FROM users u JOIN roles r ON r.id = u.role_id
+       ${where}`,
+    values,
+  );
+  return rows[0].total;
+}
+
+export async function findAll(
+  filters = {},
+  { limit = 20, offset = 0, sortBy = "createdAt", sortDir = "desc" } = {},
+) {
+  const column = SORTABLE[sortBy] ?? SORTABLE.createdAt;
+  const direction = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
+
+  const { where, values, nextIndex } = buildFilters(filters);
+  values.push(limit, offset);
+
+  const { rows } = await query(
+    `SELECT ${USER_COLUMNS}
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       ${where}
+      ORDER BY ${column} ${direction}, u.id ASC
+      LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
+    values,
+  );
+  return rows.map(toUserDto);
+}
+
+/**
+ * Statistik belajar satu pengguna — §7.4.
+ *
+ * `lastActiveAt` mengambil yang paling baru di antara progres pelajaran dan
+ * pengerjaan kuis. Memakai salah satunya saja membuat pengguna yang hanya
+ * mengerjakan kuis terlihat tidak aktif sama sekali.
+ */
+export async function statsFor(userId) {
+  const { rows } = await query(
+    `SELECT
+       (SELECT COUNT(DISTINCT l.course_id)::int
+          FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
+         WHERE lp.user_id = $1)                                   AS courses_started,
+       (SELECT COUNT(*)::int FROM lesson_progress
+         WHERE user_id = $1 AND status = 'completed')             AS lessons_completed,
+       (SELECT COUNT(*)::int FROM quiz_results
+         WHERE user_id = $1 AND passed)                           AS quizzes_passed,
+       GREATEST(
+         (SELECT MAX(updated_at) FROM lesson_progress WHERE user_id = $1),
+         (SELECT MAX(taken_at)   FROM quiz_results    WHERE user_id = $1)
+       )                                                          AS last_active`,
+    [userId],
+  );
+
+  const r = rows[0];
+  return {
+    coursesStarted: Number(r.courses_started),
+    lessonsCompleted: Number(r.lessons_completed),
+    quizzesPassed: Number(r.quizzes_passed),
+    lastActiveAt: r.last_active?.toISOString() ?? null,
+  };
+}
+
+/**
+ * Pembaruan oleh admin — §7.5.
+ *
+ * Allowlist terpisah dari `updateProfile` karena kewenangannya memang berbeda:
+ * `role` dan `status` hanya boleh diubah dari sini. `email` dan `password_hash`
+ * tidak ada di daftar mana pun, sehingga tidak dapat disentuh lewat jalur ini
+ * seberapa pun kreatifnya body yang dikirim.
+ *
+ * `role` di-resolve lewat sub-select ke tabel roles, sehingga peran yang tidak
+ * dikenal memicu pelanggaran NOT NULL alih-alih menyimpan pengguna tanpa peran.
+ */
+export async function adminUpdate(userId, fields) {
+  const allowed = { name: "name", phone: "phone", avatar: "avatar", profile: "profile", status: "status" };
+  const sets = [];
+  const values = [userId];
+
+  for (const [key, column] of Object.entries(allowed)) {
+    if (fields[key] !== undefined) {
+      values.push(key === "name" ? String(fields[key]).trim() : fields[key]);
+      sets.push(`${column} = $${values.length}`);
+    }
+  }
+
+  if (fields.role !== undefined) {
+    values.push(fields.role);
+    sets.push(`role_id = (SELECT id FROM roles WHERE name = $${values.length})`);
+  }
+
+  if (sets.length === 0) return findById(userId);
+
+  await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, values);
+  return findById(userId);
+}
+
+/**
+ * Soft delete — §7.6. Baris TIDAK dihapus.
+ *
+ * `users` dirujuk `lesson_progress` dan `quiz_results` dengan ON DELETE CASCADE.
+ * Hard delete karenanya menghapus seluruh riwayat belajar seseorang secara
+ * permanen dalam satu klik, dan laporan admin kehilangan datanya tanpa jejak.
+ * Menonaktifkan sudah cukup: `authService.login` menolak status non-aktif.
+ */
+export async function softDelete(userId) {
+  const { rowCount } = await query(
+    `UPDATE users SET status = 'inactive' WHERE id = $1`,
+    [userId],
+  );
+  return rowCount > 0;
+}
+
+/** Jumlah admin yang masih aktif — penjaga agar sistem tidak kehilangan admin. */
+export async function countActiveAdmins() {
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total
+       FROM users u JOIN roles r ON r.id = u.role_id
+      WHERE r.name = 'admin' AND u.status = 'active'`,
+  );
+  return rows[0].total;
 }

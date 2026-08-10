@@ -1,18 +1,34 @@
-import { ApiError } from "../utils/ApiError.js";
+import * as adminRepo from "../repositories/adminRepository.js";
+import * as dashboardRepo from "../repositories/dashboardRepository.js";
+import { paginate, meta } from "../utils/pagination.js";
 
 /**
- * Admin service — architecture only. Database queries are not implemented yet.
- * These are admin-only aggregated operations.
+ * Admin service — statistik ringkas dan feed aktivitas (API Contract §10.6).
+ *
+ * Manajemen pengguna TIDAK ada di sini. Ia hidup di `userService` dan
+ * terekspos lewat `/users/**`, satu permukaan saja. Menyediakannya di
+ * `/admin/users` juga berarti dua tempat memasang validasi dan penjaga peran,
+ * dan yang terlupa menjadi lubang yang tidak terlihat sampai dimanfaatkan.
  */
 
+/**
+ * `GET /admin/stats` — §10.6.
+ *
+ * Kontrak menyebut bentuknya "sama dengan /dashboard/admin.totals", jadi ia
+ * memanggil repository yang sama. Menyalin query-nya akan membuat dua endpoint
+ * yang menjanjikan angka identik perlahan menjawab berbeda.
+ */
 export async function getStats() {
-  throw new ApiError(501, "Get admin stats is not implemented yet.");
+  const totals = await dashboardRepo.adminTotals();
+  return { totals };
 }
 
-export async function getRecentActivities() {
-  throw new ApiError(501, "Get recent activities is not implemented yet.");
-}
+/** `GET /admin/activities` — §10.6. */
+export async function getRecentActivities(filters = {}, options = {}) {
+  const { page, limit, offset } = paginate(options);
 
-export async function manageUsers() {
-  throw new ApiError(501, "Manage users is not implemented yet.");
+  const total = await adminRepo.countActivities(filters);
+  const items = await adminRepo.findActivities(filters, { limit, offset });
+
+  return { items, pagination: meta(page, limit, total) };
 }

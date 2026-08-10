@@ -40,6 +40,14 @@ function normalize(err) {
       return ApiError.validation("Nilai yang dikirim di luar rentang yang diizinkan.");
     case "22P02": // invalid_text_representation
       return ApiError.validation("Format parameter tidak valid.");
+    case "22001": // string_data_right_truncation
+      // Nilai lebih panjang daripada lebar kolom. Ini SELALU kesalahan input,
+      // jadi 500 adalah jawaban yang salah — tetapi juga tanda validator untuk
+      // field itu belum memeriksa panjangnya. Pesan di sini sengaja umum
+      // karena SQLSTATE tidak memberi tahu kolom mana yang meluap.
+      return ApiError.validation("Salah satu nilai yang dikirim terlalu panjang.");
+    case "22003": // numeric_value_out_of_range
+      return ApiError.validation("Salah satu nilai angka di luar jangkauan yang diizinkan.");
     case "ECONNREFUSED":
     case "ETIMEDOUT":
       return new ApiError(503, "Layanan database sedang tidak tersedia.", {

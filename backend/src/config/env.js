@@ -136,6 +136,22 @@ export const env = Object.freeze({
 
   corsOrigins,
 
+  /**
+   * Bendera fitur AI (API Contract §10.8).
+   *
+   * Keduanya default MATI. Endpoint-nya sudah ada dan dijaga admin, tetapi
+   * membalas `501 NOT_IMPLEMENTED` sampai integrasinya benar-benar dikerjakan.
+   *
+   * Blok ini sebelumnya TIDAK ADA, sementara `aiService` sudah membaca
+   * `env.ai.subtitleEnabled` — pemanggilan pertama akan melempar TypeError dan
+   * berakhir sebagai 500. Fitur yang belum ada seharusnya menjawab "belum ada",
+   * bukan terlihat seperti server yang rusak.
+   */
+  ai: {
+    subtitleEnabled: bool(process.env.AI_SUBTITLE_ENABLED, false),
+    quizGeneratorEnabled: bool(process.env.AI_QUIZ_GENERATOR_ENABLED, false),
+  },
+
   rateLimit: {
     windowMs: num(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     max: num(process.env.RATE_LIMIT_MAX, 100),

@@ -1,35 +1,35 @@
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { success } from "../utils/apiResponse.js";
 import * as progressService from "../services/progressService.js";
 
-export async function completeLesson(req, res, next) {
-  try {
-    const { lesson_id } = req.body;
+/**
+ * Progress controller — HTTP saja.
+ *
+ * `req.user.id` berasal dari klaim JWT yang ditandatangani server.
+ *
+ * Versi sebelumnya memakai `const userId = 1;` yang di-hardcode. Akibatnya
+ * setiap pengguna membaca dan menimpa progres pengguna nomor 1 — bukan
+ * sekadar bug, melainkan kebocoran data antar-akun.
+ */
 
-    // sementara hardcode sampai auth selesai
-    const userId = 1;
+// ─── GET /progress ───────────────────────────────────────────────────────
+export const getUserProgress = asyncHandler(async (req, res) => {
+  const result = await progressService.getUserProgress(req.user.id);
+  success(res, result, "Progres belajar berhasil diambil.");
+});
 
-    const progress = await progressService.completeLesson(userId, lesson_id);
+// ─── GET /progress/courses/:courseId ─────────────────────────────────────
+export const getCourseAccess = asyncHandler(async (req, res) => {
+  const items = await progressService.getCourseAccess(req.params.courseId, req.user.id);
+  success(res, { items }, "Status pelajaran berhasil diambil.");
+});
 
-    res.status(201).json({
-      success: true,
-      message: "Lesson completed",
-      data: progress,
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getUserProgress(req, res, next) {
-  try {
-    const userId = 1;
-
-    const progress = await progressService.getUserProgress(userId);
-
-    res.json({
-      success: true,
-      data: progress,
-    });
-  } catch (err) {
-    next(err);
-  }
-}
+// ─── PUT /progress/lessons/:lessonId ─────────────────────────────────────
+export const updateLessonProgress = asyncHandler(async (req, res) => {
+  const result = await progressService.updateLessonProgress(
+    req.user.id,
+    req.params.lessonId,
+    req.body.status,
+  );
+  success(res, result, "Progres berhasil disimpan.");
+});
