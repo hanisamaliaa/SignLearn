@@ -208,8 +208,11 @@ export async function resetPassword({ token, password }) {
 
   const passwordHash = await hashPassword(password);
 
+  // Keduanya WAJIB memakai `client` yang sama. Repository yang mengabaikannya
+  // akan berjalan di koneksi lain dari pool, dan transaksi ini menjadi
+  // jaminan kosong: token reset bisa tetap sah setelah kata sandi berubah.
   await withTransaction(async (client) => {
-    await userRepo.updatePassword(record.userId, passwordHash);
+    await userRepo.updatePassword(record.userId, passwordHash, client);
     await resetRepo.markUsed(record.id, client);
   });
 

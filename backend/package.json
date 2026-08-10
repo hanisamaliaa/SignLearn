@@ -12,6 +12,12 @@
     "start": "node src/server.js",
     "seed": "node src/database/seed.js",
     "smoke": "node scripts/smoke-auth.mjs",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:users": "node scripts/smoke-users.mjs",
+    "smoke:content": "node scripts/smoke-content.mjs",
+    "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
+    "smoke:db": "node scripts/smoke-db.mjs",
+    "smoke:all": "node scripts/smoke-all.mjs",
     "db:schema": "psql \"$DATABASE_URL\" -f src/database/schema.sql",
     "gen:secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\""
   },

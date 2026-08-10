@@ -1,13 +1,23 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { success } from "../utils/apiResponse.js";
+import * as adminService from "../services/adminService.js";
 
 /**
- * Admin controller — placeholder. Admin-only aggregated operations.
+ * Admin controller — HTTP saja (API Contract §10.6).
+ *
+ * Seluruh rute di router `/admin` sudah dijaga `authenticate` + `requireAdmin`
+ * lewat satu `router.use()`, jadi controller tidak memeriksa peran lagi.
  */
-export const getStats = asyncHandler(async (req, res) => {
-  success(res, null, "Get admin stats — not implemented yet.");
+
+// ─── GET /admin/stats ────────────────────────────────────────────────────
+export const getStats = asyncHandler(async (_req, res) => {
+  const result = await adminService.getStats();
+  success(res, result, "Statistik berhasil diambil.");
 });
 
+// ─── GET /admin/activities ───────────────────────────────────────────────
 export const getRecentActivities = asyncHandler(async (req, res) => {
-  success(res, null, "Get admin recent activities — not implemented yet.");
+  const { type, page, limit } = req.query;
+  const result = await adminService.getRecentActivities({ type }, { page, limit });
+  success(res, result, "Aktivitas terbaru berhasil diambil.");
 });

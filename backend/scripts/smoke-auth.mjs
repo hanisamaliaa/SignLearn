@@ -181,9 +181,23 @@ async function main() {
   const refreshed = await call("/auth/refresh", { method: "POST", jar: loginJar });
   check("refresh berhasil", refreshed.status === 200, `${refreshed.status}`);
   check("token dirotasi", loginJar.header() !== before);
-  check("access token baru diterbitkan",
-    typeof refreshed.body?.data?.accessToken === "string" &&
-    refreshed.body.data.accessToken !== accessToken);
+  /**
+   * Yang diuji: token yang diterima BEKERJA — bukan bahwa stringnya berbeda.
+   *
+   * Versi sebelumnya membandingkan `accessToken !== accessToken lama` dan
+   * gagal secara acak. Penyebabnya bukan bug: `iat` dan `exp` pada JWT
+   * berresolusi DETIK, jadi ketika login dan refresh terjadi dalam detik yang
+   * sama, payload-nya identik — dan HS256 atas payload identik menghasilkan
+   * string yang identik pula. "Token barunya harus berbeda" tidak pernah
+   * menjadi sifat yang dijamin; "token barunya harus sah" adalah sifat yang
+   * benar-benar penting.
+   */
+  const newToken = refreshed.body?.data?.accessToken;
+  check("access token diterbitkan", typeof newToken === "string" && newToken.length > 0);
+
+  const withNewToken = await call("/auth/me", { token: newToken });
+  check("access token hasil refresh dapat dipakai", withNewToken.status === 200,
+    `${withNewToken.status}`);
 
   // ── Deteksi pemakaian ulang ───────────────────────────────────────────
   console.log(c.b("\n  Deteksi pencurian token"));

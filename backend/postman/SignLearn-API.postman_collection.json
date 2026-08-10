@@ -1,0 +1,3662 @@
+{
+  "info": {
+    "_postman_id": "9f2c7e14-5b30-4a86-9d21-c8e0f3a7b415",
+    "name": "SignLearn API v1.2.0",
+    "description": "# SignLearn — REST API\n\nBackend platform pembelajaran BISINDO. Koleksi ini mengikuti **API Contract v1.2.0** (`docs/07-api-contract.md`) dan dapat dijalankan berurutan dari atas ke bawah sebagai smoke test.\n\n---\n\n## Persiapan\n\n1. Pilih environment **SignLearn — Local** (atau Staging).\n2. Pastikan backend berjalan: `npm run dev`.\n3. Pastikan database sudah di-seed: `npm run seed`.\n4. Isi `adminPassword` di environment dengan kata sandi yang dicetak `npm run seed`.\n\n## Cara pakai\n\nJalankan **Collection Runner** dari folder `00` sampai `09`. Urutan foldernya disengaja: setiap folder menyiapkan variabel yang dipakai folder berikutnya.\n\n| Folder | Menghasilkan variabel |\n|---|---|\n| `01 · Auth` | `accessToken`, `adminToken`, `userId`, `adminId` |\n| `03 · Courses` | `courseId` |\n| `04 · Lessons` | `lessonId` |\n| `05 · Quizzes` | `quizId`, `questionId` |\n\nMenjalankan satu request di tengah tanpa menjalankan pendahulunya akan gagal karena variabelnya kosong. Itu perilaku yang diharapkan, bukan bug.\n\n---\n\n## Autentikasi (§2.4)\n\nStrategi **hibrida**. Dua kredensial dengan sifat berbeda:\n\n| | Access token | Refresh token |\n|---|---|---|\n| Bentuk | JWT HS256 | Acak opaque (base64url) |\n| Umur | 15 menit | 7 hari |\n| Dikirim lewat | Header `Authorization: Bearer` | Cookie **HttpOnly** `slr_rt` |\n| Disimpan klien | **Di memori** — bukan `localStorage` | Tidak dapat diakses JavaScript |\n| Dapat dicabut | Tidak (stateless) | Ya (stateful, tercatat di DB) |\n\n**Postman menangani cookie secara otomatis.** Setelah `Login`, cookie `slr_rt` tersimpan di cookie jar dan ikut terkirim pada `POST /auth/refresh`. Tidak perlu menyalinnya secara manual — memang tidak bisa, dan itu justru intinya.\n\nCookie dibatasi ke path `/api/v1/auth`, sehingga refresh token **tidak ikut** pada request biasa seperti `GET /courses`.\n\n### Rotasi & deteksi pencurian\n\nSetiap `POST /auth/refresh` menukar refresh token dengan yang baru. Token lama langsung mati. Bila token yang sudah dirotasi dipakai lagi, itu dianggap pencurian: **seluruh rantai sesi dicabut** dan responsnya `401 TOKEN_REUSED`. Pengguna sah pun ikut logout — itu perilaku yang benar.\n\n---\n\n## Envelope respons\n\n**Sukses (§2.2)** — seluruh `2xx`, tanpa pengecualian:\n\n```json\n{ \"success\": true, \"message\": \"OK\", \"data\": { } }\n```\n\n**Error (§2.3)**:\n\n```json\n{\n  \"success\": false,\n  \"status\": 422,\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"Data yang dikirim tidak valid.\",\n  \"errors\": [ { \"field\": \"email\", \"message\": \"Format email tidak valid.\" } ]\n}\n```\n\n**Frontend bercabang berdasarkan `code`, TIDAK PERNAH berdasarkan `message`.** Pesan boleh berubah kapan saja; kode terikat kontrak.\n\n### Katalog kode error (§3)\n\n`VALIDATION_FAILED` · `INVALID_CREDENTIALS` · `TOKEN_MISSING` · `TOKEN_EXPIRED` · `TOKEN_INVALID` · `TOKEN_REUSED` · `FORBIDDEN` · `ACCOUNT_SUSPENDED` · `ACCOUNT_LOCKED` · `NOT_FOUND` · `DUPLICATE_ENTRY` · `STALE_RESOURCE` · `LESSON_LOCKED` · `QUIZ_ALREADY_PASSED` · `RATE_LIMITED` · `PAYLOAD_TOO_LARGE` · `UNSUPPORTED_MEDIA_TYPE` · `NOT_IMPLEMENTED` · `INTERNAL`\n\n---\n\n## Konvensi\n\n- **`id` selalu STRING.** `BIGINT` PostgreSQL melebihi `Number.MAX_SAFE_INTEGER`; mengubahnya menjadi number akan membulatkan diam-diam sehingga dua baris berbeda bisa berakhir dengan id yang sama.\n- Seluruh timestamp **ISO 8601 UTC**.\n- Field **camelCase**; kolom database snake_case dipetakan di lapisan repository.\n- Paginasi: `page` (≥1, default 1), `limit` (1-100, default 20). Nilai di luar jangkauan **dijepit**, bukan ditolak.\n- `sortBy` dicocokkan ke **allowlist** per endpoint. Di luar daftar → `422`.\n\n---\n\n## Rate limit (§2.10)\n\n| Cakupan | Batas |\n|---|---|\n| Global | 100 req / 15 menit / IP |\n| `POST /auth/login` | 5 / 15 menit / IP **dan** 10 / 15 menit / email |\n| `POST /auth/register` | 3 / jam / IP |\n| `POST /auth/forgot-password` | 3 / jam / IP |\n\n> Menjalankan koleksi ini berulang kali akan menabrak batas register. Jalankan server dengan `NODE_ENV=test` untuk mematikan seluruh limiter saat pengujian.\n\n---\n\n## Belum tersedia\n\nEndpoint berikut ada di kontrak tetapi **belum diimplementasikan**, jadi tidak ada di koleksi ini: `/dictionary/**`, `POST /translate`, `/practice/**`, `POST /admin/media`, `GET /admin/ai/jobs/:jobId`.\n\n`/admin/ai/subtitles` dan `/admin/ai/quiz` sudah punya rute tetapi membalas `501 NOT_IMPLEMENTED` sampai benderanya dinyalakan.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Peringatan dini bila environment belum dipilih.",
+          "// Tanpa ini, request pertama gagal dengan 'Invalid URL' yang tidak",
+          "// menjelaskan apa pun tentang penyebabnya.",
+          "if (!pm.variables.get('baseUrl')) {",
+          "    throw new Error('baseUrl kosong — pilih environment \"SignLearn — Local\" lebih dulu.');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ─── Pemeriksaan bersama, berlaku untuk SETIAP request ──────────────",
+          "//",
+          "// Dijalankan SETELAH skrip test milik masing-masing request. Yang diuji",
+          "// di sini adalah janji yang berlaku menyeluruh: bentuk envelope dan",
+          "// kebocoran informasi. Menyalinnya ke tiap request akan membuat",
+          "// perbaikan pada satu tempat diam-diam tidak berlaku di tempat lain.",
+          "",
+          "const isHealth = pm.request.url.toString().indexOf('/api/health') !== -1;",
+          "",
+          "pm.test('Respons di bawah 2000 ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+          "});",
+          "",
+          "// `/api/health` sengaja BUKAN envelope kontrak: ia dibaca monitoring",
+          "// eksternal yang tidak tahu-menahu soal versi API kita.",
+          "if (!isHealth && pm.response.code !== 204) {",
+          "    let body = null;",
+          "    try { body = pm.response.json(); } catch (e) { body = null; }",
+          "",
+          "    if (body !== null) {",
+          "        if (pm.response.code >= 200 && pm.response.code < 300) {",
+          "            pm.test('Envelope sukses sesuai kontrak §2.2', function () {",
+          "                pm.expect(body).to.have.property('success', true);",
+          "                pm.expect(body.message).to.be.a('string');",
+          "                pm.expect(body).to.have.property('data');",
+          "            });",
+          "        } else if (pm.response.code >= 400) {",
+          "            pm.test('Envelope error sesuai kontrak §2.3', function () {",
+          "                pm.expect(body).to.have.property('success', false);",
+          "                pm.expect(body).to.have.property('status', pm.response.code);",
+          "                pm.expect(body.code).to.be.a('string');",
+          "                pm.expect(body.message).to.be.a('string');",
+          "            });",
+          "",
+          "            // Stack trace hanya boleh muncul pada 5xx di lingkungan dev.",
+          "            // Pada error klien ia tidak pernah relevan dan hanya",
+          "            // membocorkan struktur direktori serta versi dependensi.",
+          "            if (pm.response.code < 500) {",
+          "                pm.test('Stack trace tidak bocor pada error klien', function () {",
+          "                    pm.expect(body).to.not.have.property('stack');",
+          "                });",
+          "            }",
+          "        }",
+          "",
+          "        pm.test('Hash kata sandi tidak pernah ikut di respons', function () {",
+          "            pm.expect(JSON.stringify(body).toLowerCase()).to.not.include('passwordhash');",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string",
+      "description": "Origin server, TANPA prefix versi. Di-override environment."
+    },
+    {
+      "key": "apiPrefix",
+      "value": "/api/v1",
+      "type": "string",
+      "description": "Prefix versi API. `/api/health` berada di LUAR prefix ini agar monitoring tidak rusak saat API naik versi."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "Diisi otomatis oleh request Login. Umur 15 menit."
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string",
+      "description": "Diisi otomatis oleh request Login sebagai Admin."
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "courseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lessonId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "quizId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "questionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "string",
+      "description": "Diisi oleh Forgot Password. Hanya dikembalikan server di luar produksi."
+    },
+    {
+      "key": "runEmail",
+      "value": "",
+      "type": "string",
+      "description": "Email unik per eksekusi, dibuat Register agar menjalankan koleksi berulang kali tidak bentrok."
+    },
+    {
+      "key": "runDestructive",
+      "value": "false",
+      "type": "string",
+      "description": "Gerbang operasi destruktif. Selama 'false', request yang menghapus data atau mengubah kata sandi DILEWATI — sehingga koleksi ini aman dijalankan berulang kali dari atas ke bawah. Setel 'true' hanya ketika memang ingin mengujinya."
+    }
+  ],
+  "item": [
+    {
+      "name": "00 · Health",
+      "description": "Pemeriksaan ketersediaan. Tidak memerlukan autentikasi dan berada di luar prefix versi.",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Server melaporkan status ok', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('ok');",
+                  "});",
+                  "",
+                  "pm.test('Melaporkan uptime dan environment', function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.uptime).to.be.a('number');",
+                  "    pm.expect(body.environment).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Dipakai load balancer dan monitoring.\n\n**Sengaja BUKAN envelope kontrak** — ia dikonsumsi alat eksternal yang tidak tahu-menahu soal versi API kita, dan berada di luar `/api/v1` agar naik versi tidak memutus monitoring.\n\n**200**\n```json\n{ \"status\": \"ok\", \"uptime\": 3421, \"environment\": \"development\" }\n```"
+          },
+          "response": [
+            {
+              "name": "200 · Server sehat",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/health",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": \"ok\",\n    \"uptime\": 3421,\n    \"environment\": \"development\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 · Auth",
+      "description": "Pendaftaran, sesi, dan kata sandi (API Contract §6).\n\n**Jalankan `Register` dan kedua `Login` lebih dulu** — sisa koleksi bergantung pada `accessToken` dan `adminToken` yang dihasilkan di sini.",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Email unik per eksekusi. Tanpa ini, menjalankan koleksi dua kali",
+                  "// menabrak indeks unik email dan gagal dengan 409 DUPLICATE_ENTRY —",
+                  "// kegagalan yang terlihat seperti bug padahal justru bukti",
+                  "// constraint-nya bekerja.",
+                  "const stamp = Date.now();",
+                  "pm.collectionVariables.set('runEmail', 'postman+' + stamp + '@signlearn.test');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Peran default adalah user, bukan admin', function () {",
+                  "    pm.expect(payload.user.role).to.eql('user');",
+                  "});",
+                  "",
+                  "pm.test('id berupa string (§2.6)', function () {",
+                  "    pm.expect(payload.user.id).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.test('Refresh token TIDAK ada di body', function () {",
+                  "    pm.expect(JSON.stringify(data)).to.not.include('refreshToken');",
+                  "});",
+                  "",
+                  "pm.test('Refresh token dikirim sebagai cookie HttpOnly', function () {",
+                  "    pm.expect(pm.cookies.has('slr_rt')).to.be.true;",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('accessToken', payload.accessToken);",
+                  "pm.collectionVariables.set('userId', payload.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Pengguna Postman\",\n    \"email\": \"{{runEmail}}\",\n    \"password\": \"{{userPassword}}\",\n    \"profile\": \"general\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Membuat akun baru dan langsung membuka sesi.\n\n**Peran selalu `user`.** Mengirim `\"role\": \"admin\"` tidak berpengaruh — peran ditetapkan server, dan admin hanya dibuat lewat `npm run seed`.\n\n### Body\n\n| Field | Wajib | Keterangan |\n|---|---|---|\n| `name` | ✅ | 2-120 karakter |\n| `email` | ✅ | Unik case-insensitive |\n| `password` | ✅ | Lihat kebijakan di bawah |\n| `profile` | — | `parent` \\| `deaf` \\| `general` (default `general`) |\n\n### Kebijakan kata sandi (§6.1)\n\n- 8-72 karakter — batas atas karena **bcrypt hanya membaca 72 byte pertama dan membuang sisanya diam-diam**\n- Wajib huruf kapital, huruf kecil, angka, dan karakter spesial\n- Tanpa karakter sama berulang lebih dari 3 kali (`aaaa` ditolak)\n- Tanpa deret berurutan sepanjang 4 (`1234`, `abcd`, `qwer`)\n- Bukan kata sandi umum\n- **Tidak boleh memuat nama atau bagian email sendiri** — `Admin123!` ditolak untuk `admin@signlearn.local`\n\n### Respons\n\n**201** → `{ user, accessToken, expiresIn, tokenType }`\n\nRefresh token dikirim sebagai cookie HttpOnly `slr_rt`, **tidak pernah di body**. Kalau ia ada di body, frontend harus menyimpannya sendiri — dan satu-satunya tempat yang tersedia bagi JavaScript adalah tempat yang juga dapat dibaca XSS.\n\n**409 `DUPLICATE_ENTRY`** email sudah terdaftar · **422 `VALIDATION_FAILED`** · **429 `RATE_LIMITED`** (3/jam/IP)"
+          },
+          "response": [
+            {
+              "name": "201 · Pendaftaran berhasil",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Rina Wijaya\",\n    \"email\": \"rina@example.com\",\n    \"password\": \"Kupu2#Terbang\",\n    \"profile\": \"general\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Set-Cookie",
+                  "value": "slr_rt=xQ9...redacted; Path=/api/v1/auth; HttpOnly; SameSite=Lax; Max-Age=604800"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Pendaftaran berhasil.\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"12\",\n            \"name\": \"Rina Wijaya\",\n            \"email\": \"rina@example.com\",\n            \"role\": \"user\",\n            \"phone\": null,\n            \"avatar\": null,\n            \"profile\": \"general\",\n            \"status\": \"active\",\n            \"joinDate\": \"2026-08-10\",\n            \"createdAt\": \"2026-08-10T02:10:00.000Z\",\n            \"updatedAt\": \"2026-08-10T02:10:00.000Z\"\n        },\n        \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n        \"expiresIn\": 900,\n        \"tokenType\": \"Bearer\"\n    }\n}"
+            },
+            {
+              "name": "422 · Kata sandi melanggar kebijakan",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Uji Lemah\",\n    \"email\": \"lemah@example.com\",\n    \"password\": \"11111111\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": false,\n    \"status\": 422,\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Data yang dikirim tidak valid.\",\n    \"errors\": [\n        { \"field\": \"password\", \"message\": \"Kata sandi harus memuat minimal satu huruf kapital.\" },\n        { \"field\": \"password\", \"message\": \"Kata sandi harus memuat minimal satu huruf kecil.\" },\n        { \"field\": \"password\", \"message\": \"Kata sandi harus memuat minimal satu karakter spesial (mis. ! @ # $ %).\" },\n        { \"field\": \"password\", \"message\": \"Kata sandi tidak boleh memuat karakter sama berulang lebih dari 3 kali (mis. \\\"1111\\\").\" },\n        { \"field\": \"password\", \"message\": \"Kata sandi ini terlalu umum dan mudah ditebak.\" }\n    ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login (user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Access token diterbitkan', function () {",
+                  "    pm.expect(payload.accessToken).to.be.a('string').and.to.have.length.above(20);",
+                  "});",
+                  "",
+                  "pm.test('TTL 15 menit sesuai §2.4', function () {",
+                  "    pm.expect(payload.expiresIn).to.eql(900);",
+                  "});",
+                  "",
+                  "pm.test('tokenType Bearer', function () {",
+                  "    pm.expect(payload.tokenType).to.eql('Bearer');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('accessToken', payload.accessToken);",
+                  "pm.collectionVariables.set('userId', payload.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{runEmail}}\",\n    \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Membuka sesi baru dan menyimpan `accessToken` ke variabel koleksi.\n\n### Anti-enumerasi akun\n\nEmail tidak dikenal dan kata sandi salah menghasilkan **respons yang identik** — `401 INVALID_CREDENTIALS` dengan pesan yang sama persis. Membedakannya akan memberi tahu penyerang email mana yang terdaftar.\n\nServer juga **selalu menjalankan bcrypt**, bahkan untuk email yang tidak ada. Tanpa itu, respons untuk email tak dikenal datang dalam ~1 ms sementara email dikenal butuh ~250 ms — selisih yang cukup untuk memetakan seluruh daftar pengguna hanya dengan mengukur waktu.\n\n### Penguncian akun\n\n5 percobaan gagal → akun terkunci 15 menit → `403 ACCOUNT_LOCKED`. Dikunci **per akun**, bukan hanya per IP, karena serangan terdistribusi memakai ribuan IP untuk satu email.\n\nPenguncian diperiksa **setelah** kata sandi diverifikasi, supaya endpoint ini tidak dapat dipakai untuk mengetahui akun mana yang sedang terkunci.\n\n### Respons\n\n**200** → `{ user, accessToken, expiresIn, tokenType }` + cookie `slr_rt`\n\n**401 `INVALID_CREDENTIALS`** · **403 `ACCOUNT_LOCKED`** · **403 `ACCOUNT_SUSPENDED`** · **429 `RATE_LIMITED`** (5/15 menit/IP, 10/15 menit/email)"
+          },
+          "response": [
+            {
+              "name": "401 · Kredensial salah",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"rina@example.com\",\n    \"password\": \"SalahTotal#9\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": false,\n    \"status\": 401,\n    \"code\": \"INVALID_CREDENTIALS\",\n    \"message\": \"Email atau kata sandi salah.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get current user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Mengembalikan pemanggil sendiri', function () {",
+                  "    pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('userId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/me",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Profil pemanggil berdasarkan access token.\n\nData **dibaca ulang dari database**, bukan dari klaim token. Token diterbitkan hingga 15 menit sebelumnya dan isinya bisa sudah basi — akun mungkin sudah di-suspend sejak itu.\n\n**200** → `{ user }` · **401 `TOKEN_MISSING`** \\| **`TOKEN_EXPIRED`** \\| **`TOKEN_INVALID`**\n\n> `TOKEN_EXPIRED` berarti klien harus mencoba `POST /auth/refresh`. `TOKEN_INVALID` berarti sesi harus dibuang dan pengguna diminta masuk lagi. Perbedaan itulah alasan keduanya punya kode terpisah."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Access token baru diterbitkan', function () {",
+                  "    pm.expect(payload.accessToken).to.be.a('string').and.to.have.length.above(20);",
+                  "});",
+                  "",
+                  "// CATATAN: tidak diuji bahwa tokennya BERBEDA dari sebelumnya.",
+                  "// `iat` dan `exp` pada JWT berresolusi DETIK, jadi refresh yang",
+                  "// terjadi pada detik yang sama dengan login menghasilkan payload",
+                  "// identik — dan HS256 atas payload identik menghasilkan string",
+                  "// yang identik pula. Yang penting adalah tokennya SAH, bukan beda.",
+                  "",
+                  "pm.collectionVariables.set('accessToken', payload.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Menukar refresh token dengan pasangan token baru.\n\n**Tanpa header `Authorization`.** Kredensialnya adalah cookie `slr_rt`, bukan access token — yang justru sudah kedaluwarsa saat endpoint ini dipanggil. Postman mengirim cookie itu otomatis dari cookie jar.\n\nBody juga **tidak diterima** sebagai sumber alternatif token: menerimanya akan menghidupkan kembali pola penyimpanan di sisi JavaScript yang justru ingin dihilangkan.\n\n### Rotasi\n\nSetiap panggilan menandai token lama sebagai dirotasi dan menerbitkan penerusnya dalam *family* yang sama. Keduanya dilakukan dalam **satu transaksi** — bila penyisipan penerus gagal setelah token lama ditandai, pengguna kehilangan sesi tanpa sebab yang terlihat.\n\n### Deteksi pencurian\n\nToken yang sudah dirotasi tidak boleh muncul lagi. Kalau muncul, berarti **dua pihak memegang token yang sama** dan tidak ada cara mengetahui mana yang sah. Seluruh family dicabut → `401 TOKEN_REUSED`. Keduanya dipaksa masuk ulang, dan penyerang tidak punya kata sandi.\n\n**200** → sama seperti login · **401 `TOKEN_MISSING`** \\| **`TOKEN_INVALID`** \\| **`TOKEN_EXPIRED`** \\| **`TOKEN_REUSED`** · **403 `ACCOUNT_SUSPENDED`**"
+          },
+          "response": [
+            {
+              "name": "401 · Refresh token dipakai ulang (indikasi pencurian)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "refresh"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": false,\n    \"status\": 401,\n    \"code\": \"TOKEN_REUSED\",\n    \"message\": \"Sesi tidak valid. Silakan masuk kembali.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List active sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/sessions",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "sessions"
+              ]
+            },
+            "description": "Perangkat yang sedang masuk. Inilah yang dimungkinkan oleh refresh token **stateful** — JWT stateless tidak dapat didaftar maupun dicabut.\n\n**200** → `{ items: [ { id, userAgent, ipAddress, createdAt, expiresAt } ] }`"
+          },
+          "response": [
+            {
+              "name": "200 · Daftar sesi aktif",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/auth/sessions",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "sessions"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Daftar sesi aktif.\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": \"48\",\n                \"userAgent\": \"PostmanRuntime/7.39.0\",\n                \"ipAddress\": \"::1\",\n                \"createdAt\": \"2026-08-10T09:12:00.000Z\",\n                \"expiresAt\": \"2026-08-17T09:12:00.000Z\"\n            }\n        ]\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Forgot password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Selalu 200, terdaftar maupun tidak', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// `devToken` hanya dikembalikan di luar produksi, supaya alur reset",
+                  "// dapat diuji tanpa SMTP. Di produksi nilainya null.",
+                  "const payload = pm.response.json().data;",
+                  "if (data && payload.devToken) {",
+                  "    pm.collectionVariables.set('resetToken', payload.devToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{runEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Memulai reset kata sandi.\n\n**Selalu membalas `200`**, email terdaftar maupun tidak. Respons yang berbeda akan mengubah endpoint ini menjadi alat enumerasi akun.\n\n### `devToken`\n\nDi luar produksi, token reset dikembalikan di `payload.devToken` supaya alurnya dapat diuji tanpa SMTP. **Di produksi nilainya `null`** dan token hanya dikirim lewat email.\n\nSkrip test menyimpannya ke `{{resetToken}}` untuk request berikutnya.\n\n**200** → `{ devToken: \"...\" }` (dev) atau `null` (produksi) · **429 `RATE_LIMITED`** (3/jam/IP — tanpa batas, endpoint ini menjadi alat spam gratis yang memakai domain kita)"
+          },
+          "response": []
+        },
+        {
+          "name": "Login sebagai Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Peran admin', function () {",
+                  "    pm.expect(payload.user.role).to.eql('admin');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('adminToken', payload.accessToken);",
+                  "pm.collectionVariables.set('adminId', payload.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{adminEmail}}\",\n    \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Menyimpan `adminToken`, dipakai seluruh endpoint khusus admin di koleksi ini.\n\n**Tidak ada kredensial admin bawaan.** `npm run seed` membangkitkan kata sandi acak kuat dan menampilkannya **sekali** kalau `SEED_ADMIN_PASSWORD` tidak diatur. Kredensial default adalah salah satu penyebab pembobolan paling umum: ia ikut ter-commit, tersalin ke produksi, dan tidak pernah diganti.\n\nSalin kata sandi itu ke variabel environment `adminPassword` (bertipe **secret**).\n\n> Gagal `401`? Jalankan `npm run seed` dan perhatikan keluarannya. Kata sandi hanya dicetak pada pembuatan pertama."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"password\": \"Gajah7!Berlari\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Menyelesaikan reset dengan token dari email (atau `devToken`).\n\nMengganti kata sandi **dan mencabut seluruh sesi**. Kalau seseorang mereset karena curiga akunnya diretas, membiarkan sesi penyerang tetap hidup membuat seluruh tindakan itu sia-sia.\n\nPenghitung gagal login dan penguncian akun ikut direset — orang yang lupa kata sandi hampir pasti sudah salah beberapa kali sebelumnya, dan membiarkannya tetap terkunci membuat reset itu percuma.\n\n> ⚠️ Menjalankan request ini **mengubah kata sandi akun uji**, sehingga `Login (user)` berikutnya akan gagal dengan `{{userPassword}}` lama. Jalankan hanya saat menguji alur reset secara sengaja.\n\n**200** → `data: null` · **401 `TOKEN_INVALID`** token salah/kedaluwarsa/sudah dipakai · **422 `VALIDATION_FAILED`**"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"{{userPassword}}\",\n    \"newPassword\": \"Gajah7!Berlari\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/change-password",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Mengganti kata sandi oleh pengguna yang sedang masuk.\n\nMemerlukan kata sandi lama — access token saja tidak cukup. Kalau seseorang meninggalkan laptopnya terbuka, orang lain tidak boleh dapat mengunci pemiliknya keluar hanya dengan mengganti sandi.\n\nSeluruh sesi dicabut setelah berhasil, termasuk sesi yang sedang dipakai.\n\n> ⚠️ Mengubah kata sandi akun uji — sama seperti Reset password.\n\n**200** → `data: null` · **422 `VALIDATION_FAILED`** kata sandi lama salah, atau sandi baru sama dengan yang lama"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Mencabut refresh token pada perangkat ini dan menghapus cookie.\n\n**Idempoten dan selalu `200`**, bahkan bila tidak ada sesi. Pengguna yang menekan tombol keluar tidak perlu melihat error.\n\nCookie dihapus memakai **atribut yang sama persis** dengan saat dipasang. Browser mencocokkan cookie berdasarkan (nama, domain, path); kalau `clearCookie` memakai path berbeda, cookie lama tidak terhapus dan pengguna tetap \"login\" setelah logout — bug yang sering lolos ke produksi karena di localhost path-nya kebetulan sama.\n\n**200** → `data: null`"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout all devices",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout-all",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "logout-all"
+              ]
+            },
+            "description": "Mencabut SELURUH sesi pengguna di semua perangkat.\n\n**200** → `{ revokedSessions: 3 }`"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 · Users & Profile",
+      "description": "Profil sendiri dan administrasi pengguna (API Contract §7).\n\nPerbedaan kewenangan antara `/profile` dan `/users/:id` disengaja dan penting — lihat deskripsi masing-masing request.",
+      "item": [
+        {
+          "name": "Get my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Memuat seluruh field DTO User (§5.1)', function () {",
+                  "    const user = pm.response.json().data.user;",
+                  "    ['id','name','email','role','phone','avatar','profile','status','joinDate','createdAt','updatedAt']",
+                  "        .forEach(function (key) { pm.expect(user).to.have.property(key); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/profile",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            },
+            "description": "Profil pemanggil.\n\n**Tidak menerima id apa pun.** Identitas diambil dari klaim JWT, sehingga endpoint ini mustahil dipakai untuk membaca profil orang lain — dijamin oleh ketiadaan parameter, bukan oleh pemeriksaan yang bisa terlupa.\n\n**200** → `{ user }` · **401**"
+          },
+          "response": []
+        },
+        {
+          "name": "Update my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Peran TIDAK dapat dinaikkan sendiri', function () {",
+                  "    pm.expect(pm.response.json().data.user.role).to.eql('user');",
+                  "});",
+                  "",
+                  "pm.test('Status TIDAK dapat diubah sendiri', function () {",
+                  "    pm.expect(pm.response.json().data.user.status).to.eql('active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Rina Wijaya\",\n    \"phone\": \"081234567890\",\n    \"avatar\": \"RW\",\n    \"profile\": \"parent\",\n    \"role\": \"admin\",\n    \"status\": \"suspended\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/profile",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            },
+            "description": "Memperbarui profil sendiri. Seluruh field opsional; hanya yang dikirim yang diubah.\n\n### Field yang diabaikan diam-diam\n\n`email`, `role`, dan `status` **diabaikan tanpa error**. Body contoh di sini sengaja menyertakan `role: admin` dan `status: suspended` untuk membuktikannya — jalankan dan periksa responsnya: peran tetap `user`.\n\nKenapa diabaikan, bukan ditolak: form React sangat sering mengirim ulang seluruh objek user hasil `GET` sebelumnya. Menolaknya akan memecahkan klien lama setiap kali ada field baru ditambahkan.\n\nYang mencegah eskalasi peran bukan validator, melainkan **allowlist kolom di lapisan repository**. Validator menjaga bentuk; repository menjaga kewenangan.\n\n### Batas panjang\n\n| Field | Maks | Alasan |\n|---|---|---|\n| `name` | 120 | Lebar kolom |\n| `phone` | 30 | Lebar kolom |\n| `avatar` | 20 | Lebar kolom — inisial, bukan URL |\n\nMelebihi batas → `422`, bukan `500`. Batas kolom adalah soal integritas; batas validator adalah soal pesan error yang bisa dimengerti.\n\n**200** → `{ user }` · **422** body kosong, tipe salah, atau `profile` di luar enum"
+          },
+          "response": []
+        },
+        {
+          "name": "List users (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Berbentuk items + pagination (§2.7)', function () {",
+                  "    const payload = pm.response.json().data;",
+                  "    pm.expect(payload.items).to.be.an('array');",
+                  "    ['page','limit','total','totalPages','hasNext','hasPrev']",
+                  "        .forEach(function (key) { pm.expect(payload.pagination).to.have.property(key); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "≥ 1. Default 1."
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "1-100. Default 20. Di luar jangkauan DIJEPIT, bukan ditolak."
+                },
+                {
+                  "key": "q",
+                  "value": "rina",
+                  "description": "Cari pada name & email. Minimal 2 karakter.",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "user",
+                  "description": "user | admin",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "active | inactive | suspended",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "name | email | joinDate | createdAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc",
+                  "description": "asc | desc. Default desc.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Daftar pengguna dengan paginasi, filter, dan pengurutan. **Admin saja.**\n\n### `sortBy` memakai allowlist\n\nNilai dari klien **tidak pernah diinterpolasi ke SQL**. Ia dicocokkan ke peta kolom yang diizinkan; yang tidak cocok ditolak `422` dan tidak pernah sampai ke query. Tanpa ini, `?sortBy=` menjadi jalur SQL injection.\n\n### `q` meng-escape wildcard\n\n`%` dan `_` adalah wildcard LIKE dan di-escape sebelum dibungkus wildcard server. Tanpa itu, mencari `100%` mengembalikan seluruh baris. **Parameterisasi mencegah SQL injection, TIDAK mencegah ini.**\n\n**200** → `{ items: [User], pagination }` · **401** · **403 `FORBIDDEN`** · **422** filter/sortBy tidak dikenal"
+          },
+          "response": []
+        },
+        {
+          "name": "Get user by id (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Memuat stats belajar (§7.4)', function () {",
+                  "    const stats = pm.response.json().data.stats;",
+                  "    ['coursesStarted','lessonsCompleted','quizzesPassed','lastActiveAt']",
+                  "        .forEach(function (key) { pm.expect(stats).to.have.property(key); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Detail pengguna beserta statistik belajarnya.\n\n`lastActiveAt` mengambil yang **paling baru** di antara progres pelajaran dan pengerjaan kuis. Memakai salah satunya saja membuat pengguna yang hanya mengerjakan kuis terlihat tidak aktif sama sekali.\n\nId non-numerik (mis. `/users/abc`) dijawab **`404`**, bukan `422`. \"Tidak ada pengguna dengan id itu\" adalah jawaban yang jujur untuk pertanyaan yang diajukan.\n\n**200** → `{ user, stats }` · **403** · **404 `NOT_FOUND`**"
+          },
+          "response": [
+            {
+              "name": "200 · Detail + statistik",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "users",
+                    "{{userId}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Detail pengguna berhasil diambil.\",\n    \"data\": {\n        \"user\": {\n            \"id\": \"12\",\n            \"name\": \"Rina Wijaya\",\n            \"email\": \"rina@example.com\",\n            \"role\": \"user\",\n            \"phone\": \"081234567890\",\n            \"avatar\": \"RW\",\n            \"profile\": \"parent\",\n            \"status\": \"active\",\n            \"joinDate\": \"2026-08-01\",\n            \"createdAt\": \"2026-08-01T02:10:00.000Z\",\n            \"updatedAt\": \"2026-08-04T11:30:00.000Z\"\n        },\n        \"stats\": {\n            \"coursesStarted\": 4,\n            \"lessonsCompleted\": 23,\n            \"quizzesPassed\": 5,\n            \"lastActiveAt\": \"2026-08-04T10:00:00.000Z\"\n        }\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update user (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Rina Wijaya\",\n    \"role\": \"user\",\n    \"status\": \"active\",\n    \"profile\": \"deaf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Memperbarui pengguna sebagai admin. Berbeda dari `/users/profile`, di sini `role` dan `status` **memang boleh** diubah.\n\n### Dua penjaga yang tidak boleh hilang\n\n**1. Admin tidak dapat menurunkan peran atau menonaktifkan dirinya sendiri** → `422`. Satu klik salah pada barisnya sendiri akan mengunci orang itu keluar dari panel yang baru saja ia pakai, tanpa jalan kembali lewat UI.\n\n**2. Admin aktif TERAKHIR tidak dapat diturunkan atau dinonaktifkan oleh siapa pun** → `422`. Penjaga pertama saja tidak cukup: dengan dua admin, A dapat menurunkan B, lalu B — yang sekarang bukan admin — tidak dapat memulihkan A. Sistem berakhir tanpa satu pun admin, dan satu-satunya pemulihan adalah akses langsung ke database.\n\n### Pencabutan sesi\n\nMengubah `role` atau `status` **mencabut seluruh sesi** pengguna itu. Access token bersifat stateless dan masih membawa klaim peran lama hingga 15 menit; tanpa pencabutan, penurunan peran tidak benar-benar berlaku.\n\n### `email` & `password` ditolak\n\nDitolak `422`, **bukan** diabaikan diam-diam. Ini berkebalikan dengan `/users/profile` dan disengaja: admin yang mengira baru saja mengganti kata sandi seseorang padahal tidak terjadi apa-apa adalah kegagalan yang jauh lebih berbahaya daripada form yang menolak satu field.\n\n**200** → `{ user }` · **403** · **404** · **422**"
+          },
+          "response": [
+            {
+              "name": "422 · Admin mencoba menurunkan perannya sendiri",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"role\": \"user\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/users/{{adminId}}",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "users",
+                    "{{adminId}}"
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": false,\n    \"status\": 422,\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Anda tidak dapat mengubah peran akun Anda sendiri.\",\n    \"errors\": [\n        { \"field\": \"role\", \"message\": \"Peran akun sendiri tidak dapat diubah dari sini.\" }\n    ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete user — soft (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "**Soft delete** — `status` menjadi `inactive`. Barisnya TIDAK dihapus.\n\n`users` dirujuk `lesson_progress` dan `quiz_results` dengan `ON DELETE CASCADE`. Hard delete karenanya menghapus seluruh riwayat belajar seseorang secara permanen dalam satu klik, dan laporan admin kehilangan datanya tanpa jejak.\n\nSesi ikut dicabut, dan `authService.login` menolak status non-aktif — jadi efeknya setara logout paksa permanen.\n\nAdmin tidak dapat menghapus dirinya sendiri, dan admin aktif terakhir tidak dapat dihapus siapa pun → `422`.\n\n> ⚠️ Menjalankan request ini **menonaktifkan akun uji**, sehingga login berikutnya gagal `403 ACCOUNT_SUSPENDED`. Letaknya paling akhir di folder ini dengan alasan itu.\n\n**200** → `data: null` · **403** · **404** · **422**"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 · Courses",
+      "description": "Kursus (API Contract §8.1-8.5). Membaca boleh siapa saja yang terautentikasi; menulis khusus admin.",
+      "item": [
+        {
+          "name": "List courses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('limit dijepit ke maksimum 100', function () {",
+                  "    pm.expect(pm.response.json().data.pagination.limit).to.be.at.most(100);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "1-100, dijepit."
+                },
+                {
+                  "key": "q",
+                  "value": "sapaan",
+                  "description": "Cari pada title & titleEn. Minimal 2 karakter.",
+                  "disabled": true
+                },
+                {
+                  "key": "category",
+                  "value": "Dasar",
+                  "disabled": true
+                },
+                {
+                  "key": "level",
+                  "value": "Pemula",
+                  "description": "Pemula | Menengah | Lanjutan",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "sortOrder",
+                  "description": "sortOrder | title | createdAt | level",
+                  "disabled": true
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Daftar kursus.\n\n### Bentuk respons bergantung peran\n\nPeran **`user`** menerima blok `progress` per kursus; **admin dan tamu tidak**. Admin tidak punya baris progres belajar, jadi menyertakannya hanya akan menampilkan 0% pada setiap kursus dan membingungkan.\n\nProgres dihitung lewat satu `LEFT JOIN` teragregasi, bukan N+1 query per kursus — dengan 12 kursus, pendekatan naif berarti 13 round-trip hanya untuk merender satu halaman.\n\n**200** → `{ items: [Course], pagination }` · **422** `level`/`sortBy`/`sortDir` tidak dikenal"
+          },
+          "response": [
+            {
+              "name": "200 · Daftar kursus (peran user)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Daftar kursus berhasil diambil.\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": \"1\",\n                \"title\": \"Abjad BISINDO\",\n                \"titleEn\": \"BISINDO Alphabet\",\n                \"category\": \"Dasar\",\n                \"level\": \"Pemula\",\n                \"description\": \"Mengenal 26 huruf BISINDO dan cara mengejanya.\",\n                \"thumbnail\": null,\n                \"totalLessons\": 3,\n                \"estimatedHours\": 2,\n                \"isLocked\": false,\n                \"sortOrder\": 1,\n                \"createdAt\": \"2026-08-10T09:56:19.000Z\",\n                \"updatedAt\": \"2026-08-10T09:56:19.000Z\",\n                \"progress\": {\n                    \"completedLessons\": 1,\n                    \"totalLessons\": 3,\n                    \"percent\": 33,\n                    \"lastAccessedAt\": \"2026-08-10T10:02:00.000Z\"\n                }\n            }\n        ],\n        \"pagination\": {\n            \"page\": 1,\n            \"limit\": 20,\n            \"total\": 3,\n            \"totalPages\": 1,\n            \"hasNext\": false,\n            \"hasPrev\": false\n        }\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List categories",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/categories",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "categories"
+              ]
+            },
+            "description": "Kategori beserta jumlah kursusnya, untuk filter di UI.\n\n> **Catatan routing.** `/categories` didaftarkan **sebelum** `/:id`. Express mencocokkan rute berurutan, jadi bila terbalik, permintaan ke `/categories` tertangkap sebagai `id = \"categories\"` dan berakhir `404` yang menyesatkan.\n\n**200** → `{ items: [ { category, courseCount } ] }`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get course detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}"
+              ]
+            },
+            "description": "Kursus + pelajaran + kuis dalam **satu respons**.\n\nSatu request memberi seluruh isi halaman detail. Memecahnya menjadi tiga endpoint memaksa frontend melakukan waterfall request dan menampilkan halaman yang terisi sepotong-sepotong.\n\n**200** → `{ course, lessons, quizzes }` · **404 `NOT_FOUND`**"
+          },
+          "response": []
+        },
+        {
+          "name": "Create course (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const course = pm.response.json().data.course;",
+                  "",
+                  "pm.test('totalLessons dimulai dari 0', function () {",
+                  "    pm.expect(course.totalLessons).to.eql(0);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('courseId', course.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Sapaan Sehari-hari\",\n    \"titleEn\": \"Everyday Greetings\",\n    \"category\": \"Dasar\",\n    \"level\": \"Pemula\",\n    \"description\": \"Kosakata sapaan yang paling sering dipakai.\",\n    \"estimatedHours\": 2.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses"
+              ]
+            },
+            "description": "Membuat kursus. Menyimpan `courseId` untuk folder berikutnya.\n\n### Body\n\n| Field | Wajib | Keterangan |\n|---|---|---|\n| `title` | ✅ | 3-190 karakter |\n| `level` | ✅ | `Pemula` \\| `Menengah` \\| `Lanjutan` |\n| `titleEn`, `category`, `description` | — | Teks opsional |\n| `thumbnail` | — | **Wajib http/https** |\n| `estimatedHours` | — | 0-999,9 |\n| `sortOrder` | — | Default `MAX + 1` |\n| `isLocked` | — | Boolean |\n\n### `totalLessons` tidak diterima dari klien\n\nIa dihitung dari jumlah baris `lessons` dan dipelihara transaksional oleh lapisan lesson. Menerimanya dari klien menciptakan dua sumber kebenaran yang pasti akan menyimpang — dan angka itu tampil di kartu kursus, progress bar, serta laporan admin. Mengirimnya → `422`.\n\n### `thumbnail` dibatasi skema http/https\n\nTanpa batasan itu, `javascript:alert(1)` atau `data:` dapat tersimpan lalu dirender frontend sebagai vektor XSS.\n\n**201** → `{ course }` · **403** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Update course (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Deskripsi diperbarui lewat Postman.\",\n    \"isLocked\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}"
+              ]
+            },
+            "description": "**Partial update** — hanya field yang dikirim yang diubah. Yang tidak dikirim tidak tersentuh.\n\nBody kosong ditolak `422` (\"tidak ada field yang dapat diperbarui\") — request yang tidak melakukan apa-apa hampir selalu berarti klien salah, dan membalas `200` menyembunyikannya.\n\n**200** → `{ course }` · **403** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete course (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}"
+              ]
+            },
+            "description": "Menghapus kursus — **ditolak `409` bila sudah ada yang mempelajarinya**.\n\nSkema memakai `ON DELETE CASCADE` berlapis: menghapus kursus menghapus pelajarannya, yang lalu menghapus seluruh `lesson_progress`. Riwayat belajar semua pengguna hilang permanen dalam satu klik.\n\nAlternatifnya bukan menghapus, melainkan `isLocked: true`.\n\n> ⚠️ Menjalankan ini menghapus `{{courseId}}`, sehingga request lain yang memakainya akan `404`. Letaknya paling akhir di folder ini dengan alasan itu.\n\n**200** → `data: null` · **403** · **404** · **409 `DUPLICATE_ENTRY`** sudah dipelajari"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 · Lessons",
+      "description": "Pelajaran (API Contract §8.6-8.9).\n\nTersedia dalam **dua bentuk**: bersarang di bawah kursus (bentuk kanonik, dipakai aplikasi pembelajar) dan datar berdasarkan id (untuk CMS yang menyunting pelajaran tanpa perlu tahu kursus induknya). Keduanya memakai service dan penjaga peran yang sama.",
+      "item": [
+        {
+          "name": "List lessons in course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Pelajaran dalam satu kursus, terurut `sortOrder`.\n\nPeran `user` menerima `status` dan `completedAt` per pelajaran; tamu dan admin tidak.\n\n**200** → `{ items: [Lesson], pagination }` · **404** kursus tidak ada"
+          },
+          "response": []
+        },
+        {
+          "name": "Create lesson (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('lessonId', pm.response.json().data.lesson.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Selamat Pagi, Siang, Malam\",\n    \"description\": \"Tiga sapaan dasar berdasarkan waktu.\",\n    \"duration\": \"8 menit\",\n    \"videoUrl\": \"https://cdn.signlearn.test/lessons/pagi.mp4\",\n    \"isLocked\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons"
+              ]
+            },
+            "description": "Membuat pelajaran dan **menyelaraskan `courses.total_lessons` dalam satu transaksi**.\n\nBila hanya baris pelajaran yang tersimpan, `total_lessons` langsung berbohong — dan angka itu tampil di kartu kursus, progress bar, serta laporan admin.\n\n`sortOrder` dihitung server bila tidak dikirim (`MAX + 1` dalam kursus), sehingga pelajaran baru selalu di urutan terakhir.\n\n`videoUrl` dibatasi http/https dengan alasan yang sama seperti `thumbnail`.\n\n**201** → `{ lesson }` · **403** · **404** kursus tidak ada · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Get lesson (nested)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Detail pelajaran + tetangga sebelum/sesudah.\n\n`prev` dan `next` dihitung di server agar frontend tidak perlu memuat seluruh daftar pelajaran hanya untuk membuat tombol navigasi.\n\nPelajaran yang tidak berada di kursus pada path dijawab **`404`, bukan `403`** — dari sudut pandang kursus ini ia memang tidak ada, dan `403` justru membocorkan bahwa id-nya valid di tempat lain.\n\n**200** → `{ lesson, prev, next }` · **403 `LESSON_LOCKED`** · **404**"
+          },
+          "response": []
+        },
+        {
+          "name": "Get lesson (flat, by id)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Bentuk datar untuk CMS — mengakses pelajaran tanpa tahu kursus induknya.\n\nPemeriksaan buka-kunci tetap berlaku: jalur ini bukan pintu belakang.\n\n**200** → `{ lesson, prev, next }` · **403 `LESSON_LOCKED`** · **404**"
+          },
+          "response": []
+        },
+        {
+          "name": "Create lesson (flat, admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"courseId\": \"{{courseId}}\",\n    \"title\": \"Pelajaran dibuat lewat rute datar\",\n    \"duration\": \"6 menit\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/lessons",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "lessons"
+              ]
+            },
+            "description": "Membuat pelajaran lewat rute datar. `courseId` diambil dari **body**, bukan dari path.\n\nSelain itu identik dengan bentuk bersarang: service, validator, dan penjaga peran yang sama. Rute datar hanya mengubah dari mana `courseId` dibaca.\n\n> Versi awal backend tidak memasang middleware sama sekali di berkas rute ini, sehingga `POST /lessons` dan `DELETE /lessons/:id` dapat dijalankan **siapa pun di internet tanpa token**. Penjaga sekarang dipasang per rute, bukan sebagai `router.use()` global, agar terlihat langsung saat membaca: satu baris = satu rute = siapa yang boleh.\n\n**201** → `{ lesson }` · **401** · **403** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Update lesson (flat, admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"duration\": \"10 menit\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Partial update lewat rute datar. Perilakunya sama persis dengan bentuk bersarang.\n\n**200** → `{ lesson }` · **401** · **403** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete lesson (flat, admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Menghapus pelajaran lewat rute datar. Penjaga `409` untuk pelajaran yang sudah diselesaikan tetap berlaku.\n\n> ⚠️ Menghapus `{{lessonId}}` yang dipakai request lain di koleksi ini.\n\n**200** → `data: null` · **401** · **403** · **404** · **409**"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update lesson (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Selamat Pagi, Siang, Malam (revisi)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "**Partial update.** Mengirim hanya `{title}` **tidak** menghapus `description` maupun `videoUrl`.\n\n> Versi awal backend menulis SELURUH kolom dari `req.body`, sehingga mengirim satu field membuat sisanya `NULL` secara diam-diam. Klausa `SET` sekarang dibangun dinamis dari field yang benar-benar dikirim.\n\nMengirim `courseId` **memindahkan** pelajaran ke kursus lain. Itu mengubah hitungan `total_lessons` pada DUA kursus sekaligus, jadi dilakukan dalam satu transaksi.\n\n**200** → `{ lesson }` · **403** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Reorder lessons (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order\": [\"{{lessonId}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons/reorder",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons",
+                "reorder"
+              ]
+            },
+            "description": "Mengurutkan ulang seluruh pelajaran dalam satu kursus, dalam **satu transaksi**.\n\n### Daftar harus LENGKAP\n\n`order` wajib memuat **seluruh** id pelajaran kursus itu. Urutan parsial akan menabrakkan `sort_order` pelajaran yang tidak disebut dengan yang disebut → `422`.\n\nMelakukannya lewat N request `PUT` terpisah dapat gagal separuh jalan dan meninggalkan urutan yang rusak.\n\n> **Catatan routing.** `/reorder` didaftarkan **sebelum** `/:lessonId`, kalau tidak ia tertangkap sebagai `lessonId = \"reorder\"`.\n\n**200** → `{ items: [Lesson] }` · **403** · **422** daftar tidak lengkap atau ada id duplikat"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete lesson (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Menghapus pelajaran — **ditolak `409` bila sudah ada yang menyelesaikannya**.\n\n`lesson_progress` memakai `ON DELETE CASCADE`, jadi menghapus pelajaran menghapus riwayat belajar orang secara permanen. Kunci pelajarannya, jangan hapus.\n\n`courses.total_lessons` diselaraskan dalam transaksi yang sama.\n\n**200** → `data: null` · **403** · **404** · **409**"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 · Quizzes",
+      "description": "Kuis, pertanyaan, dan penilaian (API Contract §8.10-8.13).\n\n**Penilaian sepenuhnya di server.** Klien mengirim `selectedIndex` saja dan tidak pernah menerima kunci jawaban sebelum mengerjakan.",
+      "item": [
+        {
+          "name": "List quizzes in course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Kuis dalam satu kursus. Peran `user` menerima ringkasan `attempt` (skor terbaik, jumlah percobaan, pernah lulus).\n\nAgregasi dilakukan dalam satu query, bukan N+1 per kuis.\n\n**200** → `{ items: [Quiz], pagination }` · **404**"
+          },
+          "response": []
+        },
+        {
+          "name": "Create quiz (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('quizId', pm.response.json().data.quiz.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Kuis Sapaan\",\n    \"lessonId\": \"{{lessonId}}\",\n    \"minPassingScore\": 70,\n    \"durationSeconds\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes"
+              ]
+            },
+            "description": "Membuat kuis.\n\n### KKM per kuis\n\n`minPassingScore` (default 70) disimpan **per kuis**, bukan sebagai konstanta global. Kuis diagnostik awal wajar punya ambang lebih rendah daripada ujian akhir modul.\n\nAmbang ini juga yang membuat mekanisme buka-kunci bermakna: pelajaran berikutnya baru terbuka setelah kuis pelajaran sebelumnya **lulus**.\n\n### `lessonId` opsional\n\nBila diisi, pelajaran itu harus ada **dan** berada di kursus yang sama → kalau tidak, `422`.\n\n**201** → `{ quiz }` · **403** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Questions",
+          "description": "Kelola pertanyaan kuis — **admin saja** (§8.13). Seluruh endpoint di sini menyertakan `correctIndex`, karena memang itu yang sedang disunting.",
+          "item": [
+            {
+              "name": "List questions (admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/questions",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "questions"
+                  ]
+                },
+                "description": "Seluruh pertanyaan **beserta kunci jawaban**. Endpoint ini khusus admin dan dijaga di router — itulah sebabnya `correctIndex` boleh ikut di sini.\n\n**200** → `{ items: [QuizQuestion] }` · **403** · **404**"
+              },
+              "response": []
+            },
+            {
+              "name": "Create question (admin)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 201 Created', function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "pm.collectionVariables.set('questionId', pm.response.json().data.question.id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"question\": \"Isyarat manakah yang berarti 'Selamat Pagi'?\",\n    \"questionType\": \"multiple-choice\",\n    \"options\": [\"Pilihan A\", \"Pilihan B\", \"Pilihan C\", \"Pilihan D\"],\n    \"correctIndex\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/questions",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "questions"
+                  ]
+                },
+                "description": "Membuat pertanyaan dan **menyelaraskan `quizzes.total_questions`** dalam satu transaksi.\n\n`correctIndex` harus berada dalam jangkauan `options`. `sortOrder` dihitung server bila tidak dikirim.\n\n**201** → `{ question }` · **403** · **404** · **422**"
+              },
+              "response": []
+            },
+            {
+              "name": "Update question (admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"question\": \"Isyarat manakah yang berarti 'Selamat Pagi'? (revisi)\",\n    \"correctIndex\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/questions/{{questionId}}",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "questions",
+                    "{{questionId}}"
+                  ]
+                },
+                "description": "Partial update pertanyaan.\n\n**200** → `{ question }` · **403** · **404** · **422**"
+              },
+              "response": []
+            },
+            {
+              "name": "Reorder questions (admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"order\": [\"{{questionId}}\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/questions/reorder",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "questions",
+                    "reorder"
+                  ]
+                },
+                "description": "Mengurutkan ulang pertanyaan dalam satu transaksi. `order` wajib **lengkap**, sama seperti reorder pelajaran.\n\n**200** → `{ items: [QuizQuestion] }` · **403** · **422**"
+              },
+              "response": []
+            },
+            {
+              "name": "Delete question (admin)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/questions/{{questionId}}",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "questions",
+                    "{{questionId}}"
+                  ]
+                },
+                "description": "Menghapus pertanyaan dan menyelaraskan `total_questions` dalam satu transaksi.\n\n**200** → `data: null` · **403** · **404**"
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                      "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                      "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                      "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                      "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                      "    pm.execution.skipRequest();",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Get quiz + questions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Inti keamanan kuis. Token yang dipakai request ini adalah token",
+                  "// peran `user`, jadi kunci jawaban TIDAK boleh ikut.",
+                  "pm.test('Kunci jawaban tidak bocor ke peserta', function () {",
+                  "    pm.expect(JSON.stringify(pm.response.json().data.questions)).to.not.include('correctIndex');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes",
+                "{{quizId}}"
+              ]
+            },
+            "description": "Detail kuis beserta pertanyaannya.\n\n### Bentuk `questions` BERGANTUNG PERAN\n\nIni satu-satunya hal yang membuat kuis bermakna:\n\n| Peran | `correctIndex` |\n|---|---|\n| `admin` | ✅ ikut |\n| `user` | ❌ tidak pernah |\n| tamu | ❌ tidak pernah |\n\nKunci jawaban di respons berarti kuis dapat diselesaikan dari DevTools tanpa menonton satu pelajaran pun — dan itu membuat seluruh mekanisme KKM tidak bermakna.\n\nPeran `user` juga menerima `attempt` berisi percobaan terbaiknya.\n\n**200** → `{ quiz, questions, attempt? }` · **404**"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit quiz (user only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const result = pm.response.json().data.result;",
+                  "",
+                  "pm.test('Skor dihitung server, bukan diambil dari klien', function () {",
+                  "    // Body request sengaja mengirim score: 100 dan passed: true.",
+                  "    // Server harus mengabaikannya sepenuhnya.",
+                  "    pm.expect(result.score).to.be.a('number');",
+                  "    pm.expect(result.correctCount).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test('Menyertakan review per soal', function () {",
+                  "    pm.expect(result.review).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"score\": 100,\n    \"passed\": true,\n    \"answers\": [\n        { \"questionId\": \"{{questionId}}\", \"selectedIndex\": 1 }\n    ],\n    \"durationSeconds\": 240\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/submit",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes",
+                "{{quizId}}",
+                "submit"
+              ]
+            },
+            "description": "Mengerjakan kuis. **Hanya peran `user`** — admin ditolak `403`.\n\nAdmin tidak punya baris progres belajar, sehingga hasil pengerjaan mereka menjadi baris `quiz_results` yatim yang mencemari seluruh laporan admin.\n\n### Penilaian sepenuhnya di server\n\nBody contoh sengaja mengirim `\"score\": 100` dan `\"passed\": true`. **Keduanya diabaikan total.** Benar-salah ditentukan dengan membandingkan `selectedIndex` ke kunci jawaban yang diambil langsung dari database.\n\n```\nscore  = round(correctCount / totalQuestions * 100)   // half-up\npassed = score >= quiz.minPassingScore\n```\n\n### Aturan jawaban\n\n- **Seluruh pertanyaan wajib dijawab** → kurang satu pun `422`. Membiarkan jawaban parsial berarti peserta dapat menaikkan skor dengan hanya mengirim soal yang ia yakini.\n- Jawaban untuk soal **di luar kuis ini** → `422`.\n- `selectedIndex` di luar jangkauan pilihan dihitung **salah**, bukan error — klien rusak tidak boleh menggagalkan seluruh pengerjaan.\n\n`review` dikembalikan **hanya pada respons submit**, agar peserta dapat mempelajari kesalahannya. Ia tidak muncul di listing riwayat.\n\n**201** → `{ result }` · **403 `FORBIDDEN`** (admin) · **404** · **409** kuis belum punya pertanyaan · **422**"
+          },
+          "response": [
+            {
+              "name": "201 · Hasil pengerjaan",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"answers\": [\n        { \"questionId\": \"51\", \"selectedIndex\": 1 },\n        { \"questionId\": \"52\", \"selectedIndex\": 0 }\n    ],\n    \"durationSeconds\": 240\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/submit",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "courses",
+                    "{{courseId}}",
+                    "quizzes",
+                    "{{quizId}}",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Belum lulus. Coba lagi.\",\n    \"data\": {\n        \"result\": {\n            \"id\": \"31\",\n            \"quizId\": \"9\",\n            \"quizTitle\": \"Kuis Sapaan\",\n            \"score\": 50,\n            \"passed\": false,\n            \"correctCount\": 1,\n            \"totalQuestions\": 2,\n            \"minPassingScore\": 70,\n            \"durationSeconds\": 240,\n            \"takenAt\": \"2026-08-10T10:15:00.000Z\",\n            \"review\": [\n                { \"questionId\": \"51\", \"selectedIndex\": 1, \"correctIndex\": 1, \"isCorrect\": true },\n                { \"questionId\": \"52\", \"selectedIndex\": 0, \"correctIndex\": 2, \"isCorrect\": false }\n            ]\n        }\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update quiz (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"minPassingScore\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes",
+                "{{quizId}}"
+              ]
+            },
+            "description": "Partial update kuis.\n\n**200** → `{ quiz }` · **403** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete quiz (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes",
+                "{{quizId}}"
+              ]
+            },
+            "description": "Menghapus kuis — **ditolak `409` bila sudah ada hasil pengerjaan**.\n\n`quiz_results` memakai `ON DELETE CASCADE`, sehingga menghapus kuis menghapus seluruh nilai pengguna secara permanen.\n\n**200** → `data: null` · **403** · **404** · **409**"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGUBAH atau MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true, supaya koleksi ini aman",
+                  "// dijalankan berulang kali tanpa merusak dirinya sendiri di tengah jalan.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 · Progress",
+      "description": "Progres belajar (API Contract §10.1-10.2).\n\n**Seluruh folder ini khusus peran `user`.** Admin ditolak `403` dengan sengaja: mereka tidak memiliki baris progres, dan membiarkannya menulis akan mencemari laporan admin dengan data yang bukan berasal dari pembelajar sungguhan.",
+      "item": [
+        {
+          "name": "Get my progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Summary lengkap sesuai §10.1', function () {",
+                  "    const s = pm.response.json().data.summary;",
+                  "    ['coursesStarted','coursesCompleted','lessonsCompleted','totalLessons',",
+                  "     'quizzesPassed','overallPercent','streakDays']",
+                  "        .forEach(function (key) { pm.expect(s).to.have.property(key); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/progress",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "progress"
+              ]
+            },
+            "description": "Ringkasan progres, rincian per kursus, dan badge.\n\n### Badge diturunkan, tidak disimpan\n\nTidak ada tabel badge. Semuanya dihitung dari progres nyata, sehingga **tidak mungkin menyimpang** dari kenyataan — dan mengubah kriterianya tidak menuntut migrasi maupun perhitungan ulang massal.\n\n`FIRST_LESSON` · `TEN_LESSONS` · `FIRST_QUIZ` · `PERFECT_SCORE` · `COURSE_COMPLETE`\n\n### Streak\n\nMasih hidup bila aktivitas terakhir **hari ini ATAU kemarin**. Kalau hanya menerima hari ini, streak putus setiap tengah malam bagi pengguna yang belajar malam hari.\n\n**200** → `{ summary, courses, badges }` · **403** admin"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark lesson progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('courseProgress ikut dikembalikan', function () {",
+                  "    pm.expect(pm.response.json().data.courseProgress).to.have.property('percent');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/progress/lessons/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "progress",
+                "lessons",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Menandai progres satu pelajaran. `status` ∈ `in_progress` | `completed`.\n\n### `not_started` sengaja ditolak\n\nMenandai sesuatu \"belum dimulai\" bukan sebuah tindakan — itu keadaan awal, dan mengizinkannya membuka jalan pengguna menghapus riwayat penyelesaiannya sendiri secara tidak sengaja → `422`.\n\n### Idempoten, dijaga di level SQL\n\n1. `completedAt` hanya diisi pada penyelesaian **pertama**. Menekan \"selesai\" dua kali tidak menggeser tanggalnya — data itu dipakai laporan admin dan streak.\n2. Status **tidak pernah mundur** dari `completed` ke `in_progress`. Membuka ulang pelajaran yang sudah selesai adalah hal wajar; ia tidak boleh menghapus capaian.\n\n### Kunci tidak dapat dilewati\n\nPelajaran terkunci tidak boleh ditandai selesai lewat endpoint ini → `403 LESSON_LOCKED`. Tanpa pemeriksaan ini, seluruh mekanisme buka-kunci dapat dilewati hanya dengan memanggil endpoint ini untuk setiap pelajaran.\n\n`courseProgress` disertakan agar UI dapat memperbarui cincin progres tanpa request kedua.\n\n**200** → `{ progress, courseProgress }` · **403 `LESSON_LOCKED`** · **404** · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Lesson access in course",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/progress/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "progress",
+                "courses",
+                "{{courseId}}"
+              ]
+            },
+            "description": "Status dan **kelayakan akses** setiap pelajaran dalam satu kursus. Dipakai UI untuk menggambar gembok.\n\n### Aturan buka-kunci\n\nSebuah pelajaran dapat diakses bila **salah satu** terpenuhi:\n\n1. `isLocked = false` — admin tidak menguncinya\n2. Tidak ada pelajaran sebelumnya — ini pelajaran pertama\n3. Pelajaran sebelumnya `completed`, **dan** bila pelajaran itu punya kuis, kuisnya sudah **lulus**\n\nSyarat ketiga yang menjadikan KKM bermakna: tanpa itu, kuis hanya hiasan yang bisa dilewati.\n\n`lockReason` bernilai `PREVIOUS_LESSON_INCOMPLETE` atau `PREVIOUS_QUIZ_NOT_PASSED`, disertai `lockMessage` siap tampil.\n\n**200** → `{ items: [ { id, title, status, isLocked, isAccessible, lockReason, lockMessage } ] }` · **404**"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 · Dashboard",
+      "description": "Dashboard pembelajar dan admin (API Contract §10.3-10.5).",
+      "item": [
+        {
+          "name": "My dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Blok user ringkas — tanpa email & role', function () {",
+                  "    pm.expect(payload.user).to.have.property('avatar');",
+                  "    pm.expect(payload.user).to.not.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('continueLearning ada (boleh null)', function () {",
+                  "    pm.expect(payload).to.have.property('continueLearning');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/me",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "dashboard",
+                "me"
+              ]
+            },
+            "description": "Halaman depan pembelajar dalam satu request.\n\n### `summary` memakai kode yang sama dengan `/progress`\n\nBukan kebetulan implementasi, melainkan jaminan. Dua perhitungan paralel akan menyimpang pada perubahan pertama, lalu halaman depan dan halaman progres menampilkan dua angka berbeda untuk satu orang.\n\n### `continueLearning`\n\nPelajaran belum selesai pertama, dengan **prioritas pada kursus yang paling baru disentuh**. Tanpa prioritas itu, pengguna yang sedang di kursus ketiga akan terus dilempar kembali ke kursus pertama yang belum tuntas — kartu \"lanjutkan belajar\" justru menghambat.\n\nBernilai **`null` untuk pengguna baru**; frontend menampilkan CTA ke `/courses`.\n\n### `practice` bernilai `null`\n\nSkema belum punya tabel sesi latihan (§10.9-10.10 belum ada). `null` dipilih ketimbang angka nol karena artinya berbeda: nol berarti \"sudah diukur, hasilnya kosong\", sedangkan yang benar di sini adalah \"belum diukur sama sekali\". **Frontend menyembunyikan kartunya ketika `null`.**\n\n### `badges` (aditif v1.2.0)\n\nBentuknya sama seperti pada `/progress`, disertakan agar halaman depan tidak perlu request kedua.\n\n**200** → `{ user, summary, continueLearning, recentQuizzes, badges, practice }` · **401**"
+          },
+          "response": [
+            {
+              "name": "200 · Dashboard pembelajar",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/me",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "dashboard",
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Dashboard berhasil diambil.\",\n    \"data\": {\n        \"user\": { \"id\": \"12\", \"name\": \"Rina Wijaya\", \"avatar\": \"RW\" },\n        \"summary\": {\n            \"coursesStarted\": 4,\n            \"coursesCompleted\": 1,\n            \"lessonsCompleted\": 23,\n            \"totalLessons\": 60,\n            \"quizzesPassed\": 5,\n            \"overallPercent\": 38,\n            \"streakDays\": 6,\n            \"lastActivityAt\": \"2026-08-10T09:00:00.000Z\"\n        },\n        \"continueLearning\": {\n            \"courseId\": \"3\",\n            \"courseTitle\": \"Sapaan Sehari-hari\",\n            \"lessonId\": \"18\",\n            \"lessonTitle\": \"Selamat Siang\"\n        },\n        \"recentQuizzes\": [\n            {\n                \"quizId\": \"9\",\n                \"quizTitle\": \"Kuis Sapaan\",\n                \"score\": 80,\n                \"passed\": true,\n                \"takenAt\": \"2026-08-09T14:20:00.000Z\"\n            }\n        ],\n        \"badges\": [\n            { \"code\": \"FIRST_LESSON\", \"title\": \"Langkah Pertama\", \"description\": \"Menyelesaikan pelajaran pertama.\", \"earned\": true },\n            { \"code\": \"PERFECT_SCORE\", \"title\": \"Nilai Sempurna\", \"description\": \"Meraih skor 100 pada sebuah kuis.\", \"earned\": false }\n        ],\n        \"practice\": null\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Admin dashboard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Memuat totals, growth, engagement', function () {",
+                  "    const payload = pm.response.json().data;",
+                  "    pm.expect(payload).to.have.property('totals');",
+                  "    pm.expect(payload).to.have.property('growth');",
+                  "    pm.expect(payload).to.have.property('engagement');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/admin",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "dashboard",
+                "admin"
+              ]
+            },
+            "description": "Ringkasan platform untuk admin.\n\n### `activeUsers`\n\nDihitung dari kolom `users.status`, **bukan** dari aktivitas belajar terakhir. Keduanya sah tetapi berbeda arti: yang ini menjawab \"berapa akun yang tidak ditangguhkan atau dinonaktifkan\", bukan \"berapa orang yang benar-benar belajar bulan ini\".\n\n### `avgQuizScore` tidak dibatasi waktu\n\nBerbeda dari dua tetangganya yang bersufiks `7d`. Penamaan di kontrak sudah menyatakannya: field yang dibatasi waktu membawa sufiksnya sendiri. Bernilai `0` bila belum ada kuis dikerjakan — bukan `null`, agar frontend tidak perlu menuliskan penjagaan sendiri.\n\n**200** → `{ totals, growth, engagement }` · **403**"
+          },
+          "response": [
+            {
+              "name": "200 · Ringkasan platform",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/admin",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "dashboard",
+                    "admin"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Dashboard admin berhasil diambil.\",\n    \"data\": {\n        \"totals\": { \"users\": 137, \"activeUsers\": 98, \"courses\": 12, \"lessons\": 84, \"quizzes\": 20 },\n        \"growth\": { \"newUsers7d\": 14, \"newUsers30d\": 52 },\n        \"engagement\": { \"lessonsCompleted7d\": 210, \"quizzesTaken7d\": 48, \"avgQuizScore\": 76 }\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Admin reports",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Rentang 7 hari terakhir, dihitung saat request dijalankan.",
+                  "// Menuliskan tanggal tetap membuat koleksi ini basi dalam seminggu.",
+                  "const toIso = function (d) { return d.toISOString().slice(0, 10); };",
+                  "const now = new Date();",
+                  "",
+                  "pm.variables.set('reportTo', toIso(now));",
+                  "pm.variables.set('reportFrom', toIso(new Date(now.getTime() - 6 * 86400000)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Series memuat 7 titik, termasuk hari kosong', function () {",
+                  "    pm.expect(payload.series).to.have.lengthOf(7);",
+                  "});",
+                  "",
+                  "pm.test('completionRate berupa pecahan 0-1', function () {",
+                  "    payload.topCourses.forEach(function (c) {",
+                  "        pm.expect(c.completionRate).to.be.within(0, 1);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/admin/reports?from={{reportFrom}}&to={{reportTo}}&groupBy=day",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "dashboard",
+                "admin",
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{reportFrom}}",
+                  "description": "WAJIB. YYYY-MM-DD, inklusif."
+                },
+                {
+                  "key": "to",
+                  "value": "{{reportTo}}",
+                  "description": "WAJIB. YYYY-MM-DD, inklusif. Rentang maksimal 365 hari."
+                },
+                {
+                  "key": "groupBy",
+                  "value": "day",
+                  "description": "day | week | month. Default day."
+                }
+              ]
+            },
+            "description": "Deret waktu pendaftaran, penyelesaian pelajaran, dan pengerjaan kuis.\n\n`from` dan `to` dihitung otomatis oleh skrip pre-request (7 hari terakhir), supaya koleksi ini tidak basi dalam seminggu.\n\n### `from` & `to` WAJIB\n\nTanpa keduanya, endpoint ini memindai seluruh tabel setiap kali dipanggil — dan halaman admin yang dibuka otomatis saat login akan menjadi query paling berat di sistem.\n\nValidasi: tanggal harus benar-benar ada (`2026-02-31` ditolak meski formatnya benar), `from <= to`, dan rentang **maksimal 365 hari**.\n\n### Hari kosong tetap muncul\n\n`generate_series` membangun **setiap** bucket dalam rentang, termasuk yang tanpa aktivitas. Ini bukan detail kosmetik: `GROUP BY` biasa hanya mengembalikan hari yang punya data, sehingga grafik frontend menyambung 1 Agustus langsung ke 5 Agustus dan memperlihatkan garis naik mulus di masa yang sebenarnya sepi.\n\n### `topCourses`\n\n`enrollments` dibatasi rentang — berapa orang menyentuh kursus itu pada periode tersebut. `completionRate` dihitung dari progres **menyeluruh** orang-orang itu: kursus yang diselesaikan bulan lalu tetap selesai, dan melaporkannya 0% hanya karena tidak ada aktivitas minggu ini akan menyesatkan.\n\n**200** → `{ range, series, topCourses }` · **403** · **422** tanggal tidak sah, terbalik, rentang > 365 hari, atau `groupBy` tidak dikenal"
+          },
+          "response": [
+            {
+              "name": "422 · Rentang melebihi 365 hari",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/dashboard/admin/reports?from=2020-01-01&to=2026-08-10",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "dashboard",
+                    "admin",
+                    "reports"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2020-01-01"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2026-08-10"
+                    }
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": false,\n    \"status\": 422,\n    \"code\": \"VALIDATION_FAILED\",\n    \"message\": \"Data yang dikirim tidak valid.\",\n    \"errors\": [\n        { \"field\": \"to\", \"message\": \"Rentang laporan maksimal 365 hari (diminta 2414 hari).\" }\n    ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 · Admin",
+      "description": "Statistik, audit, dan pekerjaan AI (API Contract §10.6, §10.8).\n\nSeluruh rute di bawah `/admin` dijaga `authenticate` + `requireAdmin` lewat satu `router.use()`.\n\n> **CRUD course & lesson TIDAK ada di sini.** Sebelumnya operasi yang sama terekspos di tiga path berbeda (`/admin/lessons`, `/lessons`, `/courses/:id/lessons`). Tiga permukaan untuk satu operasi berarti tiga tempat memasang validasi dan penjaga peran — dan yang terlupa menjadi lubang yang tidak terlihat sampai ada yang memanfaatkannya.",
+      "item": [
+        {
+          "name": "Platform stats",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/stats",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "stats"
+              ]
+            },
+            "description": "Bentuk ringkas yang **sama dengan `/dashboard/admin.totals`**, dan memakai query yang sama persis. Menyalinnya akan membuat dua endpoint yang menjanjikan angka identik perlahan menjawab berbeda.\n\n**200** → `{ totals }` · **403**"
+          },
+          "response": []
+        },
+        {
+          "name": "Recent activities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const items = pm.response.json().data.items;",
+                  "",
+                  "pm.test('id setiap aktivitas unik', function () {",
+                  "    const ids = items.map(function (i) { return i.id; });",
+                  "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+                  "});",
+                  "",
+                  "pm.test('Terurut dari yang terbaru', function () {",
+                  "    for (let i = 1; i < items.length; i++) {",
+                  "        pm.expect(new Date(items[i - 1].createdAt).getTime())",
+                  "            .to.be.at.least(new Date(items[i].createdAt).getTime());",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/activities?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "activities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "type",
+                  "value": "quiz_passed",
+                  "description": "user_registered | lesson_completed | quiz_passed | course_created",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Feed aktivitas terbaru.\n\n### Diturunkan, bukan disimpan\n\nTidak ada tabel `activities`. Feed direkonstruksi dari `users`, `lesson_progress`, `quiz_results`, dan `courses`.\n\nAlasannya sama dengan badge: catatan turunan **tidak dapat menyimpang** dari kenyataan. Tabel audit terpisah harus ditulis oleh setiap jalur kode yang mengubah data, dan jalur yang lupa menulisnya menghasilkan lubang senyap — persis pada peristiwa yang paling ingin dilacak.\n\nBatasnya jujur: hanya peristiwa yang meninggalkan jejak di skema yang dapat direkonstruksi. Penghapusan kursus tidak muncul karena barisnya sudah tidak ada.\n\n### `id` berbentuk `\"<type>:<rowId>\"`\n\nKeempat sumber memakai sequence-nya masing-masing, sehingga `users.id = 3` dan `courses.id = 3` sama-sama ada. Tanpa awalan tipe, dua peristiwa berbeda akan berbagi id yang sama — dan React yang memakainya sebagai `key` akan merender baris yang salah.\n\n### `actor` bernilai `null` untuk `course_created`\n\nSkema tidak punya kolom `created_by`, jadi pembuatnya memang tidak diketahui. Mengarangnya menjadi \"Administrator\" akan membuat log audit berbohong.\n\n**200** → `{ items, pagination }` · **403** · **422** `type` tidak dikenal"
+          },
+          "response": [
+            {
+              "name": "200 · Feed aktivitas",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}{{apiPrefix}}/admin/activities?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}{{apiPrefix}}"
+                  ],
+                  "path": [
+                    "admin",
+                    "activities"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Aktivitas terbaru berhasil diambil.\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": \"quiz_passed:9001\",\n                \"type\": \"quiz_passed\",\n                \"actor\": { \"id\": \"12\", \"name\": \"Rina Wijaya\" },\n                \"subject\": { \"type\": \"quiz\", \"id\": \"9\", \"title\": \"Kuis Sapaan\" },\n                \"meta\": { \"score\": 80 },\n                \"createdAt\": \"2026-08-10T09:20:00.000Z\"\n            },\n            {\n                \"id\": \"course_created:12\",\n                \"type\": \"course_created\",\n                \"actor\": null,\n                \"subject\": { \"type\": \"course\", \"id\": \"12\", \"title\": \"Aktivitas Harian\" },\n                \"meta\": {},\n                \"createdAt\": \"2026-08-10T08:00:00.000Z\"\n            }\n        ],\n        \"pagination\": {\n            \"page\": 1,\n            \"limit\": 20,\n            \"total\": 42,\n            \"totalPages\": 3,\n            \"hasNext\": true,\n            \"hasPrev\": false\n        }\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "AI · Generate subtitles (501)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Membalas 501, bukan 200 palsu', function () {",
+                  "    pm.response.to.have.status(501);",
+                  "});",
+                  "",
+                  "pm.test('Kode NOT_IMPLEMENTED', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('NOT_IMPLEMENTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/ai/subtitles/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "ai",
+                "subtitles",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Placeholder berbendera fitur (§10.8). **Membalas `501 NOT_IMPLEMENTED`** sampai `AI_SUBTITLE_ENABLED=true` dan `aiService` diisi.\n\n### Kenapa 501, bukan 200\n\nVersi awal membalas `200 {\"data\": null, \"message\": \"not implemented\"}`. Dari sudut pandang frontend, `200` berarti **berhasil**: UI menampilkan \"subtitle sedang dibuat\" untuk proses yang tidak pernah berjalan, dan tidak ada yang tahu fitur itu belum ada sampai seseorang mencarinya di produksi.\n\n`code` yang stabil membuat frontend dapat menyembunyikan tombolnya alih-alih menebak dari pesan.\n\n**501 `NOT_IMPLEMENTED`** · **403**"
+          },
+          "response": []
+        },
+        {
+          "name": "AI · Generate quiz (501)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/ai/quiz/{{lessonId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "ai",
+                "quiz",
+                "{{lessonId}}"
+              ]
+            },
+            "description": "Placeholder berbendera fitur (§10.8). Sama seperti AI subtitle — `501` sampai `AI_QUIZ_GENERATOR_ENABLED=true`.\n\n**501 `NOT_IMPLEMENTED`** · **403**"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 · Skenario Error",
+      "description": "Jalur negatif yang membuktikan kontrak error (§2.3, §3, §4) benar-benar ditegakkan.\n\nFolder ini **wajib hijau**. Setiap kegagalan di sini berarti ada penjaga yang bocor — dan penjaga yang bocor jauh lebih berbahaya daripada fitur yang belum ada.",
+      "item": [
+        {
+          "name": "401 · Tanpa token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Kode TOKEN_MISSING', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('TOKEN_MISSING');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/profile",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            },
+            "description": "Endpoint terproteksi tanpa header `Authorization`.\n\n`TOKEN_MISSING` dibedakan dari `TOKEN_EXPIRED` dan `TOKEN_INVALID` karena tindakan klien untuk ketiganya berbeda: minta login, coba refresh, atau buang sesi."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Token palsu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Kode TOKEN_INVALID', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('TOKEN_INVALID');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "token.yang.dipalsukan",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/me",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Token yang tidak dapat diverifikasi.\n\nVerifikasi mengunci `algorithms: [\"HS256\"]`. Tanpa itu, penyerang dapat mengirim token ber-header `alg: \"none\"` dan sebagian implementasi akan menerimanya **tanpa memverifikasi tanda tangan sama sekali**.\n\n`issuer` dan `audience` juga diverifikasi eksplisit — tanpa keduanya, token yang diterbitkan sistem lain dengan secret yang sama akan diterima di sini."
+          },
+          "response": []
+        },
+        {
+          "name": "403 · Peran user menyentuh endpoint admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test('Kode FORBIDDEN', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/stats",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "stats"
+              ]
+            },
+            "description": "Memakai `{{accessToken}}` (peran `user`) pada endpoint admin.\n\nPeran dibaca dari **klaim token yang ditandatangani server**, bukan dari body maupun header yang dikirim klien. Klien tidak dapat mengklaim peran apa pun."
+          },
+          "response": []
+        },
+        {
+          "name": "403 · Admin mencoba mengerjakan kuis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"answers\": [\n        { \"questionId\": \"{{questionId}}\", \"selectedIndex\": 0 }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/{{courseId}}/quizzes/{{quizId}}/submit",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "{{courseId}}",
+                "quizzes",
+                "{{quizId}}",
+                "submit"
+              ]
+            },
+            "description": "`requireUser` menolak admin dengan sengaja (§4).\n\nAdmin tidak punya baris progres belajar, sehingga hasil pengerjaan mereka menjadi baris `quiz_results` yatim yang merusak seluruh laporan admin."
+          },
+          "response": []
+        },
+        {
+          "name": "404 · Sumber daya tidak ada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Kode NOT_FOUND', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses/99999999",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses",
+                "99999999"
+              ]
+            },
+            "description": "Id yang tidak ada."
+          },
+          "response": []
+        },
+        {
+          "name": "422 · Validasi per field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('errors[] menyebut field yang bermasalah', function () {",
+                  "    const errors = pm.response.json().errors;",
+                  "    pm.expect(errors).to.be.an('array').that.is.not.empty;",
+                  "    errors.forEach(function (e) {",
+                  "        pm.expect(e).to.have.property('field');",
+                  "        pm.expect(e).to.have.property('message');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"ab\",\n    \"level\": \"Dewa\",\n    \"thumbnail\": \"javascript:alert(1)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/courses",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "courses"
+              ]
+            },
+            "description": "Tiga pelanggaran sekaligus: judul terlalu pendek, level di luar enum, dan thumbnail dengan skema `javascript:`.\n\n### Kenapa `errors[]` berbentuk per-field\n\nVersi awal menggabungkan pesan dengan `errors.join(\" \")`, sehingga frontend menerima satu string panjang dan **tidak bisa menyorot field mana yang salah**. Form register menampilkan seluruh pesan menumpuk di satu tempat, bukan di bawah masing-masing input.\n\nSeluruh pelanggaran dikembalikan **sekaligus**. Meminta pengguna memperbaiki satu aturan, submit, lalu menemukan aturan berikutnya adalah pengalaman yang buruk."
+          },
+          "response": []
+        },
+        {
+          "name": "422 · sortBy di luar allowlist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users?sortBy=password_hash",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "password_hash"
+                }
+              ]
+            },
+            "description": "Percobaan mengurutkan berdasarkan kolom yang tidak diizinkan.\n\nNilai `sortBy` **tidak pernah diinterpolasi ke SQL** — ia dicocokkan ke allowlist dan yang tidak cocok ditolak sebelum menyentuh database."
+          },
+          "response": []
+        },
+        {
+          "name": "404 · Rute tidak dikenal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Tetap memakai envelope error kontrak', function () {",
+                  "    pm.expect(pm.response.json().code).to.eql('NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/tidak-ada-rute-ini",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "tidak-ada-rute-ini"
+              ]
+            },
+            "description": "Rute yang tidak terdaftar tetap melewati `notFoundHandler` dan `errorHandler`, sehingga bentuk responsnya konsisten dengan error lain. Klien tidak perlu menangani dua format berbeda."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

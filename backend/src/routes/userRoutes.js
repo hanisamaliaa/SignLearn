@@ -3,17 +3,52 @@ import * as userController from "../controllers/userController.js";
 import * as profileController from "../controllers/profileController.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { requireAdmin } from "../middleware/rbac.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import {
+  validateUpdateProfile,
+  validateAdminUpdateUser,
+  validateUserQuery,
+} from "../validators/userValidator.js";
 
 const router = Router();
 
-// User profile (me) — authenticated user only.
-router.get("/profile", authenticate, profileController.getProfile);
-router.put("/profile", authenticate, profileController.updateProfile);
+/**
+ * Rute pengguna & profil (API Contract §7).
+ *
+ * `/profile` didaftarkan SEBELUM `/:id`. Express mencocokkan berurutan, jadi
+ * bila terbalik, permintaan ke `/profile` tertangkap sebagai id = "profile",
+ * lalu ditolak `requireAdmin` — pengguna biasa menerima 403 saat membuka
+ * halaman profilnya sendiri, dan penyebabnya nyaris mustahil ditebak.
+ */
 
-// Admin-only user management.
-router.get("/", authenticate, requireAdmin, userController.getAllUsers);
+// ─── Profil sendiri — pengguna terautentikasi mana pun ───────────────────
+router.get("/profile", authenticate, profileController.getProfile);
+router.put(
+  "/profile",
+  authenticate,
+  validate(validateUpdateProfile),
+  profileController.updateProfile,
+);
+
+// ─── Administrasi pengguna — admin saja ──────────────────────────────────
+router.get(
+  "/",
+  authenticate,
+  requireAdmin,
+  validate(validateUserQuery),
+  userController.getAllUsers,
+);
+
 router.get("/:id", authenticate, requireAdmin, userController.getUserById);
-router.put("/:id", authenticate, requireAdmin, userController.updateUser);
+
+router.put(
+  "/:id",
+  authenticate,
+  requireAdmin,
+  validate(validateAdminUpdateUser),
+  userController.updateUser,
+);
+
 router.delete("/:id", authenticate, requireAdmin, userController.deleteUser);
 
 export default router;
