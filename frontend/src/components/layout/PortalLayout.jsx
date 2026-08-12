@@ -47,7 +47,7 @@ export default function PortalLayout({ variant }) {
 
   return (
     <div
-      className={`flex h-screen ${
+      className={`portal-shell flex h-screen ${
         variant === "admin" ? "admin-portal" : "bg-[var(--bg)]"
       } overflow-hidden`}
     >
