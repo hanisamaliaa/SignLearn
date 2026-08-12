@@ -13,9 +13,46 @@ dotenv.config();
 
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * Membaca angka dari environment.
+ *
+ * ── Kenapa nilai KOSONG diperlakukan sebagai tidak ada ────────────────
+ *
+ * Versi sebelumnya hanya menulis `Number.isFinite(Number(value))`. Masalahnya
+ * `Number("")` bernilai **0**, dan `Number.isFinite(0)` bernilai **true** —
+ * sehingga baris `PORT=` tanpa nilai LOLOS sebagai angka nol, bukan jatuh ke
+ * default.
+ *
+ * Kunci yang ada tetapi nilainya kosong sangat lumrah: seseorang menghapus
+ * nilainya dan lupa menghapus barisnya. Akibatnya senyap dan beragam:
+ *
+ *     PORT=                    → server bind ke port ACAK pilihan OS, dan
+ *                                frontend melapor "tidak dapat terhubung ke
+ *                                server" padahal backend-nya berjalan
+ *     BCRYPT_ROUNDS=           → bcrypt 0 putaran
+ *     MAX_FAILED_LOGINS=       → akun terkunci pada percobaan pertama
+ *     JWT_ACCESS_TTL_SECONDS=  → token kedaluwarsa saat diterbitkan
+ *
+ * Tidak satu pun melempar error. Semuanya "berhasil" dengan nilai nol.
+ */
 const num = (value, fallback) => {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return fallback;
+  }
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * Port TCP yang sah: 1-65535.
+ *
+ * Port 0 sah secara teknis — ia menyuruh OS memilih port acak — tetapi hampir
+ * tidak pernah disengaja di berkas `.env`, dan akibatnya persis sama dengan
+ * nilai kosong: tidak ada yang tahu server mendengarkan di mana.
+ */
+const port = (value, fallback) => {
+  const n = num(value, fallback);
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : fallback;
 };
 
 const bool = (value, fallback = false) =>
@@ -91,7 +128,7 @@ export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV || "development",
   isProduction,
   isTest: process.env.NODE_ENV === "test",
-  port: num(process.env.PORT, 4000),
+  port: port(process.env.PORT, 4000),
   apiPrefix: process.env.API_PREFIX || "/api/v1",
 
   database: {

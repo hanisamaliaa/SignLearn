@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Card, Badge, ProgressBar, StatCard } from "../../components/ui/ui";
-import { ACHIEVEMENTS } from "../../data/mock";
 import { useApp } from "../../context/app";
 import {
   TrophyIcon,
@@ -17,7 +16,6 @@ const TABS = [
 ];
 
 const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-const WEEK_HEIGHTS = [60, 80, 40, 100, 75, 90, 55];
 const SCORE_DISTRIBUTION = [
   { range: "90 – 100", color: "#2ECC71" },
   { range: "70 – 89", color: "#4F8EF7" },
@@ -25,8 +23,23 @@ const SCORE_DISTRIBUTION = [
   { range: "< 50", color: "#E74C3C" },
 ];
 
+/**
+ * Ikon per badge.
+ *
+ * Badge sendiri DITURUNKAN server dari progres nyata (code, title,
+ * description, earned) - tidak ada tabel badge. Yang tinggal di frontend
+ * hanyalah representasi visualnya, karena ikon urusan tampilan, bukan data.
+ */
+const BADGE_ICONS = {
+  FIRST_LESSON: "\u{1F31F}",
+  TEN_LESSONS: "\u{1F4DA}",
+  FIRST_QUIZ: "\u2705",
+  PERFECT_SCORE: "\u{1F4AF}",
+  COURSE_COMPLETE: "\u{1F393}",
+};
+
 export default function Progress() {
-  const { courses, quizHistory } = useApp();
+  const { courses, quizHistory, badges, stats } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
 
   const COURSES = courses;
@@ -39,6 +52,30 @@ export default function Progress() {
         QUIZ_HISTORY.reduce((s, q) => s + q.score, 0) / QUIZ_HISTORY.length,
       )
     : 0;
+  /**
+   * Aktivitas 7 hari terakhir, diturunkan dari tanggal pengerjaan kuis.
+   *
+   * Sebelumnya tingginya adalah larik konstan `WEEK_HEIGHTS` — grafik yang
+   * terlihat meyakinkan tetapi identik bagi pengguna yang baru mendaftar lima
+   * detik lalu maupun yang sudah belajar berbulan-bulan.
+   */
+  const todayIndex = (new Date().getDay() + 6) % 7; // Senin = 0
+  const weekActivity = (() => {
+    const counts = Array(7).fill(0);
+    const now = new Date();
+    for (const q of QUIZ_HISTORY) {
+      const diffDays = Math.floor((now - new Date(q.takenAt)) / 86400000);
+      if (diffDays >= 0 && diffDays < 7) {
+        counts[(todayIndex - diffDays + 7) % 7] += 1;
+      }
+    }
+    const peak = Math.max(1, ...counts);
+    return counts.map((count) => ({
+      count,
+      percent: Math.max(6, Math.round((count / peak) * 100)),
+    }));
+  })();
+
   const overallPct = totalLessons
     ? Math.round((completedLessons / totalLessons) * 100)
     : 0;
@@ -101,7 +138,7 @@ export default function Progress() {
         />
         <StatCard
           label="Streak Belajar"
-          value="7 hari"
+          value={`${stats?.streakDays ?? 0} hari`}
           icon={<FireIcon size={20} />}
           color="#E74C3C"
         />
@@ -132,7 +169,7 @@ export default function Progress() {
             </h2>
             <div className="flex items-end justify-between gap-2 h-32">
               {DAYS.map((day, i) => {
-                const isToday = i === 3;
+                const isToday = i === todayIndex;
                 return (
                   <div
                     key={day}
@@ -142,8 +179,9 @@ export default function Progress() {
                       <div
                         className="w-full rounded-lg transition-all"
                         style={{
-                          height: `${WEEK_HEIGHTS[i]}%`,
-                          background: isToday ? "#4F8EF7" : "#EAF3FF",
+                          height: `${weekActivity[i].percent}%`,
+                          background:
+                            weekActivity[i].count > 0 ? "#4F8EF7" : "#EAF3FF",
                         }}
                       />
                     </div>
@@ -164,7 +202,9 @@ export default function Progress() {
               <span className="text-[var(--text-muted)]">
                 Total sesi minggu ini
               </span>
-              <span className="font-bold text-[var(--text)]">7 sesi</span>
+              <span className="font-bold text-[var(--text)]">
+                {weekActivity.reduce((a, d) => a + d.count, 0)} sesi
+              </span>
             </div>
           </Card>
 
@@ -300,8 +340,8 @@ export default function Progress() {
 
       {activeTab === "achievements" && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ACHIEVEMENTS.map((a) => (
-            <Card key={a.id} className={!a.earned ? "opacity-50" : ""}>
+          {badges.map((a) => (
+            <Card key={a.code} className={!a.earned ? "opacity-50" : ""}>
               <div className="flex items-start gap-4">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
@@ -310,7 +350,7 @@ export default function Progress() {
                       : "bg-[var(--surface-3)]"
                   }`}
                 >
-                  {a.icon}
+                  {BADGE_ICONS[a.code] ?? "\u{1F3C5}"}
                 </div>
                 <div>
                   <p className="font-bold text-[var(--text)] text-sm">
@@ -319,10 +359,8 @@ export default function Progress() {
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     {a.description}
                   </p>
-                  {a.earned && a.date && (
-                    <p className="text-xs text-[#2ECC71] mt-1">
-                      ✓ Diperoleh {a.date}
-                    </p>
+                  {a.earned && (
+                    <p className="text-xs text-[#2ECC71] mt-1">✓ Diperoleh</p>
                   )}
                   {!a.earned && (
                     <p className="text-xs text-[var(--text-subtle)] mt-1">

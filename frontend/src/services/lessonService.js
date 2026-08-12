@@ -1,61 +1,35 @@
 import { request } from "./api";
 
-export async function getLessons(courseId) {
-  return request({
-    method: "get",
-    url: `/courses/${courseId}/lessons`,
-    mockData: {
-      success: true,
-      lessons: [
-        {
-          id: "l1",
-          courseId,
-          title: "Pengenalan Huruf",
-          duration: "10 min",
-        },
-      ],
-    },
-  });
+/** Lessons — API Contract §8.6-8.9. */
+
+export async function getLessons(courseId, params = {}) {
+  return request({ url: `/courses/${courseId}/lessons`, params });
 }
 
 export async function getLessonById(courseId, lessonId) {
-  return request({
-    method: "get",
-    url: `/courses/${courseId}/lessons/${lessonId}`,
-    mockData: {
-      success: true,
-      lesson: {
-        id: lessonId,
-        courseId,
-        title: "Pengenalan Huruf",
-        content: "Konten pelajaran akan datang dari backend.",
-      },
-    },
-  });
+  return request({ url: `/courses/${courseId}/lessons/${lessonId}` });
 }
 
-export async function createLesson(courseId, payload) {
-  return request({
-    method: "post",
-    url: `/courses/${courseId}/lessons`,
-    data: payload,
-    mockData: { success: true, lesson: { id: "l2", courseId, ...payload } },
-  });
+export async function createLesson(courseId, data) {
+  const payload = await request({ method: "post", url: `/courses/${courseId}/lessons`, data });
+  return payload.lesson;
 }
 
-export async function updateLesson(courseId, lessonId, payload) {
-  return request({
-    method: "put",
-    url: `/courses/${courseId}/lessons/${lessonId}`,
-    data: payload,
-    mockData: { success: true, lesson: { id: lessonId, courseId, ...payload } },
+export async function updateLesson(courseId, lessonId, data) {
+  const payload = await request({
+    method: "put", url: `/courses/${courseId}/lessons/${lessonId}`, data,
   });
+  return payload.lesson;
 }
 
 export async function deleteLesson(courseId, lessonId) {
-  return request({
-    method: "delete",
-    url: `/courses/${courseId}/lessons/${lessonId}`,
-    mockData: { success: true, message: "Lesson deleted" },
+  return request({ method: "delete", url: `/courses/${courseId}/lessons/${lessonId}` });
+}
+
+/** Daftar `order` WAJIB memuat seluruh id pelajaran kursus itu (§8.9). */
+export async function reorderLessons(courseId, order) {
+  const payload = await request({
+    method: "patch", url: `/courses/${courseId}/lessons/reorder`, data: { order },
   });
+  return payload.items;
 }

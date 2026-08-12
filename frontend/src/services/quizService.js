@@ -1,70 +1,82 @@
-/**
- * Quiz service — handles quiz submission and the unlock logic (pass ≥ 70).
- * Maps to future POST /quiz/submit.
- */
-import { MIN_PASSING_SCORE } from "../constants/app";
-import { getUserCourses } from "./courseService";
-import { getUserById } from "./userService";
+import { request } from "./api";
 
 /**
- * Record a quiz result for a user and, if passed, unlock the next lesson
- * and mark the current lesson complete. Returns updated learning state.
+ * Quizzes — API Contract §8.10-8.13.
  *
- * @param {string} userId
- * @param {string} lessonId
- * @param {number} score
- * @returns {{ passed: boolean, learning: object }}
+ * ── Penilaian TIDAK lagi dihitung di klien ────────────────────────────
+ *
+ * Halaman kuis dulu menghitung skor sendiri memakai kunci jawaban yang ikut
+ * terkirim ke browser. Siapa pun yang membuka DevTools dapat membacanya
+ * sebelum menjawab, dan skor apa pun dapat dikirim ke server.
+ *
+ * Sekarang klien hanya mengirim `selectedIndex`. Server yang membandingkannya
+ * ke kunci jawaban dan menentukan kelulusan terhadap KKM milik kuis itu.
+ * `correctIndex` bahkan tidak pernah dikirim ke peran `user`.
  */
-export function submitQuiz(userId, lessonId, score) {
-  const user = getUserById(userId);
-  if (!user) return { passed: false, learning: null };
 
-  const learning = {
-    ...user.learning,
-    completedLessons: [...(user.learning.completedLessons || [])],
-    unlockedLessons: [...(user.learning.unlockedLessons || [])],
-    quizResults: [...(user.learning.quizResults || [])],
-    progress: { ...user.learning.progress },
-  };
+export async function getQuizzes(courseId, params = {}) {
+  return request({ url: `/courses/${courseId}/quizzes`, params });
+}
 
-  const passed = score >= MIN_PASSING_SCORE;
-  const date = new Date().toISOString().split("T")[0];
+export async function getQuizById(courseId, quizId) {
+  return request({ url: `/courses/${courseId}/quizzes/${quizId}` });
+}
 
-  // Always record the quiz result.
-  learning.quizResults.push({ lessonId, score, passed, date });
+/**
+ * @param {Array<{questionId: string, selectedIndex: number}>} answers
+ *        SELURUH pertanyaan wajib dijawab — kurang satu pun ditolak 422.
+ */
+export async function submitQuiz(courseId, quizId, answers, durationSeconds) {
+  const payload = await request({
+    method: "post",
+    url: `/courses/${courseId}/quizzes/${quizId}/submit`,
+    data: { answers, durationSeconds },
+  });
+  return payload.result;
+}
 
-  if (passed) {
-    // Mark current lesson complete if not already.
-    if (!learning.completedLessons.includes(lessonId)) {
-      learning.completedLessons.push(lessonId);
-    }
+// ─── Admin ───────────────────────────────────────────────────────────────
 
-    // Find the next lesson in the course and unlock it.
-    const courses = getUserCourses(user);
-    const course = courses.find((c) =>
-      (c.lessons || []).some((l) => l.id === lessonId),
-    );
-    if (course && course.lessons) {
-      const idx = course.lessons.findIndex((l) => l.id === lessonId);
-      const next = course.lessons[idx + 1];
-      if (next && !learning.unlockedLessons.includes(next.id)) {
-        learning.unlockedLessons.push(next.id);
-      }
-    }
+export async function createQuiz(courseId, data) {
+  const payload = await request({ method: "post", url: `/courses/${courseId}/quizzes`, data });
+  return payload.quiz;
+}
 
-    // Update per-course progress.
-    const courseForProgress = courses.find((c) =>
-      (c.lessons || []).some((l) => l.id === lessonId),
-    );
-    if (courseForProgress) {
-      const completedCount = learning.completedLessons.filter((id) =>
-        (courseForProgress.lessons || []).some((l) => l.id === id),
-      ).length;
-      learning.progress[courseForProgress.id] = {
-        completedLessons: completedCount,
-      };
-    }
-  }
+export async function updateQuiz(courseId, quizId, data) {
+  const payload = await request({
+    method: "put", url: `/courses/${courseId}/quizzes/${quizId}`, data,
+  });
+  return payload.quiz;
+}
 
-  return { passed, learning };
+export async function deleteQuiz(courseId, quizId) {
+  return request({ method: "delete", url: `/courses/${courseId}/quizzes/${quizId}` });
+}
+
+export async function getQuestions(courseId, quizId) {
+  const payload = await request({ url: `/courses/${courseId}/quizzes/${quizId}/questions` });
+  return payload.items;
+}
+
+export async function createQuestion(courseId, quizId, data) {
+  const payload = await request({
+    method: "post", url: `/courses/${courseId}/quizzes/${quizId}/questions`, data,
+  });
+  return payload.question;
+}
+
+export async function updateQuestion(courseId, quizId, questionId, data) {
+  const payload = await request({
+    method: "put",
+    url: `/courses/${courseId}/quizzes/${quizId}/questions/${questionId}`,
+    data,
+  });
+  return payload.question;
+}
+
+export async function deleteQuestion(courseId, quizId, questionId) {
+  return request({
+    method: "delete",
+    url: `/courses/${courseId}/quizzes/${quizId}/questions/${questionId}`,
+  });
 }
