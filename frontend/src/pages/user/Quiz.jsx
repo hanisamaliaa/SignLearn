@@ -4,6 +4,7 @@ import { useApp } from "../../context/app";
 import { Button } from "../../components/ui/ui";
 import { QUIZ_QUESTIONS } from "../../data/mock";
 import { XIcon, ClockIcon } from "../../components/ui/Icons";
+import BrandLogo from "../../components/common/BrandLogo";
 
 const TOTAL = QUIZ_QUESTIONS.length;
 const TIME_LIMIT = 300; // 5 minutes
@@ -142,9 +143,7 @@ export default function Quiz() {
       {/* Header */}
       <header className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-            <span className="text-white text-sm font-bold">S</span>
-          </div>
+          <BrandLogo className="quiz-brand" />
           <div>
             <p className="text-sm font-bold text-[var(--text)]">
               Kuis: Mengeja Kata Pendek
