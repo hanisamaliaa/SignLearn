@@ -10,7 +10,7 @@ export function Button({
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+    "inline-flex min-w-0 max-w-full h-auto items-center justify-center gap-2 whitespace-normal text-center font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
   const variants = {
     primary:
       "bg-[#4F8EF7] hover:bg-[#3A7DE0] active:bg-[#2F6BC4] text-white focus:ring-[#4F8EF7] shadow-sm",
@@ -51,7 +51,7 @@ export function Card({
   const pads = { none: "", sm: "p-4", md: "p-6", lg: "p-8" };
   return (
     <div
-      className={`bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--border)] admin-kids-card ${pads[padding]} ${
+      className={`min-w-0 max-w-full bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--border)] admin-kids-card ${pads[padding]} ${
         hover
           ? "hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           : ""
@@ -75,7 +75,7 @@ export function Input({
 }) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="min-w-0 flex flex-col gap-1.5">
       {label && (
         <label
           htmlFor={inputId}
@@ -84,7 +84,7 @@ export function Input({
           {label}
         </label>
       )}
-      <div className="relative">
+      <div className="relative min-w-0">
         {icon && (
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]">
             {icon}
@@ -166,7 +166,7 @@ export function Badge({
   const sizes = { sm: "px-2.5 py-0.5 text-xs", md: "px-3 py-1 text-sm" };
   return (
     <span
-      className={`inline-flex items-center rounded-full font-medium ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex min-w-0 max-w-full items-center rounded-full whitespace-normal text-center font-medium ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </span>
@@ -210,15 +210,15 @@ export function ProgressBar({
 }) {
   const pct = Math.round((value / max) * 100);
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="flex-1 h-2 bg-[var(--surface-3)] rounded-full overflow-hidden">
+    <div className={`flex min-w-0 items-center gap-3 ${className}`}>
+      <div className="min-w-0 flex-1 h-2 bg-[var(--surface-3)] rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
       {showLabel && (
-        <span className="text-xs font-medium text-[var(--text-muted)] w-8 text-right">
+        <span className="flex-none text-xs font-medium text-[var(--text-muted)] w-8 text-right">
           {pct}%
         </span>
       )}
@@ -237,8 +237,8 @@ export function StatCard({
 }) {
   return (
     <Card className={className}>
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-[var(--text-muted)] mb-1">{label}</p>
           <p className="text-2xl font-bold text-[var(--text)]">{value}</p>
           {trend && (
@@ -251,7 +251,7 @@ export function StatCard({
           )}
         </div>
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center"
+          className="w-11 h-11 flex-none rounded-xl flex items-center justify-center"
           style={{ background: `${color}18`, color }}
         >
           {icon}

@@ -80,7 +80,7 @@ export default function PortalLayout({ variant }) {
           onLogout={logout}
         />
         <main className="flex-1 overflow-y-auto" data-route-scroll-container>
-          <div className="p-5 sm:p-6 xl:p-8 max-w-[1500px] w-full mx-auto animate-fade-in">
+          <div className="portal-route-content min-w-0 p-4 sm:p-6 xl:p-8 max-w-[1500px] w-full mx-auto animate-fade-in">
             <Outlet />
           </div>
         </main>

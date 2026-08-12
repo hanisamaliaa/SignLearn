@@ -25,8 +25,8 @@ export default function AdminReports() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-extrabold text-[var(--text)]">
             Laporan & Analitik
           </h1>
@@ -40,12 +40,12 @@ export default function AdminReports() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
+        <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl sm:w-auto">
           {reportTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setReportType(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`min-h-11 min-w-0 flex-auto px-3 py-2 rounded-lg text-sm font-medium transition-all sm:flex-none sm:px-4 ${
                 reportType === t.id
                   ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -55,12 +55,12 @@ export default function AdminReports() {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto">
           {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`min-h-11 min-w-0 flex-auto px-3 py-1.5 rounded-lg text-xs font-medium transition-all sm:flex-none ${
                 period === p
                   ? "bg-[#4F8EF7] text-white"
                   : "bg-[var(--surface-3)] text-[var(--text-muted)] hover:bg-[#E2E8F0]"
@@ -74,7 +74,7 @@ export default function AdminReports() {
 
       {reportType === "overview" && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
                 label: "Total Pengguna",
@@ -107,12 +107,12 @@ export default function AdminReports() {
                 <h2 className="font-bold text-[var(--text)]">Aktivitas Mingguan</h2>
                 <Badge variant="primary">{period}</Badge>
               </div>
-              <div className="flex items-end justify-between h-32 gap-2">
+              <div className="admin-report-weekly-chart flex items-end justify-between h-32 gap-2">
                 {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map(
                   (day, i) => (
                     <div
                       key={day}
-                      className="flex flex-col items-center gap-1 flex-1"
+                      className="flex min-w-0 flex-1 flex-col items-center gap-1"
                     >
                       <div className="w-full rounded-t-lg flex-1 flex items-end">
                         <div
@@ -288,7 +288,7 @@ export default function AdminReports() {
             {QUIZ_HISTORY.map((q) => (
               <div
                 key={q.id}
-                className="flex items-center gap-4 p-4 bg-[var(--surface-2)] rounded-xl border border-[var(--border)]"
+                className="flex flex-wrap items-center gap-4 p-4 bg-[var(--surface-2)] rounded-xl border border-[var(--border)]"
               >
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 ${
@@ -299,7 +299,7 @@ export default function AdminReports() {
                 >
                   {q.score}
                 </div>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-[var(--text)]">
                     {q.lesson}
                   </p>

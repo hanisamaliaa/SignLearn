@@ -134,8 +134,8 @@ export default function Lesson() {
                 <span className="text-white/60 text-xs">{lesson.duration}</span>
               </div>
             </button>
-            <div className="p-4 flex items-center justify-between border-t border-[var(--border)]">
-              <div>
+            <div className="p-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[var(--border)]">
+              <div className="min-w-0">
                 <h2 className="font-bold text-[var(--text)]">{lesson.title}</h2>
                 <p className="text-xs text-[var(--text-subtle)]">
                   {course.title} • {lesson.duration}
@@ -154,12 +154,12 @@ export default function Lesson() {
           </Card>
 
           <Card>
-            <div className="flex gap-1 p-1 bg-[var(--surface-3)] rounded-xl mb-4">
+            <div className="flex min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl mb-4">
               {TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  className={`min-h-11 min-w-[8rem] flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                     tab === t.id
                       ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                       : "text-[var(--text-muted)] hover:text-[var(--text)]"

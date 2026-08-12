@@ -129,7 +129,7 @@ export default function LandingHeader({ onLogin, onRegister, onAccessibility }) 
             return <a key={item.href} href={item.href} className={`kids-mobile-link ${activeHash === item.hash ? "is-active" : ""}`} aria-current={activeHash === item.hash ? "location" : undefined} onClick={(event) => navigateToSection(event, item)}>{item.label}</a>;
           })}
           <button type="button" className="kids-mobile-link text-left" onClick={() => { setMenuOpen(false); menuToggleRef.current?.focus(); onAccessibility(); }}>Pengaturan Aksesibilitas</button>
-          <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[#D7E3EA] pt-4">
+          <div className="kids-mobile-actions mt-3 grid grid-cols-2 gap-3 border-t border-[#D7E3EA] pt-4">
             <button type="button" className="kids-button kids-button-secondary" onClick={() => { setMenuOpen(false); onLogin(); }}>Masuk</button>
             <button type="button" className="kids-button kids-button-yellow" onClick={() => { setMenuOpen(false); onRegister(); }}>Mulai Belajar</button>
           </div>
