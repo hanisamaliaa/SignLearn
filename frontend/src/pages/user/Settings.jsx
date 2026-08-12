@@ -110,7 +110,7 @@ export default function Settings() {
         />
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-6">
         {/* Appearance */}
         <Card>
           <div className="flex items-center gap-3 mb-5">
@@ -135,7 +135,7 @@ export default function Settings() {
                 {t("settings.theme")}
               </label>
               <div
-                className="grid grid-cols-3 gap-2"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2"
                 role="radiogroup"
                 aria-labelledby="theme-label"
               >
@@ -229,7 +229,7 @@ export default function Settings() {
             {NOTIFICATION_ITEMS.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
               >
                 <div>
                   <p className="text-sm font-medium text-[var(--text)]">
@@ -268,7 +268,7 @@ export default function Settings() {
             {PRIVACY_ITEMS.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
               >
                 <div>
                   <p className="text-sm font-medium text-[var(--text)]">
@@ -307,7 +307,7 @@ export default function Settings() {
             {SECURITY_ITEMS.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
               >
                 <div>
                   <p className="text-sm font-medium text-[var(--text)]">

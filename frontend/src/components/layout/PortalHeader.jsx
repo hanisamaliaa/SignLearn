@@ -171,7 +171,7 @@ export default function PortalHeader({
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 top-11 w-80 bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] z-50 animate-fade-in overflow-hidden">
+              <div className="portal-notification-panel absolute right-0 top-11 w-80 max-w-[calc(100vw-1rem)] bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] z-50 animate-fade-in overflow-hidden">
                 <div className="px-4 py-3 border-b border-[var(--border)]">
                   <p className="font-semibold text-sm text-[var(--text)]">
                     Notifikasi

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, Badge } from "../../components/ui/ui";
+import { Badge } from "../../components/ui/ui";
 import {
   UsersIcon,
   BookIcon,
   ChartIcon,
   TrophyIcon,
-  PlusIcon,
   ChevronUpIcon,
 } from "../../components/ui/Icons";
 import { MOCK_USERS_LIST, RECENT_ACTIVITIES, COURSES } from "../../data/mock";

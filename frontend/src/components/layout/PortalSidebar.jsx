@@ -22,7 +22,7 @@ export default function PortalSidebar({
   return (
     <aside
       data-collapsed={collapsed ? "true" : "false"}
-      className={`fixed lg:relative z-30 flex flex-col h-full w-64 ${
+      className={`portal-sidebar fixed lg:relative z-30 flex flex-col h-full w-64 max-w-full ${
         collapsed ? "lg:w-20" : ""
       } ${
         variant === "admin"

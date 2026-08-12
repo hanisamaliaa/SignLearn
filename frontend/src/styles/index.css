@@ -3315,6 +3315,90 @@ textarea,
   .a11y-text-extra-large .kids-mobile-overlay { display: block; }
 }
 
+/* Large-text reflow: content keeps its requested font size and changes shape. */
+.portal-route-content,
+.portal-route-content > *,
+.portal-route-content .grid > *,
+.kids-public-content,
+.kids-public-content > *,
+.kids-public-content .grid > * {
+  min-width: 0;
+}
+
+.portal-sidebar {
+  width: min(16rem, 100vw);
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) .portal-route-content .truncate {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) .portal-route-content :is(.line-clamp-2, .line-clamp-3) {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) :is(.portal-route-content, .kids-public-content) :is(h1, h2, h3, p, label, button, a, span) {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 1100px) {
+  :is(.a11y-text-large, .a11y-text-extra-large) :is(.kids-text-mode, .kids-camera-mode) {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) :is(.kids-text-mode, .kids-camera-mode) > *,
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-workspace-motion-item {
+    height: auto;
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-demo-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-hero-grid {
+    min-height: 0;
+    grid-template:
+      "copy" auto
+      "visual" auto
+      "quick" auto /
+      minmax(0, 1fr);
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-hero-visual {
+    width: min(88%, 520px);
+    justify-self: center;
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-public-content .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) :is(.kids-topic-grid, .kids-quick-actions, .kids-footer-grid, .kids-mobile-actions) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-footer-brand {
+    grid-column: auto;
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .portal-route-content .admin-kids-card {
+    padding: 1rem;
+  }
+  :is(.a11y-text-large, .a11y-text-extra-large) .weekly-activity-chart {
+    gap: 2px;
+  }
+}
+
 /* ─── Login Page (SignLearn Kids) ────────────────────────────────────────── */
 .login-page {
   --login-navy: #0f2450;
@@ -4617,6 +4701,12 @@ textarea,
   overflow: visible;
 }
 
+@media (max-width: 1023px) {
+  .admin-sidebar.portal-sidebar {
+    position: fixed;
+  }
+}
+
 .admin-sidebar-collapse-btn {
   position: absolute;
   top: 68px;
@@ -5096,6 +5186,8 @@ textarea,
 
 /* ─── Panels ──────────────────────────────────────────────────────────── */
 .admin-panel {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-lg);
   background: var(--adm-surface);
@@ -5504,5 +5596,25 @@ textarea,
 
   .admin-chart-labels {
     font-size: 0.62rem;
+  }
+
+  .admin-panel-heading,
+  .admin-list-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-panel-heading > *,
+  .admin-list-row > * {
+    min-width: 0;
+  }
+
+  .admin-trend-pill,
+  .admin-count-pill,
+  .admin-status-badge {
+    flex: 0 1 auto;
+  }
+
+  :is(.a11y-text-large, .a11y-text-extra-large) .admin-report-weekly-chart {
+    gap: 2px;
   }
 }

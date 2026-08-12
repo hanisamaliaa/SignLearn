@@ -106,7 +106,7 @@ export default function Courses() {
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border)] text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] outline-none focus:border-[#4F8EF7] focus:ring-2 focus:ring-[#4F8EF7]/20 bg-[var(--surface)]"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             {LEVELS.map((l) => (
               <button
                 key={l}
@@ -124,7 +124,7 @@ export default function Courses() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {SUMMARY.map((s) => (
           <div
             key={s.label}
@@ -187,7 +187,7 @@ export default function Courses() {
                       </h3>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </div>
-                    <p className="text-xs text-[var(--text-muted)] mb-3 line-clamp-2">
+                      <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
                       {course.description}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-[var(--text-subtle)] mb-3">
@@ -268,7 +268,7 @@ export default function Courses() {
                   <h3 className="font-bold text-[var(--text)] mb-1">
                     {course.title}
                   </h3>
-                  <p className="text-xs text-[var(--text-muted)] mb-3 line-clamp-2">
+                  <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
                     {course.description}
                   </p>
                   <div className="flex items-center gap-4 text-xs text-[var(--text-subtle)] mb-3">

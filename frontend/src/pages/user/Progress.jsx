@@ -80,7 +80,7 @@ export default function Progress() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Kursus Aktif"
           value={COURSES.filter((c) => !c.isLocked).length}
@@ -108,12 +108,12 @@ export default function Progress() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[var(--surface-3)] rounded-xl w-fit">
+      <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`min-h-11 min-w-0 flex-auto px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
                 ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                 : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -125,18 +125,18 @@ export default function Progress() {
       </div>
 
       {activeTab === "overview" && (
-        <div className="grid lg:grid-cols-2 gap-5">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
           <Card>
             <h2 className="font-bold text-[var(--text)] mb-4">
               Aktivitas Minggu Ini
             </h2>
-            <div className="flex items-end justify-between gap-2 h-32">
+            <div className="weekly-activity-chart flex min-w-0 items-end justify-between gap-2 h-32">
               {DAYS.map((day, i) => {
                 const isToday = i === 3;
                 return (
                   <div
                     key={day}
-                    className="flex flex-col items-center gap-1 flex-1"
+                    className="min-w-0 flex flex-col items-center gap-1 flex-1"
                   >
                     <div className="w-full rounded-t-lg flex-1 flex items-end">
                       <div

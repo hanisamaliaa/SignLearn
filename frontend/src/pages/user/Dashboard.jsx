@@ -93,7 +93,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Kursus Aktif"
           value={
@@ -128,12 +128,12 @@ export default function UserDashboard() {
         />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-3 gap-6">
         {/* Main column */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="min-w-0 lg:col-span-2 space-y-5">
           <Card>
-            <div className="flex items-start justify-between mb-4">
-              <div>
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 mb-4">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-[var(--text)]">
                   Kursus Saat Ini
                 </h2>
@@ -150,7 +150,7 @@ export default function UserDashboard() {
                 className="w-full h-36 object-cover"
               />
             </div>
-            <div className="flex items-center justify-between text-sm mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm mb-2">
               <span className="text-[var(--text-muted)]">Progress</span>
               <span className="font-semibold text-[var(--text)]">
                 {currentCourse.completedLessons}/{currentCourse.totalLessons}{" "}
@@ -166,7 +166,7 @@ export default function UserDashboard() {
               {currentCourse.lessons.map((lesson) => (
                 <div
                   key={lesson.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                  className={`flex min-w-0 flex-wrap items-center gap-3 p-3 rounded-xl transition-colors ${
                     lesson.status === "current"
                       ? "bg-[var(--primary-light)] border border-[#4F8EF7]/30"
                       : lesson.status === "completed"
@@ -223,7 +223,7 @@ export default function UserDashboard() {
           </Card>
 
           <Card>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-bold text-[var(--text)]">
                 Semua Kursus
               </h2>
@@ -289,7 +289,7 @@ export default function UserDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <Card>
             <h2 className="text-base font-bold text-[var(--text)] mb-4">
               Riwayat Kuis Terbaru
