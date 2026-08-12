@@ -39,6 +39,7 @@ export default function PortalHeader({
   subtitle,
   currentUser,
   onOpenSidebar,
+  onAccessibility,
   onLogout,
 }) {
   const navigate = useNavigate();
@@ -63,7 +64,9 @@ export default function PortalHeader({
     >
       <div className="flex items-center gap-3">
         <button
-          className={`lg:hidden ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+          type="button"
+          aria-label="Buka menu samping"
+          className={`lg:hidden w-11 h-11 flex items-center justify-center rounded-xl ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)] hover:bg-[var(--adm-surface-alt)]" : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-3)]"}`}
           onClick={onOpenSidebar}
         >
           <MenuIcon size={20} />
@@ -82,6 +85,15 @@ export default function PortalHeader({
             <span className="admin-system-dot" />
             <span>Sistem aktif</span>
           </div>
+
+          <button
+            type="button"
+            onClick={onAccessibility}
+            className="admin-a11y-button"
+            aria-label="Buka pengaturan aksesibilitas"
+          >
+            <SettingsIcon size={18} />
+          </button>
 
           <button
             type="button"
@@ -136,13 +148,22 @@ export default function PortalHeader({
         </div>
       ) : (
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAccessibility}
+            className="w-11 h-11 flex items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+            aria-label="Buka pengaturan aksesibilitas"
+          >
+            <SettingsIcon size={18} />
+          </button>
           <div className="relative">
             <button
               onClick={() => {
                 setNotifOpen(!notifOpen);
                 setProfileOpen(false);
               }}
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+              className="relative w-11 h-11 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+              data-focus-secondary="true"
               aria-label="Notifikasi"
             >
               <BellIcon size={18} />
@@ -189,7 +210,7 @@ export default function PortalHeader({
                 setProfileOpen(!profileOpen);
                 setNotifOpen(false);
               }}
-              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
+              className="min-h-11 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
               aria-label="Menu profil"
             >
               <div className="w-7 h-7 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
