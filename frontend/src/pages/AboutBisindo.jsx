@@ -12,7 +12,7 @@ export default function AboutBisindo() {
         </section>
         <section><h2 className="text-2xl font-bold">BISINDO dalam Kehidupan Sehari-hari</h2>
           <div className="mt-5 grid sm:grid-cols-2 gap-5">{[
-            ["Perkenalan","Halo • Nama • Saya • Kamu • Teman"],["Keluarga","Ayah • Ibu • Kakak • Adik • Keluarga"],["Emosi","Senang • Sedih • Marah • Takut • Lelah"],["Kebutuhan Sehari-hari","Makan • Minum • Tidur • Toilet • Tolong • Sakit"]
+            ["Perkenalan","Halo, Nama, Saya, Kamu, Teman"],["Keluarga","Ayah, Ibu, Kakak, Adik, Keluarga"],["Emosi","Senang, Sedih, Marah, Takut, Lelah"],["Kebutuhan Sehari-hari","Makan, Minum, Tidur, Toilet, Tolong, Sakit"]
           ].map(([h,p])=><article key={h} className="rounded-2xl border p-6"><h3 className="text-lg font-bold">{h}</h3><p className="mt-2 leading-7">{p}</p></article>)}</div>
           <p className="mt-5 leading-7">Dengan mempelajari tanda dalam konteks yang familiar, anak memiliki kesempatan untuk menghubungkan pembelajaran dengan komunikasi sehari-hari.</p>
         </section>

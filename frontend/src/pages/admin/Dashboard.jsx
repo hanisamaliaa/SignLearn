@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, Badge } from "../../components/ui/ui";
 import {
   UsersIcon,
@@ -14,55 +14,92 @@ const STAT_CARDS = [
   {
     label: "Total Pengguna",
     key: "users",
-    color: "#4F8EF7",
-    soft: "#EAF3FF",
+    color: "var(--adm-blue)",
+    soft: "var(--adm-blue-soft)",
     icon: UsersIcon,
     helper: "pengguna terdaftar",
   },
   {
     label: "Total Kursus",
     key: "courses",
-    color: "#FFC857",
-    soft: "#FFF7D8",
+    color: "var(--adm-yellow)",
+    soft: "var(--adm-yellow-soft)",
     icon: BookIcon,
     helper: "semua kursus",
   },
   {
     label: "Total Pelajaran",
     key: "lessons",
-    color: "#F2606B",
-    soft: "#FFE9EB",
+    color: "var(--adm-coral)",
+    soft: "var(--adm-coral-soft)",
     icon: ChartIcon,
     helper: "materi belajar",
   },
   {
     label: "Kuis Diselesaikan",
     key: "quizzes",
-    color: "#4F8EF7",
-    soft: "#EAF3FF",
+    color: "var(--adm-purple)",
+    soft: "var(--adm-purple-soft)",
     icon: TrophyIcon,
     helper: "oleh seluruh pengguna",
   },
 ];
 
 const SUMMARY = [
-  { label: "Pengguna Aktif", value: (users) => users, color: "#4F8EF7", soft: "#EAF3FF" },
-  { label: "Rata-rata Skor Kuis", value: () => "78%", color: "#FFC857", soft: "#FFF7D8" },
-  { label: "Tingkat Penyelesaian", value: () => "64%", color: "#F2606B", soft: "#FFE9EB" },
+  { label: "Pengguna Aktif", value: (users) => users, color: "var(--adm-blue)", soft: "var(--adm-blue-soft)" },
+  { label: "Rata-rata Skor Kuis", value: () => "78%", color: "var(--adm-yellow)", soft: "var(--adm-yellow-soft)" },
+  { label: "Tingkat Penyelesaian", value: () => "64%", color: "var(--adm-coral)", soft: "var(--adm-coral-soft)" },
 ];
 
 const CATEGORY_PROGRESS = [
-  { label: "Alfabet", value: 67, color: "#4F8EF7" },
-  { label: "Angka", value: 40, color: "#FFC857" },
-  { label: "Sapaan", value: 0, color: "#F2606B" },
-  { label: "Keluarga", value: 0, color: "#4F8EF7" },
+  { label: "Alfabet", value: 67, color: "var(--adm-blue)" },
+  { label: "Angka", value: 40, color: "var(--adm-yellow)" },
+  { label: "Sapaan", value: 0, color: "var(--adm-coral)" },
+  { label: "Keluarga", value: 0, color: "var(--adm-purple)" },
 ];
 
-function StatCardKids({ card, value }) {
+function useCountUp(target, duration = 900) {
+  const [display, setDisplay] = useState(0);
+  const numericTarget = typeof target === "number" ? target : parseInt(target, 10);
+  const isNumeric = !Number.isNaN(numericTarget);
+  const startRef = useRef(null);
+
+  useEffect(() => {
+    if (!isNumeric) return undefined;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(numericTarget);
+      return undefined;
+    }
+    startRef.current = null;
+    let frame;
+    const step = (timestamp) => {
+      if (startRef.current === null) startRef.current = timestamp;
+      const progress = Math.min(1, (timestamp - startRef.current) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * numericTarget));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [numericTarget, isNumeric, duration]);
+
+  if (!isNumeric) return target;
+  return display.toLocaleString("id-ID");
+}
+
+function AnimatedValue({ value }) {
+  const display = useCountUp(value);
+  return <>{display}</>;
+}
+
+function StatCardKids({ card, value, index = 0 }) {
   const Icon = card.icon;
 
   return (
-    <div className="admin-stat-card group">
+    <div
+      className="admin-stat-card group"
+      style={{ "--card-accent": card.color, "--adm-i": index }}
+    >
       <div
         className="admin-stat-orb"
         style={{ background: card.soft }}
@@ -77,7 +114,9 @@ function StatCardKids({ card, value }) {
         </div>
 
         <p className="admin-stat-label">{card.label}</p>
-        <p className="admin-stat-value">{value}</p>
+        <p className="admin-stat-value">
+          <AnimatedValue value={value} />
+        </p>
         <p className="admin-stat-helper">{card.helper}</p>
       </div>
     </div>
@@ -85,7 +124,13 @@ function StatCardKids({ card, value }) {
 }
 
 function UserAvatar({ initials, index = 0 }) {
-  const colors = ["#4F8EF7", "#F2606B", "#FFC857", "#7CCB8A", "#7D6BF2"];
+  const colors = [
+    "var(--adm-blue)",
+    "var(--adm-coral)",
+    "var(--adm-yellow)",
+    "var(--adm-green)",
+    "var(--adm-purple)",
+  ];
   return (
     <div
       className="admin-avatar"
@@ -108,7 +153,7 @@ function ProgressRow({ label, value, color }) {
       <div className="admin-progress-track">
         <div
           className="admin-progress-fill"
-          style={{ width: `${value}%`, background: color }}
+          style={{ "--fill": `${value}%`, background: color }}
         />
       </div>
     </div>
@@ -153,16 +198,16 @@ function GrowthChart({ totalUsers }) {
             x2="622"
             y1={y}
             y2={y}
-            stroke="#E7EEF6"
+            stroke="var(--adm-border-soft)"
             strokeWidth="1"
           />
         ))}
 
-        <polygon points={area} fill="#DDEAFF" opacity="0.9" />
+        <polygon points={area} fill="var(--adm-blue-soft)" opacity="0.9" />
         <polyline
           points={line}
           fill="none"
-          stroke="#4F8EF7"
+          stroke="var(--adm-blue)"
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -171,13 +216,16 @@ function GrowthChart({ totalUsers }) {
         {coords.map((point, index) => (
           <g key={index}>
             <circle
+              className="admin-chart-point"
               cx={point.x}
               cy={point.y}
               r="6"
-              fill="#FFC857"
-              stroke="#4F8EF7"
+              fill="var(--adm-yellow)"
+              stroke="var(--adm-blue)"
               strokeWidth="3"
-            />
+            >
+              <title>{`${points[index]} pengguna`}</title>
+            </circle>
           </g>
         ))}
       </svg>
@@ -217,17 +265,18 @@ export default function AdminDashboard() {
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        {STAT_CARDS.map((card) => (
+        {STAT_CARDS.map((card, index) => (
           <StatCardKids
             key={card.key}
             card={card}
             value={statValues[card.key]}
+            index={index}
           />
         ))}
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {SUMMARY.map((item) => {
+        {SUMMARY.map((item, index) => {
           const value =
             item.label === "Pengguna Aktif"
               ? item.value(activeUsers)
@@ -237,11 +286,13 @@ export default function AdminDashboard() {
             <div
               key={item.label}
               className="admin-mini-card"
-              style={{ "--mini-soft": item.soft, "--mini-color": item.color }}
+              style={{ "--mini-soft": item.soft, "--mini-color": item.color, "--adm-i": index }}
             >
               <div className="admin-mini-dot" />
               <div>
-                <p className="admin-mini-value">{value}</p>
+                <p className="admin-mini-value">
+                  <AnimatedValue value={value} />
+                </p>
                 <p className="admin-mini-label">{item.label}</p>
                 {item.label === "Pengguna Aktif" && (
                   <p className="admin-mini-helper">
@@ -426,7 +477,9 @@ export default function AdminDashboard() {
                             style={{
                               width: `${completion}%`,
                               background:
-                                completion >= 60 ? "#4F8EF7" : "#FFC857",
+                                completion >= 60
+                                  ? "var(--adm-blue)"
+                                  : "var(--adm-yellow)",
                             }}
                           />
                         </div>

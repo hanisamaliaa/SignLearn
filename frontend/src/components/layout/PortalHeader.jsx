@@ -5,9 +5,12 @@ import {
   ChevronDownIcon,
   LogoutIcon,
   MenuIcon,
+  MoonIcon,
   SettingsIcon,
+  SunIcon,
   UserIcon,
 } from "../ui/Icons";
+import { useTheme } from "../../context/ThemeContext";
 
 const NOTIFICATIONS = [
   {
@@ -41,6 +44,8 @@ export default function PortalHeader({
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const userInitial =
     currentUser?.profile?.avatar ||
@@ -52,31 +57,44 @@ export default function PortalHeader({
     <header
       className={`h-20 ${
         variant === "admin"
-          ? "bg-[#EEF7FF]"
+          ? "admin-header"
           : "bg-[var(--header-bg)] border-b border-[var(--border)]"
       } flex items-center justify-between px-5 sm:px-6 xl:px-8 flex-shrink-0`}
     >
       <div className="flex items-center gap-3">
         <button
-          className="lg:hidden text-[var(--text-muted)] hover:text-[var(--text)]"
+          className={`lg:hidden ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
           onClick={onOpenSidebar}
         >
           <MenuIcon size={20} />
         </button>
         <div>
-          <h1 className={`text-base font-extrabold ${variant === "admin" ? "text-[#15202B]" : "text-[var(--text)]"}`}>
+          <h1 className={`text-base font-extrabold ${variant === "admin" ? "admin-header-title" : "text-[var(--text)]"}`}>
             {title}
           </h1>
-          <p className="text-xs text-[var(--text-subtle)]">{subtitle}</p>
+          <p className={`text-xs ${variant === "admin" ? "text-[var(--adm-text-subtle)]" : "text-[var(--text-subtle)]"}`}>{subtitle}</p>
         </div>
       </div>
 
       {variant === "admin" ? (
         <div className="flex items-center gap-3">
-          <div className="admin-system-status" aria-label="Status sistem">
+          <div className="admin-system-status hidden md:inline-flex" aria-label="Status sistem">
             <span className="admin-system-dot" />
             <span>Sistem aktif</span>
           </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDark}
+            aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="admin-theme-toggle"
+          >
+            <span className="admin-theme-toggle-thumb">
+              {isDark ? <MoonIcon size={14} /> : <SunIcon size={14} />}
+            </span>
+          </button>
 
           <div className="relative">
             <button
@@ -88,27 +106,27 @@ export default function PortalHeader({
               aria-label="Menu profil admin"
             >
               <span className="admin-header-avatar">{userInitial}</span>
-              <span className="text-sm font-extrabold text-[#26384D] hidden sm:block">
+              <span className="admin-profile-name text-sm font-extrabold hidden sm:block">
                 {firstName}
               </span>
-              <ChevronDownIcon size={14} className="text-[#8B9AAA]" />
+              <ChevronDownIcon size={14} className="text-[var(--adm-text-subtle)]" />
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-[#E7EEF6] z-50 overflow-hidden">
+              <div className="admin-dropdown absolute right-0 top-12 w-48 rounded-2xl z-50 overflow-hidden">
                 <button
                   onClick={() => {
                     navigate("/admin/settings");
                     setProfileOpen(false);
                   }}
-                  className="w-full text-left px-4 py-3 text-sm font-bold text-[#26384D] hover:bg-[#EAF3FF] flex items-center gap-2"
+                  className="admin-dropdown-item w-full text-left px-4 py-3 text-sm font-bold flex items-center gap-2"
                 >
                   <SettingsIcon size={15} /> Pengaturan
                 </button>
-                <div className="border-t border-[#E7EEF6]" />
+                <div className="admin-dropdown-divider border-t" />
                 <button
                   onClick={onLogout}
-                  className="w-full text-left px-4 py-3 text-sm font-bold text-[#E94F55] hover:bg-[#FFF0F1] flex items-center gap-2"
+                  className="admin-dropdown-danger w-full text-left px-4 py-3 text-sm font-bold flex items-center gap-2"
                 >
                   <LogoutIcon size={15} /> Keluar
                 </button>

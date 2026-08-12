@@ -252,10 +252,12 @@ export const StarIcon = ({ size = 20, className = "", filled = false }) => (
 
 export const TrophyIcon = icon(
   <>
-    <polyline points="8 21 12 17 16 21" />
-    <line x1="12" y1="17" x2="12" y2="11" />
-    <path d="M7 4H4v7a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5V4h-3" />
-    <line x1="7" y1="4" x2="17" y2="4" />
+    <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" />
+    <path d="M8 5H5a2 2 0 0 0 0 4h1.2" />
+    <path d="M16 5h3a2 2 0 0 1 0 4h-1.2" />
+    <path d="M10 13v2a2 2 0 0 0 4 0v-2" />
+    <line x1="9" y1="21" x2="15" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
   </>,
 );
 
@@ -401,4 +403,15 @@ export const MailIcon = icon(
     <rect x="2" y="4" width="20" height="16" rx="2" />
     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </>,
+);
+
+export const SunIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="4.4" />
+    <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7" />
+  </>,
+);
+
+export const MoonIcon = icon(
+  <path d="M20.5 14.3A8.4 8.4 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8Z" />,
 );

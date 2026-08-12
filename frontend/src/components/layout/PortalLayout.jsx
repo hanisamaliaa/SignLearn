@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { adminNavItems, userNavItems } from "../../config/navigation";
@@ -9,6 +9,27 @@ export default function PortalLayout({ variant }) {
   const { pathname } = useLocation();
   const { logout, currentUser } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const collapseStorageKey = `signlearn-sidebar-collapsed-${variant}`;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(collapseStorageKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        collapseStorageKey,
+        sidebarCollapsed ? "1" : "0",
+      );
+    } catch {
+      // ignore storage errors (e.g. private browsing)
+    }
+  }, [sidebarCollapsed, collapseStorageKey]);
 
   const navItems = (variant === "admin" ? adminNavItems : userNavItems).filter(
     (item) => !item.roles || item.roles.includes(currentUser?.role),
@@ -25,7 +46,7 @@ export default function PortalLayout({ variant }) {
   return (
     <div
       className={`flex h-screen ${
-        variant === "admin" ? "bg-[#EEF7FF] admin-portal" : "bg-[var(--bg)]"
+        variant === "admin" ? "admin-portal" : "bg-[var(--bg)]"
       } overflow-hidden`}
     >
       {sidebarOpen && (
@@ -40,6 +61,9 @@ export default function PortalLayout({ variant }) {
         sidebarOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onLogout={logout}
+        currentUser={currentUser}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <PortalHeader
