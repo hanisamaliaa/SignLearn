@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LogoutIcon, XIcon } from "../ui/Icons";
+import { ChevronRightIcon, LogoutIcon, XIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
 
 export default function PortalSidebar({
@@ -9,38 +9,60 @@ export default function PortalSidebar({
   sidebarOpen,
   onClose,
   onLogout,
+  collapsed = false,
+  onToggleCollapse,
 }) {
   const userLabel = "Menu";
 
   const logoutClass =
     variant === "admin"
-      ? "text-[#E94F55] hover:bg-[#FFF0F1] hover:text-[#C83D45]"
+      ? "admin-logout-link"
       : "text-[#E74C3C] hover:bg-[var(--danger-light)]";
 
   return (
     <aside
+      data-collapsed={collapsed ? "true" : "false"}
       className={`fixed lg:relative z-30 flex flex-col h-full w-64 ${
+        collapsed ? "lg:w-20" : ""
+      } ${
         variant === "admin"
-          ? "bg-white border-r border-[#E7EEF6]"
+          ? "admin-sidebar"
           : "bg-[var(--sidebar-bg)] border-r border-[var(--border)]"
-      } transition-transform duration-300 ${
+      } transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}
     >
+      {variant === "admin" && onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="admin-sidebar-collapse-btn hidden lg:grid"
+          aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+          aria-expanded={!collapsed}
+        >
+          <ChevronRightIcon
+            size={13}
+            className={`transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`}
+          />
+        </button>
+      )}
+
       <div
-        className={`flex items-center justify-between h-16 px-5 border-b ${
-          variant === "admin" ? "border-[#E7EEF6]" : "border-[var(--border)]"
+        className={`flex items-center h-16 px-5 border-b ${
+          collapsed ? "lg:justify-center lg:px-2" : "justify-between"
+        } ${
+          variant === "admin" ? "admin-sidebar-border" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
-        <div className="flex min-w-0 items-center gap-2">
+        <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
           <BrandLogo className="portal-brand" />
         </div>
         <button
-          className={
+          className={`${
             variant === "admin"
-              ? "lg:hidden text-[#53636F]"
+              ? "lg:hidden text-[var(--adm-text-muted)]"
               : "lg:hidden text-[var(--text-muted)]"
-          }
+          } ${collapsed ? "lg:hidden" : ""}`}
           onClick={onClose}
         >
           <XIcon size={18} />
@@ -57,16 +79,15 @@ export default function PortalSidebar({
                   key={item.page}
                   to={item.path}
                   onClick={onClose}
+                  title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
-                      isActive
-                        ? "bg-[#FFD166] text-[#26384D] shadow-[0_8px_18px_rgba(255,209,102,0.24)]"
-                        : "text-[#53636F] hover:bg-[#F2F8FF] hover:text-[#1677C8]"
-                    }`
+                    `admin-nav-link w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                      collapsed ? "lg:justify-center lg:px-0" : ""
+                    } ${isActive ? "is-active" : ""}`
                   }
                 >
-                  <Icon size={18} />
-                  <span>{item.label}</span>
+                  <Icon size={18} className="flex-shrink-0" />
+                  <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
                 </NavLink>
               );
             })}
@@ -109,17 +130,14 @@ export default function PortalSidebar({
 
       <div
         className={`p-4 border-t ${
-          variant === "admin" ? "border-[#E7EEF6]" : "border-[var(--border)]"
+          variant === "admin" ? "admin-sidebar-border" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
-        <div className="flex items-center gap-3 mb-3">
-          {/* <div className="w-9 h-9 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-            {avatarInitial}
-          </div> */}
+        <div className={`flex items-center gap-3 mb-3 ${collapsed ? "lg:hidden" : ""}`}>
           <div className="min-w-0">
             <p
               className={`text-sm font-semibold truncate ${
-                variant === "admin" ? "text-[#15202B]" : "text-[var(--text)]"
+                variant === "admin" ? "admin-sidebar-name" : "text-[var(--text)]"
               }`}
             >
               {currentUser?.name}
@@ -127,7 +145,7 @@ export default function PortalSidebar({
             <p
               className={`text-xs truncate ${
                 variant === "admin"
-                  ? "text-[#8B9AAA]"
+                  ? "admin-sidebar-email"
                   : "text-[var(--text-subtle)]"
               }`}
             >
@@ -137,10 +155,13 @@ export default function PortalSidebar({
         </div>
         <button
           onClick={onLogout}
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${logoutClass}`}
+          title={collapsed ? "Keluar" : undefined}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${logoutClass} ${
+            collapsed ? "lg:justify-center lg:px-0" : ""
+          }`}
         >
-          <LogoutIcon size={16} />
-          Keluar
+          <LogoutIcon size={16} className="flex-shrink-0" />
+          <span className={collapsed ? "lg:hidden" : ""}>Keluar</span>
         </button>
       </div>
     </aside>

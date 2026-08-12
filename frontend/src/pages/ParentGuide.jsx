@@ -29,10 +29,10 @@ export default function ParentGuide() {
         <section><h2 className="text-2xl font-bold">Hubungkan dengan Kehidupan Sehari-hari</h2>
           <div className="mt-5 grid sm:grid-cols-2 gap-5">
             {[
-              ["Perkenalan","Halo • Nama • Saya • Kamu • Teman","Gunakan saat menyapa, memperkenalkan nama, atau bertemu teman."],
-              ["Keluarga","Ayah • Ibu • Kakak • Adik • Keluarga","Gunakan ketika berbicara tentang anggota keluarga di rumah."],
-              ["Emosi","Senang • Sedih • Marah • Takut • Lelah","Bantu anak menyampaikan apa yang sedang mereka rasakan."],
-              ["Kebutuhan Sehari-hari","Makan • Minum • Tidur • Toilet • Tolong • Sakit","Gunakan untuk membantu anak menyampaikan kebutuhan mereka."]
+              ["Perkenalan","Halo, Nama, Saya, Kamu, Teman","Gunakan saat menyapa, memperkenalkan nama, atau bertemu teman."],
+              ["Keluarga","Ayah, Ibu, Kakak, Adik, Keluarga","Gunakan ketika berbicara tentang anggota keluarga di rumah."],
+              ["Emosi","Senang, Sedih, Marah, Takut, Lelah","Bantu anak menyampaikan apa yang sedang mereka rasakan."],
+              ["Kebutuhan Sehari-hari","Makan, Minum, Tidur, Toilet, Tolong, Sakit","Gunakan untuk membantu anak menyampaikan kebutuhan mereka."]
             ].map(([h,s,p])=><article key={h} className="rounded-2xl border p-6"><h3 className="text-lg font-bold">{h}</h3><p className="mt-2 font-semibold">{s}</p><p className="mt-2 leading-7">{p}</p></article>)}
           </div>
         </section>
