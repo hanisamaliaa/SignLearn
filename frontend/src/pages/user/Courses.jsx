@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Card, Button, Badge, ProgressBar } from "../../components/ui/ui";
+import { Badge, Button, Card, ProgressBar } from "../../components/ui/ui";
 import {
-  LockIcon,
-  CheckCircleIcon,
   ArrowRightIcon,
+  BookIcon,
+  CheckCircleIcon,
+  LockIcon,
   SearchIcon,
+  TrophyIcon,
 } from "../../components/ui/Icons";
 
 const LEVELS = ["Semua", "Pemula", "Menengah", "Lanjutan"];
@@ -17,288 +19,281 @@ export default function Courses() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Semua");
 
-  const COURSES = courses;
+  const COURSES = courses || [];
 
-  const SUMMARY = [
+  const summary = useMemo(() => [
     {
-      label: "Kursus Tersedia",
-      value: COURSES.filter((c) => !c.isLocked).length,
-      color: "#4F8EF7",
+      label: "Kursus",
+      value: COURSES.filter((course) => !course.isLocked).length,
+      helper: "tersedia untukmu",
+      tone: "pink",
+      icon: <BookIcon size={21} />,
     },
     {
-      label: "Sedang Dipelajari",
-      value: COURSES.filter(
-        (c) =>
-          !c.isLocked &&
-          c.completedLessons > 0 &&
-          c.completedLessons < c.totalLessons,
-      ).length,
-      color: "#F4B400",
+      label: "Belajar",
+      value: COURSES.filter((course) => !course.isLocked && course.completedLessons > 0 && course.completedLessons < course.totalLessons).length,
+      helper: "sedang dipelajari",
+      tone: "blue",
+      icon: <BookIcon size={21} />,
     },
     {
-      label: "Kursus Selesai",
-      value: COURSES.filter((c) => c.completedLessons === c.totalLessons)
-        .length,
-      color: "#2ECC71",
+      label: "Selesai",
+      value: COURSES.filter((course) => course.totalLessons > 0 && course.completedLessons === course.totalLessons).length,
+      helper: "kursus selesai",
+      tone: "green",
+      icon: <TrophyIcon size={21} />,
     },
-  ];
+  ], [COURSES]);
 
-  const filtered = COURSES.filter((c) => {
-    const matchSearch =
-      c.title.toLowerCase().includes(search.toLowerCase()) ||
-      c.category.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "Semua" || c.level === filter;
-    return matchSearch && matchFilter;
-  });
+  // Keep filtering compatible with the original course data.
+  // Some course records can omit optional text fields, so normalize them
+  // before calling toLowerCase(). This prevents the filter buttons from
+  // crashing the page when a record is incomplete.
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("id-ID");
 
-  const unlocked = filtered.filter((c) => !c.isLocked);
-  const locked = filtered.filter((c) => c.isLocked);
+    return COURSES.filter((course) => {
+      const title = String(course?.title ?? "").toLocaleLowerCase("id-ID");
+      const category = String(course?.category ?? "").toLocaleLowerCase("id-ID");
+      const description = String(course?.description ?? "").toLocaleLowerCase("id-ID");
+      const level = String(course?.level ?? "").trim();
 
-  function getProgress(course) {
-    if (course.totalLessons === 0) return 0;
-    return Math.round((course.completedLessons / course.totalLessons) * 100);
-  }
+      const matchSearch =
+        !query ||
+        title.includes(query) ||
+        category.includes(query) ||
+        description.includes(query);
 
-  function getStatusInfo(course) {
-    if (course.isLocked) {
-      return {
-        label: "Terkunci",
-        variant: "muted",
-        icon: <LockIcon size={12} />,
-      };
-    }
-    if (course.completedLessons === course.totalLessons) {
-      return {
-        label: "Selesai",
-        variant: "success",
-        icon: <CheckCircleIcon size={12} />,
-      };
-    }
-    if (course.completedLessons > 0) {
-      return { label: "Sedang Berjalan", variant: "primary", icon: null };
-    }
-    return { label: "Belum Mulai", variant: "outline", icon: null };
-  }
+      // Preserve the original behavior: a selected level only shows
+      // courses that actually belong to that level.
+      const matchLevel = filter === "Semua" || level === filter;
+
+      return matchSearch && matchLevel;
+    });
+  }, [COURSES, search, filter]);
+
+  const available = filtered.filter((course) => !course.isLocked);
+  const locked = filtered.filter((course) => course.isLocked);
+
+  const getProgress = (course) => course.totalLessons ? Math.round((course.completedLessons / course.totalLessons) * 100) : 0;
+
+  const openCourse = (course) => {
+    if (course.isLocked) return;
+    setSelectedCourse(course.id);
+    navigate("/course-detail");
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-[var(--text)]">
-          Katalog Kursus
-        </h1>
-        <p className="text-[var(--text-muted)] mt-1">
-          Pelajari Bahasa Isyarat Indonesia (BISINDO) secara terstruktur
-        </p>
-      </div>
-
-      <Card padding="sm">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <SearchIcon
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]"
-            />
-            <input
-              type="text"
-              placeholder="Cari kursus atau kategori..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border)] text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] outline-none focus:border-[#4F8EF7] focus:ring-2 focus:ring-[#4F8EF7]/20 bg-[var(--surface)]"
-            />
-          </div>
-          <div className="flex gap-2">
-            {LEVELS.map((l) => (
-              <button
-                key={l}
-                onClick={() => setFilter(l)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  filter === l
-                    ? "bg-[#4F8EF7] text-white"
-                    : "bg-[var(--surface-3)] text-[var(--text-muted)] hover:bg-[#E2E8F0]"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+    <div className="courses-page space-y-7 animate-fade-in">
+      <section className="courses-intro">
+        <div>
+          <p className="courses-kicker">RUANG BELAJARMU</p>
+          <h1>Pilih pembelajaranmu!</h1>
+          <p>Temukan kursus BISINDO yang ingin kamu pelajari hari ini.</p>
         </div>
-      </Card>
+        <div className="courses-intro-progress">
+          <span>Progress hari ini</span>
+          <strong>3 / 4 Pelajaran</strong>
+          <div><span style={{ width: "75%" }} /></div>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-3 gap-4">
-        {SUMMARY.map((s) => (
-          <div
-            key={s.label}
-            className="p-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center"
-          >
-            <p className="text-2xl font-extrabold" style={{ color: s.color }}>
-              {s.value}
-            </p>
-            <p className="text-xs text-[var(--text-muted)] mt-1">{s.label}</p>
-          </div>
+      <section className="courses-tools" aria-label="Cari dan filter kursus">
+        <label className="courses-search">
+          <SearchIcon size={19} aria-hidden="true" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Cari kursus..."
+            aria-label="Cari kursus"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} aria-label="Hapus pencarian">×</button>
+          )}
+        </label>
+        <div className="courses-filters" role="group" aria-label="Filter tingkat kursus">
+          {LEVELS.map((level) => (
+            <button
+              key={level}
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                setFilter(level);
+              }}
+              className={filter === level ? "is-active" : ""}
+              aria-pressed={filter === level}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="courses-summary-grid" aria-label="Ringkasan kursus">
+        {summary.map((item) => (
+          <article key={item.label} className={`courses-summary-card ${item.tone}`}>
+            <span className="courses-summary-icon">{item.icon}</span>
+            <div>
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
+              <small>{item.helper}</small>
+            </div>
+          </article>
         ))}
-      </div>
+      </section>
 
-      {unlocked.length > 0 && (
-        <section>
-          <h2 className="text-lg font-bold text-[var(--text)] mb-4">
-            Kursus Tersedia
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {unlocked.map((course) => {
-              const status = getStatusInfo(course);
-              const pct = getProgress(course);
-              return (
-                <Card
-                  key={course.id}
-                  hover
-                  padding="none"
-                  className="overflow-hidden"
-                >
-                  <div className="relative">
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
-                      className="w-full h-44 object-cover"
-                    />
-                    <div className="absolute top-3 left-3">
-                      <Badge
-                        variant={
-                          course.level === "Pemula"
-                            ? "success"
-                            : course.level === "Menengah"
-                              ? "warning"
-                              : "primary"
+      <section>
+        <div className="courses-section-heading">
+          <div>
+            <h2>Pelajaran Untukmu</h2>
+            <p>{filtered.length} pilihan belajar ditemukan</p>
+          </div>
+          <button type="button" onClick={() => { setSearch(""); setFilter("Semua"); }} className="courses-reset">Lihat semua <ArrowRightIcon size={15} /></button>
+        </div>
+
+        {filtered.length > 0 ? (
+          <>
+            {available.length > 0 ? (
+              <div className="courses-card-grid">
+                {available.map((course) => {
+                  const progress = getProgress(course);
+                  const finished = progress === 100;
+                  return (
+                    <article
+                      key={course.id}
+                      className="course-kids-card"
+                      tabIndex={0}
+                      onClick={() => openCourse(course)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openCourse(course);
                         }
-                      >
-                        {course.level}
-                      </Badge>
-                    </div>
-                    {course.completedLessons === course.totalLessons &&
-                      course.totalLessons > 0 && (
-                        <div className="absolute top-3 right-3 w-8 h-8 bg-[#2ECC71] rounded-full flex items-center justify-center">
-                          <CheckCircleIcon size={16} className="text-white" />
-                        </div>
-                      )}
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between mb-1.5">
-                      <h3 className="font-bold text-[var(--text)]">
-                        {course.title}
-                      </h3>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mb-3 line-clamp-2">
-                      {course.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-[var(--text-subtle)] mb-3">
-                      <span>📖 {course.totalLessons} pelajaran</span>
-                      <span>⏱ {course.estimatedHours} jam</span>
-                    </div>
-                    {pct > 0 && (
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-[var(--text-muted)]">
-                            Progress
-                          </span>
-                          <span className="font-medium text-[var(--text)]">
-                            {pct}%
-                          </span>
-                        </div>
-                        <ProgressBar value={pct} max={100} />
-                      </div>
-                    )}
-                    <Button
-                      fullWidth
-                      variant={pct > 0 ? "primary" : "secondary"}
-                      size="sm"
-                      onClick={() => {
-                        setSelectedCourse(course.id);
-                        navigate("/course-detail");
                       }}
                     >
-                      {pct === 100
-                        ? "Lihat Detail"
-                        : pct > 0
-                          ? "Lanjutkan Belajar"
-                          : "Mulai Kursus"}
-                      <ArrowRightIcon size={14} />
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {locked.length > 0 && (
-        <section>
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-bold text-[var(--text)]">
-              Kursus Terkunci
-            </h2>
-            <div className="flex items-center gap-1.5 bg-[var(--warning-light)] text-[#E6A800] text-xs px-2.5 py-1 rounded-full font-medium">
-              <LockIcon size={11} />
-              Selesaikan kursus sebelumnya untuk membuka
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {locked.map((course) => (
-              <Card
-                key={course.id}
-                padding="none"
-                className="overflow-hidden opacity-70"
-              >
-                <div className="relative">
-                  <img
-                    src={course.thumbnail}
-                    alt={course.title}
-                    className="w-full h-44 object-cover grayscale"
-                  />
-                  <div className="absolute inset-0 bg-[#1A2332]/40 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-[var(--surface)]/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                      <LockIcon size={22} className="text-white" />
+                      <div className="course-kids-art">
+                        <img src={course.thumbnail} alt="" />
+                        <Badge
+                          variant={
+                            course.level === "Pemula"
+                              ? "success"
+                              : course.level === "Menengah"
+                                ? "warning"
+                                : "primary"
+                          }
+                        >
+                          {course.level}
+                        </Badge>
+                        {finished && (
+                          <span className="course-kids-complete">
+                            <CheckCircleIcon size={15} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="course-kids-body">
+                        <h3>{course.title}</h3>
+                        <p>{course.description}</p>
+                        <div className="course-kids-meta">
+                          <span>{course.totalLessons} Pelajaran</span>
+                          <span>{course.estimatedHours} jam</span>
+                        </div>
+                        {progress > 0 && (
+                          <div className="course-kids-progress">
+                            <ProgressBar value={progress} max={100} />
+                            <strong>{progress}%</strong>
+                          </div>
+                        )}
+                        <Button
+                          fullWidth
+                          variant={progress > 0 ? "primary" : "secondary"}
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openCourse(course);
+                          }}
+                        >
+                          {finished
+                            ? "Lihat Detail"
+                            : progress > 0
+                              ? "Lanjutkan"
+                              : "Mulai"}
+                          <ArrowRightIcon size={14} />
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="courses-card-grid">
+                {locked.map((course) => (
+                  <article key={course.id} className="course-kids-card is-locked">
+                    <div className="course-kids-art">
+                      <img src={course.thumbnail} alt="" />
+                      <Badge variant="muted">{course.level}</Badge>
+                      <span className="course-lock">
+                        <LockIcon size={20} />
+                      </span>
                     </div>
-                  </div>
-                  <div className="absolute top-3 left-3">
+                    <div className="course-kids-body">
+                      <h3>{course.title}</h3>
+                      <p>{course.description}</p>
+                      <div className="course-kids-meta">
+                        <span>{course.totalLessons} Pelajaran</span>
+                        <span>{course.estimatedHours} jam</span>
+                      </div>
+                      <div className="course-locked-note">
+                        <LockIcon size={14} /> Selesaikan kursus sebelumnya
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="courses-empty">
+            <SearchIcon size={28} />
+            <strong>Kursus tidak ditemukan</strong>
+            <span>Coba kata kunci lain atau pilih tingkat yang berbeda.</span>
+          </div>
+        )}
+
+        {available.length > 0 && locked.length > 0 && (
+          <section className="mt-7">
+            <div className="courses-section-heading">
+              <div>
+                <h2>Kursus Terkunci</h2>
+                <p>Selesaikan kursus sebelumnya untuk membukanya.</p>
+              </div>
+            </div>
+            <div className="courses-card-grid">
+              {locked.map((course) => (
+                <article key={course.id} className="course-kids-card is-locked">
+                  <div className="course-kids-art">
+                    <img src={course.thumbnail} alt="" />
                     <Badge variant="muted">{course.level}</Badge>
-                  </div>
-                </div>
-                <div className="p-5">
-                  <h3 className="font-bold text-[var(--text)] mb-1">
-                    {course.title}
-                  </h3>
-                  <p className="text-xs text-[var(--text-muted)] mb-3 line-clamp-2">
-                    {course.description}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-[var(--text-subtle)] mb-3">
-                    <span>📖 {course.totalLessons} pelajaran</span>
-                    <span>⏱ {course.estimatedHours} jam</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 bg-[var(--surface-2)] rounded-xl">
-                    <LockIcon size={14} className="text-[var(--text-subtle)]" />
-                    <span className="text-xs text-[var(--text-muted)]">
-                      Selesaikan kursus sebelumnya untuk membuka
+                    <span className="course-lock">
+                      <LockIcon size={20} />
                     </span>
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">🔍</div>
-          <p className="text-[var(--text)] font-semibold">
-            Kursus tidak ditemukan
-          </p>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Coba kata kunci lain atau ubah filter
-          </p>
-        </div>
-      )}
+                  <div className="course-kids-body">
+                    <h3>{course.title}</h3>
+                    <p>{course.description}</p>
+                    <div className="course-kids-meta">
+                      <span>{course.totalLessons} Pelajaran</span>
+                      <span>{course.estimatedHours} jam</span>
+                    </div>
+                    <div className="course-locked-note">
+                      <LockIcon size={14} /> Selesaikan kursus sebelumnya
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </section>
     </div>
   );
 }

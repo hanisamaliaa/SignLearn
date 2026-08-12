@@ -11,6 +11,7 @@ import {
   UserIcon,
 } from "../ui/Icons";
 import { useTheme } from "../../context/ThemeContext";
+import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
 const NOTIFICATIONS = [
   {
@@ -58,7 +59,7 @@ export default function PortalHeader({
       className={`h-20 ${
         variant === "admin"
           ? "admin-header"
-          : "bg-[var(--header-bg)] border-b border-[var(--border)]"
+          : "user-header"
       } flex items-center justify-between px-5 sm:px-6 xl:px-8 flex-shrink-0`}
     >
       <div className="flex items-center gap-3">
@@ -135,46 +136,23 @@ export default function PortalHeader({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="relative">
-            <button
-              onClick={() => {
-                setNotifOpen(!notifOpen);
-                setProfileOpen(false);
-              }}
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
-              aria-label="Notifikasi"
-            >
+            <button onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); }} className="user-header-icon" aria-label="Notifikasi">
               <BellIcon size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#E74C3C] rounded-full" />
+              <span className="user-header-notif-dot" />
             </button>
-
             {notifOpen && (
-              <div className="absolute right-0 top-11 w-80 bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] z-50 animate-fade-in overflow-hidden">
-                <div className="px-4 py-3 border-b border-[var(--border)]">
-                  <p className="font-semibold text-sm text-[var(--text)]">
-                    Notifikasi
-                  </p>
-                </div>
+              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl">
+                <div className="border-b border-[var(--border)] px-4 py-3"><p className="text-sm font-semibold text-[var(--text)]">Notifikasi</p></div>
                 {NOTIFICATIONS.map((item, index) => (
-                  <div
-                    key={`${item.title}-${index}`}
-                    className={`px-4 py-3 border-b border-[var(--border-light)] last:border-0 ${item.unread ? "bg-[var(--surface-2)]" : ""}`}
-                  >
+                  <div key={`${item.title}-${index}`} className={`border-b border-[var(--border-light)] px-4 py-3 last:border-0 ${item.unread ? "bg-[var(--surface-2)]" : ""}`}>
                     <div className="flex items-start gap-2">
-                      {item.unread && (
-                        <div className="w-2 h-2 bg-[#4F8EF7] rounded-full mt-1 flex-shrink-0" />
-                      )}
+                      {item.unread && <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#4F8EF7]" />}
                       <div className={item.unread ? "" : "ml-4"}>
-                        <p className="text-sm font-medium text-[var(--text)]">
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                          {item.body}
-                        </p>
-                        <p className="text-xs text-[var(--text-subtle)] mt-1">
-                          {item.time}
-                        </p>
+                        <p className="text-sm font-medium text-[var(--text)]">{item.title}</p>
+                        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{item.body}</p>
+                        <p className="mt-1 text-xs text-[var(--text-subtle)]">{item.time}</p>
                       </div>
                     </div>
                   </div>
@@ -182,55 +160,18 @@ export default function PortalHeader({
               </div>
             )}
           </div>
-
           <div className="relative">
-            <button
-              onClick={() => {
-                setProfileOpen(!profileOpen);
-                setNotifOpen(false);
-              }}
-              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
-              aria-label="Menu profil"
-            >
-              <div className="w-7 h-7 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                {userInitial}
-              </div>
-              <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
-                {firstName}
-              </span>
-              <ChevronDownIcon
-                size={14}
-                className="text-[var(--text-subtle)]"
-              />
+            <button onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} className="user-header-profile" aria-label="Menu profil">
+              <SignLearnAvatar id={currentUser?.profile?.avatar} size="sm" />
+              <span className="user-header-profile-name hidden sm:block">{firstName}</span>
+              <ChevronDownIcon size={14} className="text-[var(--text-subtle)]" />
             </button>
-
             {profileOpen && (
-              <div className="absolute right-0 top-11 w-48 bg-[var(--surface)] rounded-2xl shadow-lg border border-[var(--border)] z-50 animate-fade-in overflow-hidden">
-                <button
-                  onClick={() => {
-                    navigate("/profile");
-                    setProfileOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] flex items-center gap-2"
-                >
-                  <UserIcon size={14} /> Profil
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/settings");
-                    setProfileOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] flex items-center gap-2"
-                >
-                  <SettingsIcon size={14} /> Pengaturan
-                </button>
+              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl">
+                <button onClick={() => { navigate("/profile"); setProfileOpen(false); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-2)]"><UserIcon size={14} /> Profil</button>
+                <button onClick={() => { navigate("/settings"); setProfileOpen(false); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-2)]"><SettingsIcon size={14} /> Pengaturan</button>
                 <div className="border-t border-[var(--border)]" />
-                <button
-                  onClick={onLogout}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[#E74C3C] hover:bg-[var(--danger-light)] flex items-center gap-2"
-                >
-                  <LogoutIcon size={14} /> Keluar
-                </button>
+                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[#E74C3C] hover:bg-[var(--danger-light)]"><LogoutIcon size={14} /> Keluar</button>
               </div>
             )}
           </div>

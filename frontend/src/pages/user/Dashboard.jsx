@@ -1,5 +1,7 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
+import { SignLearnAvatar } from "../../components/common/SignLearnAvatar";
 import {
   Card,
   Button,
@@ -12,14 +14,29 @@ import {
   TrophyIcon,
   FireIcon,
   ArrowRightIcon,
-  PlayIcon,
+  BookIcon,
+  ChartIcon,
   CheckCircleIcon,
+  FireIcon,
   LockIcon,
+  PlayIcon,
+  StarIcon,
+  TrophyIcon,
 } from "../../components/ui/Icons";
 
+const WEEK = [
+  { day: "Sen", value: 34, lessons: 1 },
+  { day: "Sel", value: 48, lessons: 2 },
+  { day: "Rab", value: 67, lessons: 3 },
+  { day: "Kam", value: 82, lessons: 4 },
+  { day: "Jum", value: 55, lessons: 2 },
+  { day: "Sab", value: 28, lessons: 1 },
+  { day: "Min", value: 18, lessons: 1 },
+];
+
 const PROFILE_LABEL = {
-  parent: "Orang Tua dengan Anak Tunarungu",
-  deaf: "Penyandang Tunarungu",
+  parent: "Orang Tua",
+  deaf: "Pelajar Tunarungu",
   general: "Pelajar Umum",
 };
 
@@ -34,6 +51,8 @@ export default function UserDashboard() {
     dashboard,
   } = useApp();
   const navigate = useNavigate();
+  const [showAllLessons, setShowAllLessons] = useState(false);
+  const [activeDay, setActiveDay] = useState(3);
 
   const COURSES = courses;
   const QUIZ_HISTORY = quizHistory;
@@ -55,10 +74,7 @@ export default function UserDashboard() {
 
   const passedQuizzes = QUIZ_HISTORY.filter((q) => q.passed);
   const avgScore = passedQuizzes.length
-    ? Math.round(
-        passedQuizzes.reduce((sum, q) => sum + q.score, 0) /
-          passedQuizzes.length,
-      )
+    ? Math.round(passedQuizzes.reduce((sum, quiz) => sum + quiz.score, 0) / passedQuizzes.length)
     : 0;
 
   /**
@@ -79,46 +95,52 @@ export default function UserDashboard() {
   }));
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Hero */}
-      <div className="bg-gradient-to-r from-[#4F8EF7] to-[#6C63FF] rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 flex items-center opacity-10">
-          <div className="text-9xl">🤟</div>
+    <div className="user-dashboard space-y-6 animate-fade-in">
+      <section className="user-dashboard-hero">
+        <div>
+          <p className="user-eyebrow">SIGNLEARN • AREA BELAJAR</p>
+          <h1 className="user-welcome-title">Hai, {firstName}! 👋</h1>
+          <p className="user-welcome-copy">Siap belajar bahasa isyarat hari ini?</p>
         </div>
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge
-              variant="primary"
-              className="bg-[var(--surface)]/20 text-white text-xs"
-            >
-              {currentUser?.profileType
-                ? PROFILE_LABEL[currentUser.profileType]
-                : "Pelajar"}
-            </Badge>
+        <button type="button" className="user-goal-pill" onClick={() => navigate("/progress")}>
+          <span className="user-goal-star">★</span>
+          <span><strong>Target harian</strong><small>3 / 4 pelajaran</small></span>
+        </button>
+      </section>
+
+      <section className="user-welcome-card">
+        <div className="user-welcome-decoration user-welcome-decoration-one" />
+        <div className="user-welcome-decoration user-welcome-decoration-two" />
+        <div className="user-welcome-card-content">
+          <div className="user-welcome-avatar-wrap">
+            <SignLearnAvatar id={currentUser?.profile?.avatar} size="xl" />
+            <span className="user-welcome-avatar-badge">★</span>
           </div>
-          <h1 className="text-2xl font-extrabold mb-1">
-            Halo, {currentUser?.name?.split(" ")[0]}! 👋
-          </h1>
-          <p className="text-white/80 text-sm mb-5">
-            Selamat datang kembali. Lanjutkan pelajaran Anda hari ini!
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="user-chip-row">
+              <span className="user-chip">{PROFILE_LABEL[currentUser?.profileType] || "Pelajar"}</span>
+              <span className="user-chip user-chip-green"><StarIcon size={13} /> {avgScore}% rata-rata kuis</span>
+            </div>
+            <h2>Wow, kamu hebat!</h2>
+            <p>Kamu sudah menyelesaikan <strong>{completedLessons} dari {totalLessons}</strong> pelajaran. Teruskan perjalananmu sampai level berikutnya.</p>
+            <div className="user-level-progress" role="progressbar" aria-label="Progress belajar keseluruhan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPct}>
+              <div className="user-level-progress-top"><span>Progress belajar</span><strong>{overallPct}%</strong></div>
+              <div className="user-level-track"><div style={{ width: `${overallPct}%` }} /></div>
+              <div className="user-level-labels"><span>Level {Math.max(1, Math.ceil(overallPct / 25))}</span><span>{Math.min(100, overallPct + 25)}% menuju level berikutnya</span></div>
+            </div>
+          </div>
           {currentLesson && (
-            <Button
-              variant="secondary"
-              className="bg-[var(--surface)] text-[var(--primary)] hover:bg-[#F0F7FF] shadow-md"
-              onClick={() => {
-                setSelectedCourse(currentCourse.id);
-                setSelectedLesson(currentLesson.id);
-                navigate("/lesson");
-              }}
-            >
-              <PlayIcon size={16} />
-              Lanjutkan: {currentLesson.title}
-              <ArrowRightIcon size={16} />
-            </Button>
+            <div className="user-hero-action">
+              <button type="button" className="user-primary-button" onClick={continueLearning}>
+                <span className="user-button-icon"><PlayIcon size={15} /></span>
+                Lanjutkan belajar
+                <ArrowRightIcon size={16} />
+              </button>
+              <span>Berikutnya: {currentLesson.title}</span>
+            </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -190,15 +212,6 @@ export default function UserDashboard() {
               showLabel
             />
 
-            {/*
-              Daftar pelajaran DIHAPUS dari kartu ini.
-
-              `GET /courses` sengaja tidak mengembalikan pelajaran per kursus —
-              menyertakannya berarti N+1 query hanya untuk merender satu
-              halaman. Yang dibutuhkan di sini cuma satu baris: pelajaran
-              berikutnya, dan itu sudah dihitung server sebagai
-              `continueLearning`. Daftar lengkapnya ada di halaman detail.
-            */}
             {resume && resume.courseId === currentCourse.id && (
               <div className="mt-4">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--primary-light)] border border-[#4F8EF7]/30">
@@ -229,149 +242,52 @@ export default function UserDashboard() {
           </Card>
           )}
 
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[var(--text)]">
-                Semua Kursus
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/courses")}
-              >
-                Lihat Semua <ArrowRightIcon size={14} />
-              </Button>
+      <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+        {currentCourse && (
+          <section className="user-panel user-course-panel">
+            <div className="user-panel-heading">
+              <div><p className="user-section-kicker">SEDANG DIPELAJARI</p><h3>{currentCourse.title}</h3><p>Pelan-pelan tidak apa-apa, yang penting terus jalan.</p></div>
+              <span className="user-level-pill">{currentCourse.level}</span>
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {COURSES.slice(0, 4).map((course) => (
-                <div
-                  key={course.id}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                    course.isLocked
-                      ? "border-[var(--border)] opacity-60"
-                      : "border-[var(--border)] hover:border-[#4F8EF7] hover:shadow-sm"
-                  }`}
-                  onClick={() => {
-                    if (!course.isLocked) {
-                      setSelectedCourse(course.id);
-                      navigate("/course-detail");
-                    }
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-[var(--surface-3)] rounded-xl overflow-hidden flex-shrink-0">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[var(--text)] truncate">
-                        {course.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-subtle)]">
-                        {course.totalLessons} pelajaran
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {course.isLocked ? (
-                          <div className="flex items-center gap-1 text-[var(--text-subtle)]">
-                            <LockIcon size={12} />
-                            <span className="text-xs">Terkunci</span>
-                          </div>
-                        ) : (
-                          <ProgressBar
-                            value={course.completedLessons}
-                            max={course.totalLessons}
-                            className="flex-1"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+            <div className="user-course-summary">
+              <img src={currentCourse.thumbnail} alt="" />
+              <div className="min-w-0 flex-1">
+                <div className="user-course-meta"><span>Progress kursus</span><strong>{currentCourse.completedLessons}/{currentCourse.totalLessons}</strong></div>
+                <div className="user-course-track"><span style={{ width: `${currentCourse.totalLessons ? (currentCourse.completedLessons / currentCourse.totalLessons) * 100 : 0}%` }} /></div>
+                <button type="button" onClick={() => { setSelectedCourse(currentCourse.id); navigate("/course-detail"); }} className="user-text-button">Lihat detail kursus <ArrowRightIcon size={14} /></button>
+              </div>
+            </div>
+            <div className="user-lesson-list">
+              {visibleLessons.map((lesson) => (
+                <div key={lesson.id} className={`user-lesson-row ${lesson.status === "current" ? "is-current" : ""}`}>
+                  <span className={`user-lesson-status ${lesson.status}`}>
+                    {lesson.status === "completed" ? <CheckCircleIcon size={15} /> : lesson.status === "current" ? <PlayIcon size={11} /> : <LockIcon size={13} />}
+                  </span>
+                  <div className="min-w-0 flex-1"><p>{lesson.title}</p><span>{lesson.duration}</span></div>
+                  {lesson.status === "current" && <button type="button" className="user-small-button" onClick={continueLearning}>Mulai</button>}
                 </div>
               ))}
             </div>
-          </Card>
-        </div>
+            {(currentCourse.lessons?.length || 0) > 5 && (
+              <button type="button" className="user-show-more" onClick={() => setShowAllLessons((value) => !value)}>{showAllLessons ? "Tampilkan lebih sedikit" : "Lihat semua pelajaran"}</button>
+            )}
+          </section>
+        )}
 
-        {/* Right column */}
         <div className="space-y-5">
-          <Card>
-            <h2 className="text-base font-bold text-[var(--text)] mb-4">
-              Riwayat Kuis Terbaru
-            </h2>
-            <div className="space-y-3">
-              {QUIZ_HISTORY.slice(0, 5).map((q) => (
-                <div key={q.id} className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                      q.passed
-                        ? "bg-[var(--success-light)] text-[#2ECC71]"
-                        : "bg-[var(--danger-light)] text-[#E74C3C]"
-                    }`}
-                  >
-                    {q.score}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[var(--text)] truncate">
-                      {q.lesson}
-                    </p>
-                    <p className="text-xs text-[var(--text-subtle)]">
-                      {q.date}
-                    </p>
-                  </div>
-                  <Badge variant={q.passed ? "success" : "danger"}>
-                    {q.passed ? "Lulus" : "Gagal"}
-                  </Badge>
+          <section className="user-panel">
+            <div className="user-panel-heading"><div><h3>Riwayat Kuis Terbaru</h3><p>Nilai terbaikmu layak dirayakan 🎉</p></div><span className="user-count-pill">{QUIZ_HISTORY.length} kuis</span></div>
+            <div className="space-y-2">
+              {QUIZ_HISTORY.slice(0, 5).map((quiz) => (
+                <div key={quiz.id} className="user-list-row">
+                  <span className={`user-score ${quiz.passed ? "passed" : "failed"}`}>{quiz.score}</span>
+                  <div className="min-w-0 flex-1"><p>{quiz.lesson}</p><span>{quiz.date}</span></div>
+                  <span className={`user-result-badge ${quiz.passed ? "passed" : "failed"}`}>{quiz.passed ? "Lulus" : "Ulangi"}</span>
                 </div>
               ))}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              fullWidth
-              className="mt-3"
-              onClick={() => navigate("/progress")}
-            >
-              Lihat Semua Riwayat
-            </Button>
-          </Card>
-
-          <Card>
-            <h2 className="text-base font-bold text-[var(--text)] mb-4">
-              Aktivitas Terbaru
-            </h2>
-            <div className="space-y-3">
-              {recentActivities.map((act) => (
-                <div key={act.id} className="flex items-start gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 mt-0.5 ${
-                      act.type === "quiz"
-                        ? "bg-[var(--warning-light)]"
-                        : act.type === "lesson"
-                          ? "bg-[var(--primary-light)]"
-                          : "bg-[var(--success-light)]"
-                    }`}
-                  >
-                    {act.type === "quiz"
-                      ? "📝"
-                      : act.type === "lesson"
-                        ? "📖"
-                        : "🎓"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[var(--text)] leading-relaxed">
-                      {act.action}
-                    </p>
-                    <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-                      {act.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+            <button type="button" className="user-full-button" onClick={() => navigate("/progress")}>Lihat semua riwayat <ArrowRightIcon size={14} /></button>
+          </section>
 
           <Card className="bg-gradient-to-br from-[#FF6B6B] to-[#E74C3C] text-white">
             <div className="flex items-center justify-between">
@@ -395,6 +311,31 @@ export default function UserDashboard() {
           </Card>
         </div>
       </div>
+
+      <section className="user-panel">
+        <div className="user-panel-heading"><div><h3>Semua Kursus</h3><p>Pilih petualangan belajar yang ingin kamu lanjutkan.</p></div><button type="button" className="user-text-button" onClick={() => navigate("/courses")}>Lihat semua <ArrowRightIcon size={14} /></button></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {COURSES.slice(0, 4).map((course) => (
+            <button key={course.id} type="button" disabled={course.isLocked} onClick={() => { if (!course.isLocked) { setSelectedCourse(course.id); navigate("/course-detail"); } }} className={`user-mini-course ${course.isLocked ? "is-locked" : ""}`}>
+              <div className="user-mini-course-image"><img src={course.thumbnail} alt="" />{!course.isLocked && <span>▶</span>}</div>
+              <div className="user-mini-course-body"><strong>{course.title}</strong><span>{course.totalLessons} pelajaran</span>{course.isLocked ? <em><LockIcon size={12} /> Terkunci</em> : <div className="user-mini-track"><span style={{ width: `${course.totalLessons ? (course.completedLessons / course.totalLessons) * 100 : 0}%` }} /></div>}</div>
+            </button>
+          ))}
+        </div>
+      </section>
+
     </div>
+  );
+}
+
+function UserStatCard({ label, value, helper, icon, tone }) {
+  return (
+    <article className={`user-stat-card ${tone}`}>
+      <span className="user-stat-orb" />
+      <span className="user-stat-icon">{icon}</span>
+      <p>{label}</p>
+      <strong>{value}</strong>
+      <small>{helper}</small>
+    </article>
   );
 }
