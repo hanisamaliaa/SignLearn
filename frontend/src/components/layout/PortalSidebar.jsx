@@ -58,7 +58,9 @@ export default function PortalSidebar({
           <BrandLogo className="portal-brand" />
         </div>
         <button
-          className={`${
+          type="button"
+          aria-label="Tutup menu samping"
+          className={`min-w-11 min-h-11 flex items-center justify-center rounded-xl ${
             variant === "admin"
               ? "lg:hidden text-[var(--adm-text-muted)]"
               : "lg:hidden text-[var(--text-muted)]"
@@ -154,6 +156,7 @@ export default function PortalSidebar({
           </div>
         </div>
         <button
+          type="button"
           onClick={onLogout}
           title={collapsed ? "Keluar" : undefined}
           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${logoutClass} ${

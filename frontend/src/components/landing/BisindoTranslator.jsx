@@ -15,6 +15,7 @@ import { useBisindoRecognition } from "../../hooks/useBisindoRecognition";
 import TranslationResult from "./TranslationResult";
 import TranslatorIntro from "./TranslatorIntro";
 import CameraPracticePanel from "./CameraPracticePanel";
+import { useAccessibility } from "../../context/AccessibilityContext";
 
 // These words come from the original SignLearn demo. The repository does not
 // currently include playable sign assets, so suggestions only populate input.
@@ -157,6 +158,7 @@ function PlayerErrorState({ onRetry, onShowSuggestions }) {
 
 function SignPlayer({ status, query, signs, onRetry, onShowSuggestions }) {
   const reducedMotion = useReducedMotion();
+  const { subtitles } = useAccessibility();
   const videoRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [speed, setSpeed] = useState(1);
@@ -206,7 +208,17 @@ function SignPlayer({ status, query, signs, onRetry, onShowSuggestions }) {
           {status === "success" && currentSign && (
           <motion.div key={currentSign.src} className="kids-sign-media" initial={reducedMotion ? false : { opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }}>
             {currentSign.type === "video" ? (
-              <video ref={videoRef} src={currentSign.src} playsInline onEnded={() => setPlaying(false)} />
+              <video ref={videoRef} src={currentSign.src} playsInline onEnded={() => setPlaying(false)} aria-label={`Gerakan BISINDO untuk ${currentSign.word}`}>
+                {currentSign.captionSrc && (
+                  <track
+                    kind="captions"
+                    src={currentSign.captionSrc}
+                    srcLang={currentSign.captionLanguage || "id"}
+                    label={currentSign.captionLabel || "Bahasa Indonesia"}
+                    default={subtitles}
+                  />
+                )}
+              </video>
             ) : (
               <img src={currentSign.src} alt={`Gerakan BISINDO untuk ${currentSign.word}`} />
             )}
