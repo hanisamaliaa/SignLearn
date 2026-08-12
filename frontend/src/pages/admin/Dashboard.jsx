@@ -1,235 +1,445 @@
-import { Card, Badge, StatCard } from "../../components/ui/ui";
+import { useMemo } from "react";
+import { Card, Badge } from "../../components/ui/ui";
 import {
   UsersIcon,
   BookIcon,
   ChartIcon,
   TrophyIcon,
+  PlusIcon,
+  ChevronUpIcon,
 } from "../../components/ui/Icons";
 import { MOCK_USERS_LIST, RECENT_ACTIVITIES, COURSES } from "../../data/mock";
 
-const SUMMARY = [
-  { label: "Pengguna Aktif", value: "", total: null, color: "#2ECC71" },
-  { label: "Rata-rata Skor Kuis", value: "78%", total: null, color: "#4F8EF7" },
+const STAT_CARDS = [
   {
-    label: "Tingkat Penyelesaian",
-    value: "64%",
-    total: null,
-    color: "#F4B400",
+    label: "Total Pengguna",
+    key: "users",
+    color: "#4F8EF7",
+    soft: "#EAF3FF",
+    icon: UsersIcon,
+    helper: "pengguna terdaftar",
+  },
+  {
+    label: "Total Kursus",
+    key: "courses",
+    color: "#FFC857",
+    soft: "#FFF7D8",
+    icon: BookIcon,
+    helper: "semua kursus",
+  },
+  {
+    label: "Total Pelajaran",
+    key: "lessons",
+    color: "#F2606B",
+    soft: "#FFE9EB",
+    icon: ChartIcon,
+    helper: "materi belajar",
+  },
+  {
+    label: "Kuis Diselesaikan",
+    key: "quizzes",
+    color: "#4F8EF7",
+    soft: "#EAF3FF",
+    icon: TrophyIcon,
+    helper: "oleh seluruh pengguna",
   },
 ];
 
-const TABLE_COLS = [
-  "Kursus",
-  "Kategori",
-  "Level",
-  "Pelajaran",
-  "Pendaftar",
-  "Penyelesaian",
+const SUMMARY = [
+  { label: "Pengguna Aktif", value: (users) => users, color: "#4F8EF7", soft: "#EAF3FF" },
+  { label: "Rata-rata Skor Kuis", value: () => "78%", color: "#FFC857", soft: "#FFF7D8" },
+  { label: "Tingkat Penyelesaian", value: () => "64%", color: "#F2606B", soft: "#FFE9EB" },
 ];
+
+const CATEGORY_PROGRESS = [
+  { label: "Alfabet", value: 67, color: "#4F8EF7" },
+  { label: "Angka", value: 40, color: "#FFC857" },
+  { label: "Sapaan", value: 0, color: "#F2606B" },
+  { label: "Keluarga", value: 0, color: "#4F8EF7" },
+];
+
+function StatCardKids({ card, value }) {
+  const Icon = card.icon;
+
+  return (
+    <div className="admin-stat-card group">
+      <div
+        className="admin-stat-orb"
+        style={{ background: card.soft }}
+        aria-hidden="true"
+      />
+      <div className="relative z-10">
+        <div
+          className="admin-stat-icon"
+          style={{ background: card.color }}
+        >
+          <Icon size={22} strokeWidth={2.2} />
+        </div>
+
+        <p className="admin-stat-label">{card.label}</p>
+        <p className="admin-stat-value">{value}</p>
+        <p className="admin-stat-helper">{card.helper}</p>
+      </div>
+    </div>
+  );
+}
+
+function UserAvatar({ initials, index = 0 }) {
+  const colors = ["#4F8EF7", "#F2606B", "#FFC857", "#7CCB8A", "#7D6BF2"];
+  return (
+    <div
+      className="admin-avatar"
+      style={{ background: colors[index % colors.length] }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function ProgressRow({ label, value, color }) {
+  return (
+    <div className="admin-progress-row">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold text-[var(--text)]">{label}</span>
+        <span className="text-sm font-extrabold" style={{ color }}>
+          {value}%
+        </span>
+      </div>
+      <div className="admin-progress-track">
+        <div
+          className="admin-progress-fill"
+          style={{ width: `${value}%`, background: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function GrowthChart({ totalUsers }) {
+  const points = useMemo(() => {
+    const base = Math.max(2, totalUsers - 6);
+    return [base, base + 1, base + 3, base + 5, totalUsers + 2];
+  }, [totalUsers]);
+
+  const max = Math.max(...points) + 2;
+  const min = Math.max(0, Math.min(...points) - 2);
+  const width = 640;
+  const height = 230;
+  const padX = 18;
+  const padY = 18;
+  const step = (width - padX * 2) / (points.length - 1);
+  const range = Math.max(1, max - min);
+
+  const coords = points.map((point, index) => ({
+    x: padX + step * index,
+    y: height - padY - ((point - min) / range) * (height - padY * 2),
+  }));
+
+  const line = coords.map((p) => `${p.x},${p.y}`).join(" ");
+  const area = `${coords[0].x},${height - padY} ${line} ${coords.at(-1).x},${height - padY}`;
+
+  return (
+    <div className="admin-chart-wrap">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-[230px]"
+        role="img"
+        aria-label="Grafik pertumbuhan pengguna dari Januari sampai Mei"
+      >
+        {[45, 95, 145, 195].map((y) => (
+          <line
+            key={y}
+            x1="18"
+            x2="622"
+            y1={y}
+            y2={y}
+            stroke="#E7EEF6"
+            strokeWidth="1"
+          />
+        ))}
+
+        <polygon points={area} fill="#DDEAFF" opacity="0.9" />
+        <polyline
+          points={line}
+          fill="none"
+          stroke="#4F8EF7"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {coords.map((point, index) => (
+          <g key={index}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="6"
+              fill="#FFC857"
+              stroke="#4F8EF7"
+              strokeWidth="3"
+            />
+          </g>
+        ))}
+      </svg>
+
+      <div className="admin-chart-labels">
+        {["Jan", "Feb", "Mar", "Apr", "Mei"].map((month) => (
+          <span key={month}>{month}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const activeUsers = MOCK_USERS_LIST.filter(
-    (u) => u.status === "active",
+    (user) => user.status === "active",
   ).length;
-  const totalLessons = COURSES.reduce((s, c) => s + c.totalLessons, 0);
+  const totalLessons = COURSES.reduce((sum, course) => sum + course.totalLessons, 0);
+
+  const statValues = {
+    users: MOCK_USERS_LIST.length,
+    courses: COURSES.length,
+    lessons: totalLessons,
+    quizzes: "142",
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-[var(--text)]">
-          Dashboard Admin
-        </h1>
-        <p className="text-[var(--text-muted)] mt-1">
-          Selamat datang di panel administrasi SignLearn
-        </p>
-      </div>
+    <div className="admin-dashboard space-y-6">
+      <section className="admin-dashboard-hero">
+        <div>
+          <p className="admin-eyebrow">SignLearn Administration</p>
+          <h2 className="admin-welcome-title">
+            Selamat Datang, Admin! 
+          </h2>
+        </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Pengguna"
-          value={MOCK_USERS_LIST.length}
-          icon={<UsersIcon size={20} />}
-          color="#4F8EF7"
-          trend={{ value: 12, label: "bulan ini" }}
-        />
-        <StatCard
-          label="Total Kursus"
-          value={COURSES.length}
-          icon={<BookIcon size={20} />}
-          color="#2ECC71"
-        />
-        <StatCard
-          label="Total Pelajaran"
-          value={totalLessons}
-          icon={<ChartIcon size={20} />}
-          color="#F4B400"
-        />
-        <StatCard
-          label="Kuis Diselesaikan"
-          value="142"
-          icon={<TrophyIcon size={20} />}
-          color="#6C63FF"
-          trend={{ value: 8, label: "minggu ini" }}
-        />
-      </div>
+      </section>
 
-      <div className="grid grid-cols-3 gap-4">
-        {SUMMARY.map((s) => {
-          const value = s.label === "Pengguna Aktif" ? activeUsers : s.value;
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {STAT_CARDS.map((card) => (
+          <StatCardKids
+            key={card.key}
+            card={card}
+            value={statValues[card.key]}
+          />
+        ))}
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {SUMMARY.map((item) => {
+          const value =
+            item.label === "Pengguna Aktif"
+              ? item.value(activeUsers)
+              : item.value();
+
           return (
-            <Card key={s.label} className="text-center">
-              <p className="text-2xl font-extrabold" style={{ color: s.color }}>
-                {value}
-              </p>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">{s.label}</p>
-              {s.label === "Pengguna Aktif" && (
-                <p className="text-xs text-[var(--text-subtle)] mt-0.5">
-                  dari {MOCK_USERS_LIST.length} pengguna
-                </p>
-              )}
-            </Card>
+            <div
+              key={item.label}
+              className="admin-mini-card"
+              style={{ "--mini-soft": item.soft, "--mini-color": item.color }}
+            >
+              <div className="admin-mini-dot" />
+              <div>
+                <p className="admin-mini-value">{value}</p>
+                <p className="admin-mini-label">{item.label}</p>
+                {item.label === "Pengguna Aktif" && (
+                  <p className="admin-mini-helper">
+                    dari {MOCK_USERS_LIST.length} pengguna
+                  </p>
+                )}
+              </div>
+            </div>
           );
         })}
-      </div>
+      </section>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-[var(--text)]">Pengguna Terbaru</h2>
-            <Badge variant="primary">{MOCK_USERS_LIST.length} total</Badge>
+      <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-6">
+        <div className="admin-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h3>Pertumbuhan Pengguna</h3>
+              <p>Pengguna baru bergabung tiap bulan</p>
+            </div>
+            <span className="admin-trend-pill">
+              <ChevronUpIcon size={14} />
+              12% bulan ini
+            </span>
           </div>
-          <div className="space-y-3">
-            {MOCK_USERS_LIST.slice(0, 5).map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center gap-3 p-3 hover:bg-[var(--surface-2)] rounded-xl transition-colors"
-              >
-                <div className="w-9 h-9 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                  {user.avatar}
-                </div>
+          <GrowthChart totalUsers={MOCK_USERS_LIST.length} />
+        </div>
+
+        <div className="admin-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h3>Tingkat Penyelesaian</h3>
+              <p>Per kategori kursus</p>
+            </div>
+          </div>
+          <div className="space-y-5 pt-2">
+            {CATEGORY_PROGRESS.map((item) => (
+              <ProgressRow key={item.label} {...item} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="admin-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h3>Pengguna Terbaru</h3>
+              <p>Aktivitas pendaftar terbaru di SignLearn</p>
+            </div>
+            <span className="admin-count-pill">
+              {MOCK_USERS_LIST.length} total
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {MOCK_USERS_LIST.slice(0, 5).map((user, index) => (
+              <div key={user.id} className="admin-list-row">
+                <UserAvatar initials={user.avatar} index={index} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text)] truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-[var(--text-subtle)]">
+                  <p className="admin-list-title truncate">{user.name}</p>
+                  <p className="admin-list-subtitle truncate">
                     {user.profile} · {user.joinDate}
                   </p>
                 </div>
-                <Badge variant={user.status === "active" ? "success" : "muted"}>
+                <Badge
+                  variant={user.status === "active" ? "success" : "muted"}
+                  className="admin-status-badge"
+                >
                   {user.status === "active" ? "Aktif" : "Nonaktif"}
                 </Badge>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-[var(--text)]">Aktivitas Terbaru</h2>
+        <div className="admin-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <h3>Aktivitas Terbaru</h3>
+              <p>Perkembangan belajar pengguna</p>
+            </div>
           </div>
-          <div className="space-y-3">
-            {RECENT_ACTIVITIES.map((act) => (
-              <div
-                key={act.id}
-                className="flex items-start gap-3 p-3 hover:bg-[var(--surface-2)] rounded-xl transition-colors"
-              >
+
+          <div className="space-y-2">
+            {RECENT_ACTIVITIES.map((activity) => (
+              <div key={activity.id} className="admin-activity-row">
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
-                    act.type === "quiz"
-                      ? "bg-[var(--warning-light)]"
-                      : act.type === "lesson"
-                        ? "bg-[var(--primary-light)]"
-                        : "bg-[var(--success-light)]"
+                  className={`admin-activity-icon ${
+                    activity.type === "quiz"
+                      ? "is-yellow"
+                      : activity.type === "lesson"
+                        ? "is-blue"
+                        : "is-green"
                   }`}
                 >
-                  {act.type === "quiz"
+                  {activity.type === "quiz"
                     ? "📝"
-                    : act.type === "lesson"
+                    : activity.type === "lesson"
                       ? "📖"
                       : "🎓"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-[var(--text)]">
-                    {act.user}
+                  <p className="admin-list-title">{activity.user}</p>
+                  <p className="admin-list-subtitle leading-relaxed">
+                    {activity.action}
                   </p>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    {act.action}
-                  </p>
-                  <p className="text-xs text-[var(--text-subtle)] mt-0.5">{act.time}</p>
+                  <p className="admin-activity-time">{activity.time}</p>
                 </div>
               </div>
             ))}
           </div>
-        </Card>
-      </div>
+        </div>
+      </section>
 
-      <Card>
-        <h2 className="font-bold text-[var(--text)] mb-4">Ringkasan Kursus</h2>
+      <section className="admin-panel overflow-hidden">
+        <div className="admin-panel-heading px-1">
+          <div>
+            <h3>Ringkasan Kursus</h3>
+            <p>Performa dan perkembangan setiap kursus</p>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="admin-table">
             <thead>
-              <tr className="border-b border-[var(--border)]">
-                {TABLE_COLS.map((col) => (
-                  <th
-                    key={col}
-                    className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
-                  >
-                    {col}
-                  </th>
+              <tr>
+                {[
+                  "Kursus",
+                  "Kategori",
+                  "Level",
+                  "Pelajaran",
+                  "Pendaftar",
+                  "Penyelesaian",
+                ].map((column) => (
+                  <th key={column}>{column}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {COURSES.map((course) => (
-                <tr
-                  key={course.id}
-                  className="border-b border-[var(--border-light)] hover:bg-[var(--surface-2)] transition-colors"
-                >
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-8 h-8 rounded-lg object-cover"
-                      />
-                      <span className="text-sm font-medium text-[var(--text)]">
-                        {course.title}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-[var(--text-muted)]">
-                    {course.category}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <Badge
-                      variant={
-                        course.level === "Pemula"
-                          ? "success"
-                          : course.level === "Menengah"
-                            ? "warning"
-                            : "primary"
-                      }
-                    >
-                      {course.level}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-[var(--text-muted)]">
-                    {course.totalLessons}
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-[var(--text-muted)]">
-                    {Math.floor(Math.random() * 200 + 50)}
-                  </td>
-                  <td className="px-4 py-3.5 text-sm font-medium text-[var(--primary)]">
-                    {course.totalLessons > 0
-                      ? `${Math.round((course.completedLessons / course.totalLessons) * 100)}%`
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
+              {COURSES.map((course, index) => {
+                const completion =
+                  course.totalLessons > 0
+                    ? Math.round(
+                        (course.completedLessons / course.totalLessons) * 100,
+                      )
+                    : 0;
+                const enrollment = 48 + index * 17;
+
+                return (
+                  <tr key={course.id}>
+                    <td>
+                      <div className="flex items-center gap-3 min-w-[220px]">
+                        <img
+                          src={course.thumbnail}
+                          alt=""
+                          className="admin-course-thumb"
+                        />
+                        <span className="admin-table-title">{course.title}</span>
+                      </div>
+                    </td>
+                    <td>{course.category}</td>
+                    <td>
+                      <Badge
+                        variant={
+                          course.level === "Pemula"
+                            ? "success"
+                            : course.level === "Menengah"
+                              ? "warning"
+                              : "primary"
+                        }
+                        className="admin-level-badge"
+                      >
+                        {course.level}
+                      </Badge>
+                    </td>
+                    <td>{course.totalLessons}</td>
+                    <td>{enrollment}</td>
+                    <td>
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <div className="admin-table-progress">
+                          <span
+                            style={{
+                              width: `${completion}%`,
+                              background:
+                                completion >= 60 ? "#4F8EF7" : "#FFC857",
+                            }}
+                          />
+                        </div>
+                        <strong>{completion}%</strong>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </Card>
+      </section>
     </div>
   );
 }

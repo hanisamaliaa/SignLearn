@@ -49,7 +49,7 @@ export function Card({
   const pads = { none: "", sm: "p-4", md: "p-6", lg: "p-8" };
   return (
     <div
-      className={`bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--border)] ${pads[padding]} ${
+      className={`bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--border)] admin-kids-card ${pads[padding]} ${
         hover
           ? "hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           : ""
