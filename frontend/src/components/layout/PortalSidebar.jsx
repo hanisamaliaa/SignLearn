@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
-import { LogoutIcon, ShieldIcon, XIcon } from "../ui/Icons";
+import { LogoutIcon, XIcon } from "../ui/Icons";
+import BrandLogo from "../common/BrandLogo";
 
 export default function PortalSidebar({
   variant,
@@ -9,30 +10,18 @@ export default function PortalSidebar({
   onClose,
   onLogout,
 }) {
-  const sections =
-    variant === "admin"
-      ? Array.from(
-          new Set(
-            navItems
-              .map((item) => item.section)
-              .filter((section) => Boolean(section)),
-          ),
-        )
-      : [];
-
-  const brand = "SignLearn";
-  const userLabel = variant === "admin" ? "Panel Administrator" : "Menu";
+  const userLabel = "Menu";
 
   const logoutClass =
     variant === "admin"
-      ? "text-white/60 hover:bg-[var(--surface)]/10 hover:text-white"
+      ? "text-[#E94F55] hover:bg-[#FFF0F1] hover:text-[#C83D45]"
       : "text-[#E74C3C] hover:bg-[var(--danger-light)]";
 
   return (
     <aside
       className={`fixed lg:relative z-30 flex flex-col h-full w-64 ${
         variant === "admin"
-          ? "bg-[#1A2332]"
+          ? "bg-white border-r border-[#E7EEF6]"
           : "bg-[var(--sidebar-bg)] border-r border-[var(--border)]"
       } transition-transform duration-300 ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -40,32 +29,16 @@ export default function PortalSidebar({
     >
       <div
         className={`flex items-center justify-between h-16 px-5 border-b ${
-          variant === "admin" ? "border-white/10" : "border-[var(--border)]"
+          variant === "admin" ? "border-[#E7EEF6]" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-            <span className="text-white text-sm font-bold">S</span>
-          </div>
-          <div className={variant === "admin" ? "" : "hidden sm:block"}>
-            <span
-              className={`text-lg font-bold ${
-                variant === "admin" ? "text-white" : "text-[var(--text)]"
-              }`}
-            >
-              {brand}
-            </span>
-            {variant === "admin" && (
-              <span className="ml-2 text-xs bg-[#4F8EF7]/20 text-[var(--primary)] px-1.5 py-0.5 rounded-full font-medium">
-                Admin
-              </span>
-            )}
-          </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandLogo className="portal-brand" />
         </div>
         <button
           className={
             variant === "admin"
-              ? "lg:hidden text-white/60"
+              ? "lg:hidden text-[#53636F]"
               : "lg:hidden text-[var(--text-muted)]"
           }
           onClick={onClose}
@@ -74,48 +47,30 @@ export default function PortalSidebar({
         </button>
       </div>
 
-      {variant === "admin" && (
-        <div className="mx-4 mt-4 p-3 bg-[#4F8EF7]/10 rounded-xl border border-[#4F8EF7]/20">
-          <div className="flex items-center gap-2">
-            <ShieldIcon size={14} className="text-[var(--primary)]" />
-            <span className="text-xs text-[var(--primary)] font-medium">
-              Panel Administrator
-            </span>
-          </div>
-        </div>
-      )}
-
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         {variant === "admin" ? (
-          sections.map((section) => (
-            <div className="mb-4" key={section}>
-              <p className="px-2 text-xs font-semibold text-white/30 uppercase tracking-wider mb-2">
-                {section}
-              </p>
-              {navItems
-                .filter((item) => item.section === section)
-                .map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.page}
-                      to={item.path}
-                      onClick={onClose}
-                      className={({ isActive }) =>
-                        `w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 transition-all duration-150 ${
-                          isActive
-                            ? "bg-[#4F8EF7] text-white"
-                            : "text-white/60 hover:bg-white/10 hover:text-white"
-                        }`
-                      }
-                    >
-                      <Icon size={17} />
-                      {item.label}
-                    </NavLink>
-                  );
-                })}
-            </div>
-          ))
+          <div className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.page}
+                  to={item.path}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                      isActive
+                        ? "bg-[#FFD166] text-[#26384D] shadow-[0_8px_18px_rgba(255,209,102,0.24)]"
+                        : "text-[#53636F] hover:bg-[#F2F8FF] hover:text-[#1677C8]"
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
         ) : (
           <>
             <p className="px-2 text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wider mb-3">
@@ -154,7 +109,7 @@ export default function PortalSidebar({
 
       <div
         className={`p-4 border-t ${
-          variant === "admin" ? "border-white/10" : "border-[var(--border)]"
+          variant === "admin" ? "border-[#E7EEF6]" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
         <div className="flex items-center gap-3 mb-3">
@@ -164,7 +119,7 @@ export default function PortalSidebar({
           <div className="min-w-0">
             <p
               className={`text-sm font-semibold truncate ${
-                variant === "admin" ? "text-white" : "text-[var(--text)]"
+                variant === "admin" ? "text-[#15202B]" : "text-[var(--text)]"
               }`}
             >
               {currentUser?.name}
@@ -172,7 +127,7 @@ export default function PortalSidebar({
             <p
               className={`text-xs truncate ${
                 variant === "admin"
-                  ? "text-white/40"
+                  ? "text-[#8B9AAA]"
                   : "text-[var(--text-subtle)]"
               }`}
             >
