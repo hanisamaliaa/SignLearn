@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import BrandLogo from "../common/BrandLogo";
 import { Reveal } from "./LandingMotion";
+import { LANDING_NAV_ITEMS } from "../../config/landingNavigation";
 
 const GROUPS = [
   { title: "Jelajahi", links: [{ label: "Belajar", href: "#topik" }, { label: "Penerjemah", href: "#demo-gerakan" }, { label: "Permainan", href: "#cara-belajar" }, { label: "Progres", href: "#progres" }] },

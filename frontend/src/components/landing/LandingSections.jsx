@@ -88,7 +88,7 @@ export function KidsHero({ onStart, onTrySign }) {
   const setRegion = (region) => setActiveRegion(region);
 
   return (
-    <section className="kids-hero" aria-labelledby="kids-hero-title">
+    <section id="beranda" className="kids-hero" aria-labelledby="kids-hero-title">
       <div className="kids-hero-background" aria-hidden="true">
         <CloudLarge className="kids-cloud-1" />
         <CloudMedium className="kids-cloud-2" />
@@ -215,7 +215,7 @@ function BenefitCard({ item }) {
 }
 
 export function BenefitsSection() {
-  return <section className="kids-section kids-benefits-section" aria-labelledby="benefits-title"><div className="kids-container"><Reveal><Heading eyebrow="Belajar dengan nyaman" id="benefits-title" title="Kenapa Belajar di SignLearn Kids?" text="Belajar bahasa isyarat bisa tetap seru, aman, dan mudah dipahami." /></Reveal><div className="kids-benefits-grid">{BENEFITS.map((item, index) => <Reveal key={item.title} delay={index * 80}><BenefitCard item={item} /></Reveal>)}</div></div></section>;
+  return <section id="manfaat" className="kids-section kids-benefits-section" aria-labelledby="benefits-title"><div className="kids-container"><Reveal><Heading eyebrow="Belajar dengan nyaman" id="benefits-title" title="Kenapa Belajar di SignLearn Kids?" text="Belajar bahasa isyarat bisa tetap seru, aman, dan mudah dipahami." /></Reveal><div className="kids-benefits-grid">{BENEFITS.map((item, index) => <Reveal key={item.title} delay={index * 80}><BenefitCard item={item} /></Reveal>)}</div></div></section>;
 }
 
 export function ProgressPreviewSection({ onProgress }) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CheckCircleIcon } from "../ui/Icons";
 
-export default function TranslationResult({ recognition }) {
+export default function TranslationResult({ recognition, cameraActive = false }) {
   const resultRef = useRef(null);
   const text = recognition.characters.join("");
 
@@ -14,9 +14,24 @@ export default function TranslationResult({ recognition }) {
     if (text) await navigator.clipboard?.writeText(text);
   };
 
+  const detectionState = recognition.debugInfo?.state;
+  const feedback = text
+    ? { tone: "success", title: "Bagus sekali!", detail: "Huruf yang dikenali sudah masuk ke Kalimatmu." }
+    : detectionState === "LOW_CONFIDENCE" || detectionState === "UNKNOWN"
+      ? { tone: "retry", title: "Hampir benar!", detail: "Coba dekatkan tangan dan gunakan pencahayaan yang lebih terang." }
+      : detectionState === "DETECTING"
+        ? { tone: "reading", title: "Sedang membaca...", detail: "Tahan gerakanmu sebentar lagi." }
+        : cameraActive
+          ? { tone: "ready", title: "Kamera siap", detail: "Arahkan tangan ke area panduan untuk mulai membaca gerakan." }
+          : { tone: "ready", title: "Siap berlatih", detail: "Aktifkan kamera dan arahkan tangan ke area panduan." };
+
   return (
     <aside className="kids-translator-card kids-recognition-result" aria-labelledby="recognition-title">
-      <header><span className="kids-translator-card-icon" aria-hidden="true"><CheckCircleIcon size={22} /></span><div><h3 id="recognition-title">Hasil terjemahan</h3><p>Gerakan yang dikenali akan menjadi teks.</p></div></header>
+      <header><span className="kids-translator-card-icon" aria-hidden="true"><CheckCircleIcon size={22} /></span><div><span className="kids-card-kicker">Hasil latihan</span><h3 id="recognition-title">Lihat Hasil Gerakanmu</h3><p>Gerakan yang dikenali akan menjadi teks.</p></div></header>
+      <div className={`kids-result-feedback is-${feedback.tone}`} role="status" aria-live="polite">
+        <span aria-hidden="true">{feedback.tone === "success" ? "🎉" : feedback.tone === "retry" ? "💪" : feedback.tone === "reading" ? "✦" : "👋"}</span>
+        <div><strong>{feedback.title}</strong><p>{feedback.detail}</p></div>
+      </div>
       <div ref={resultRef} className={`kids-detected-copy ${text ? "has-result" : ""}`} aria-live="polite">
         <span>Kalimatmu</span>
         <strong className="kids-result-text">{text || "Belum ada gerakan dikenali"}</strong>
@@ -31,7 +46,7 @@ export default function TranslationResult({ recognition }) {
         {recognition.characters.length ? <ol>{recognition.characters.filter((character) => character !== " ").slice(-6).map((character, index) => <li key={`${character}-${index}`}>{character}</li>)}</ol> : <p>Riwayat gerakan akan tampil di sini.</p>}
       </div>
       <div className="kids-recognition-recovery">
-        <span>Kurang tepat?</span>
+        <span>Ingin memperbaiki hasil?</span>
         <button type="button" onClick={recognition.removeLast} disabled={!text}>Hapus karakter terakhir</button>
       </div>
       {recognition.debugEnabled && recognition.debugInfo && (
