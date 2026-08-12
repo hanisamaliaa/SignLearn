@@ -23,3 +23,18 @@ export async function getStats() {
 export async function getActivities(params = {}) {
   return request({ url: "/admin/activities", params });
 }
+
+/**
+ * Hasil kuis seluruh pengguna — lulus MAUPUN gagal.
+ *
+ * Jangan menggantinya dengan `getActivities({ type: "quiz_passed" })`: feed
+ * aktivitas hanya memuat yang lulus, sehingga distribusi nilai yang dibangun
+ * darinya tidak akan pernah menampilkan satu pun kegagalan.
+ *
+ * Semua filter opsional: `from`, `to` (YYYY-MM-DD), `courseId`, `passed`.
+ * `summary` dihitung server atas seluruh baris yang cocok, bukan atas halaman
+ * yang sedang tampil.
+ */
+export async function getQuizResults(params = {}) {
+  return request({ url: "/admin/quiz-results", params });
+}

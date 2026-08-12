@@ -80,3 +80,20 @@ export async function deleteQuestion(courseId, quizId, questionId) {
     url: `/courses/${courseId}/quizzes/${quizId}/questions/${questionId}`,
   });
 }
+
+/**
+ * Mengubah urutan pertanyaan.
+ *
+ * `order` WAJIB memuat SELURUH id pertanyaan kuis ini; kurang atau lebih satu
+ * pun ditolak 422 `INCOMPLETE_ORDER`. Server menetapkan `sort_order = index+1`
+ * menurut posisi di array, jadi yang dikirim adalah urutan akhir yang
+ * diinginkan — bukan pasangan id yang bertukar.
+ */
+export async function reorderQuestions(courseId, quizId, order) {
+  const payload = await request({
+    method: "patch",
+    url: `/courses/${courseId}/quizzes/${quizId}/questions/reorder`,
+    data: { order },
+  });
+  return payload.items;
+}
