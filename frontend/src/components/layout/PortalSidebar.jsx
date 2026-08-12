@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { LogoutIcon, ShieldIcon, XIcon } from "../ui/Icons";
+import BrandLogo from "../common/BrandLogo";
 
 export default function PortalSidebar({
   variant,
@@ -20,7 +21,6 @@ export default function PortalSidebar({
         )
       : [];
 
-  const brand = "SignLearn";
   const userLabel = variant === "admin" ? "Panel Administrator" : "Menu";
 
   const logoutClass =
@@ -43,24 +43,13 @@ export default function PortalSidebar({
           variant === "admin" ? "border-white/10" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-            <span className="text-white text-sm font-bold">S</span>
-          </div>
-          <div className={variant === "admin" ? "" : "hidden sm:block"}>
-            <span
-              className={`text-lg font-bold ${
-                variant === "admin" ? "text-white" : "text-[var(--text)]"
-              }`}
-            >
-              {brand}
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandLogo className={`portal-brand ${variant === "admin" ? "portal-brand-inverse" : ""}`} />
+          {variant === "admin" && (
+            <span className="portal-brand-badge">
+              Admin
             </span>
-            {variant === "admin" && (
-              <span className="ml-2 text-xs bg-[#4F8EF7]/20 text-[var(--primary)] px-1.5 py-0.5 rounded-full font-medium">
-                Admin
-              </span>
-            )}
-          </div>
+          )}
         </div>
         <button
           className={

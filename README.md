@@ -1,6 +1,6 @@
 # SignLearn
 
-SignLearn is a capstone learning platform for structured, inclusive Indonesian Sign Language (BISINDO) education. The repository contains a React frontend and an existing Node.js backend.
+SignLearn is a capstone learning platform for structured, inclusive Indonesian Sign Language (BISINDO) education. The repository contains a React frontend, Node.js application backend, and a Python realtime BISINDO inference service.
 
 ## Repository structure
 
@@ -11,6 +11,7 @@ CapstoneProject/
 │   ├── scripts/       # Frontend maintenance scripts
 │   └── src/           # Components, pages, routes, services, and app state
 ├── backend/           # Existing Node.js API
+├── ai/                # MediaPipe + Random Forest BISINDO inference API
 ├── .figma/            # Figma Make project tooling
 └── README.md
 ```
@@ -71,3 +72,62 @@ The production output is written to `frontend/dist/`.
 ## Backend
 
 The existing Express API skeleton, planned endpoints, environment setup, and implementation status are documented in [`backend/README.md`](backend/README.md).
+
+## Realtime BISINDO camera recognition
+
+The camera-to-text feature uses three independent layers:
+
+1. `frontend/` captures compressed webcam frames adaptively and stabilizes
+   predictions with EMA smoothing plus a rolling 3-of-5 majority vote.
+2. `ai/` extracts MediaPipe landmarks and runs the BISINDO Random Forest model.
+3. `backend/` remains responsible for accounts, courses, quizzes, and progress;
+   it is intentionally not coupled to high-frequency image inference.
+
+Siapkan virtual environment AI satu kali:
+
+```bash
+cd ai
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+```
+
+Setelah itu frontend dan layanan AI dapat dijalankan bersama dari satu terminal:
+
+```bash
+npm run dev
+```
+
+Perintah tersebut menghentikan kedua proses bersama saat `Ctrl+C` ditekan.
+Untuk menjalankannya secara terpisah tetap tersedia `npm run dev:frontend` dan
+`npm run dev:ai`.
+
+Open `http://localhost:5173`, choose **Kamera → Teks**, and grant camera
+permission. Hold a sign briefly until it is stable. Different letters can be
+signed directly; repeating the same letter needs a brief release/change signal.
+Spaces are added explicitly with the **Tambah spasi** button.
+
+Recognition tuning is available through the `VITE_BISINDO_*` values documented
+in `frontend/.env.example`. The realtime pipeline applies probability smoothing,
+a rolling majority window, adaptive top-1/top-2 margin filtering, fast/normal
+acceptance paths, and duplicate-only release locking. Set
+`VITE_BISINDO_DEBUG=true` in `frontend/.env.local` to display per-inference
+telemetry and top-three predictions. Raw frame predictions never directly update
+the translation result.
+
+The model is stored in `ai/models/`. Training CSV files are intentionally not
+duplicated into this application because they are not needed for inference;
+the original dataset remains in the source ML project for retraining and audit.
+
+The leakage-safe Kaggle retraining pipeline can be reproduced from the project
+root with:
+
+```bash
+npm run ai:download
+npm run ai:train
+npm run ai:evaluate
+```
+
+Evaluation artifacts are written to `ai/reports/`. Candidate models stay under
+`ai/models/candidates/`; the production model is not replaced automatically.

@@ -19,3 +19,14 @@ coverage/
 .DS_Store
 .claude-replay.*
 .tmp-*
+ai/.venv/
+ai/__pycache__/
+ai/app/__pycache__/
+ai/training/__pycache__/
+ai/data/raw/**
+!ai/data/raw/.gitkeep
+ai/data/splits/*.json
+ai/models/candidates/*.pkl
+ai/models/candidates/*.npz
+kaggle.json
+**/kaggle.json
