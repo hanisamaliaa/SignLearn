@@ -17,6 +17,13 @@ export default defineConfig({
     // Fall back to the next available port when the default is already used.
     // An explicit PORT value is still used as the preferred port.
     strictPort: false,
+    proxy: {
+      "/bisindo-ai": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/bisindo-ai/, "/api/v1"),
+      },
+    },
   },
   preview: {
     host: "0.0.0.0",

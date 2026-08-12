@@ -1,10 +1,10 @@
-import { HandSignIcon } from "../ui/Icons";
+import handLogo from "../../assets/brand/signlearn-hand.svg";
 
 export default function BrandLogo({ href = "/", ariaLabel = "SignLearn Kids, beranda", className = "" }) {
   return (
     <a href={href} className={`kids-brand ${className}`.trim()} aria-label={ariaLabel}>
-      <span className="kids-brand-icon" aria-hidden="true"><HandSignIcon /></span>
-      <span className="kids-brand-wordmark">SignLearn <strong>Kids</strong></span>
+      <img className="kids-brand-icon" src={handLogo} alt="" aria-hidden="true" />
+      <span className="kids-brand-wordmark"><span>SignLearn</span><strong>Kids</strong></span>
     </a>
   );
 }

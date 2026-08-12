@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input, Alert } from "../components/ui/ui";
 import { ArrowLeftIcon, CheckCircleIcon } from "../components/ui/Icons";
+import BrandLogo from "../components/common/BrandLogo";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -36,12 +37,7 @@ export default function ForgotPassword() {
           Kembali ke halaman masuk
         </button>
 
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-9 h-9 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold">S</span>
-          </div>
-          <span className="text-xl font-bold text-[var(--text)]">SignLearn</span>
-        </div>
+        <BrandLogo className="forgot-password-brand" ariaLabel="SignLearn Kids, kembali ke beranda" />
 
         {!sent ? (
           <div className="bg-[var(--surface)] rounded-3xl p-8 shadow-sm border border-[var(--border)]">

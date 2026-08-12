@@ -4,7 +4,6 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CameraIcon,
-  CheckCircleIcon,
   ChevronDownIcon,
   GridIcon,
   HandSignIcon,
@@ -13,6 +12,8 @@ import {
   TrashIcon,
 } from "../ui/Icons";
 import { useInView, useReducedMotion } from "../../hooks/useLandingMotion";
+import { useBisindoRecognition } from "../../hooks/useBisindoRecognition";
+import TranslationResult from "./TranslationResult";
 
 // These words come from the original SignLearn demo. The repository does not
 // currently include playable sign assets, so suggestions only populate input.
@@ -316,8 +317,21 @@ function useCameraSession() {
   return { videoRef, state, start, stop };
 }
 
-function CameraPanel({ camera }) {
+function CameraPanel({ camera, recognition }) {
   const active = camera.state === "active";
+  const detectionState = recognition.debugInfo?.state;
+  const detectionText = recognition.status === "error"
+    ? "Layanan AI tidak terhubung"
+    : detectionState === "COMMITTED"
+      ? "Gerakan dikenali ✓"
+      : detectionState === "DETECTING"
+        ? "Tangan ditemukan — sedang membaca..."
+        : detectionState === "WAIT_FOR_RELEASE"
+          ? "Huruf tersimpan — lanjutkan gerakan berikutnya"
+          : detectionState === "LOW_CONFIDENCE" || detectionState === "UNKNOWN"
+            ? "Coba perjelas posisi tangan"
+            : "Arahkan tangan ke area panduan";
+
   return (
     <article className="kids-translator-card kids-camera-panel">
       <header>
@@ -339,47 +353,20 @@ function CameraPanel({ camera }) {
             {camera.state === "error" && <p className="kids-camera-message" role="alert">Kamera belum dapat digunakan. Yuk coba lagi.</p>}
           </div>
         )}
-        {active && <><div className="kids-hand-guide" aria-hidden="true"><span /></div><div className="kids-detection-status"><i /> Kamera siap digunakan</div></>}
+        {active && <><div className="kids-hand-guide" aria-hidden="true"><span /></div><div className={`kids-detection-status ${recognition.status === "error" ? "is-error" : ""}`}><i /> {detectionText}</div></>}
       </div>
-      {active && <div className="kids-camera-controls"><p>Fitur pengenalan gerakan sedang disiapkan.</p><button type="button" className="kids-control-button" onClick={camera.stop}>Matikan Kamera</button></div>}
+      {active && <div className="kids-camera-controls"><p>{recognition.error || "Tahan sebentar hingga huruf dikenali. Kamu bisa langsung berganti huruf; beri jeda singkat hanya untuk mengulang huruf yang sama."}</p><button type="button" className="kids-control-button" onClick={camera.stop}>Matikan Kamera</button></div>}
     </article>
   );
 }
 
-function RecognitionResult() {
-  const [result, setResult] = useState([]);
-  const text = result.join(" ");
-  const clear = () => setResult([]);
-  const removeLast = () => setResult((words) => words.slice(0, -1));
-  const copy = async () => {
-    if (text) await navigator.clipboard?.writeText(text);
-  };
-
-  return (
-    <aside className="kids-translator-card kids-recognition-result" aria-labelledby="recognition-title">
-      <header><span className="kids-translator-card-icon" aria-hidden="true"><CheckCircleIcon size={22} /></span><div><h3 id="recognition-title">Hasil terjemahan</h3><p>Gerakan yang dikenali akan menjadi teks.</p></div></header>
-      <div className={`kids-detected-copy ${text ? "has-result" : ""}`} aria-live="polite">
-        <span>Kalimatmu</span>
-        <strong>{text || "Belum ada gerakan dikenali"}</strong>
-      </div>
-      <div className="kids-result-actions">
-        <button type="button" className="kids-control-button" onClick={copy} disabled={!text}>Salin</button>
-        <button type="button" className="kids-control-button" onClick={clear} disabled={!text}>Bersihkan</button>
-      </div>
-      <div className="kids-recognition-history">
-        <h4>Terakhir dikenali</h4>
-        {result.length ? <ol>{result.slice(-3).map((word, index) => <li key={`${word}-${index}`}>{word}</li>)}</ol> : <p>Riwayat gerakan akan tampil di sini.</p>}
-      </div>
-      <div className="kids-recognition-recovery">
-        <span>Kurang tepat?</span>
-        <button type="button" onClick={removeLast} disabled={!result.length}>Hapus kata terakhir</button>
-      </div>
-    </aside>
-  );
-}
-
 function CameraToTextMode({ camera, reducedMotion }) {
-  return <div className="kids-camera-mode"><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.05 }}><CameraPanel camera={camera} /></motion.div><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.12 }}><RecognitionResult /></motion.div></div>;
+  const recognition = useBisindoRecognition({
+    active: camera.state === "active",
+    videoRef: camera.videoRef,
+  });
+
+  return <div className="kids-camera-mode"><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.05 }}><CameraPanel camera={camera} recognition={recognition} /></motion.div><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.12 }}><TranslationResult recognition={recognition} /></motion.div></div>;
 }
 
 export default function BisindoTranslator() {
