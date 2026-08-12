@@ -1235,6 +1235,11 @@ textarea,
   min-width: 0;
 }
 
+.kids-nav-brand {
+  min-width: max-content;
+  justify-self: start;
+}
+
 .kids-nav-links,
 .kids-nav-actions {
   display: flex;
@@ -1247,8 +1252,17 @@ textarea,
 }
 
 .kids-nav-actions {
+  min-width: max-content;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.kids-nav-compact-actions {
+  display: none;
+  min-width: max-content;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .kids-icon-button.kids-menu-toggle {
@@ -3084,13 +3098,15 @@ textarea,
 @media (min-width: 901px) and (max-width: 1279px) {
   .kids-navbar { grid-template-columns: minmax(0, 1fr) auto; }
   .kids-nav-links, .kids-nav-actions { display: none; }
-  .kids-icon-button.kids-menu-toggle { display: inline-flex; }
+  .kids-nav-compact-actions { display: flex; }
+  .kids-nav-compact-actions .kids-menu-toggle { display: inline-flex; }
 }
 
 @media (max-width: 900px) {
   .kids-navbar { grid-template-columns: minmax(0, 1fr) auto; }
   .kids-nav-links, .kids-nav-actions { display: none; }
-  .kids-icon-button.kids-menu-toggle { display: inline-flex; }
+  .kids-nav-compact-actions { display: flex; }
+  .kids-nav-compact-actions .kids-menu-toggle { display: inline-flex; }
   .kids-hero-grid {
     grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
     gap: 26px clamp(24px, 4vw, 40px);
@@ -3259,6 +3275,28 @@ textarea,
   .kids-topic-card { min-height: 258px; padding-inline: 18px; }
 }
 
+@media (max-width: 390px) {
+  .kids-navbar,
+  .kids-header.is-scrolled .kids-navbar {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding-block: 8px;
+  }
+
+  .kids-nav-compact-actions {
+    justify-self: end;
+  }
+
+  .kids-mobile-menu {
+    max-height: calc(100dvh - 128px);
+  }
+
+  .kids-mobile-overlay {
+    inset-block-start: 128px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .kids-header, .kids-cloud, .kids-playground-hill, .kids-playground-flower,
@@ -3291,28 +3329,39 @@ textarea,
 .kids-reduce-motion *, .kids-reduce-motion *::before, .kids-reduce-motion *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 .a11y-text-extra-large body { overflow-wrap: break-word; }
 
-@media (min-width: 1280px) and (max-width: 1400px) {
-  .a11y-text-large .kids-navbar,
-  .a11y-text-extra-large .kids-navbar { grid-template-columns: minmax(0, 1fr) auto; }
-  .a11y-text-large .kids-nav-links,
-  .a11y-text-large .kids-nav-actions,
-  .a11y-text-extra-large .kids-nav-links,
-  .a11y-text-extra-large .kids-nav-actions { display: none; }
-  .a11y-text-large .kids-icon-button.kids-menu-toggle,
-  .a11y-text-extra-large .kids-icon-button.kids-menu-toggle { display: inline-flex; }
-  .a11y-text-large .kids-mobile-menu,
-  .a11y-text-large .kids-mobile-overlay,
-  .a11y-text-extra-large .kids-mobile-menu,
-  .a11y-text-extra-large .kids-mobile-overlay { display: block; }
+/* The header container is capped at 1280px, so enlarged Indonesian labels do
+   not gain more usable row space on wider viewports. Keep both enlarged-text
+   states in the safe compact architecture instead of re-entering desktop mode. */
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-navbar {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
-@media (min-width: 1401px) and (max-width: 1550px) {
-  .a11y-text-extra-large .kids-navbar { grid-template-columns: minmax(0, 1fr) auto; }
-  .a11y-text-extra-large .kids-nav-links,
-  .a11y-text-extra-large .kids-nav-actions { display: none; }
-  .a11y-text-extra-large .kids-icon-button.kids-menu-toggle { display: inline-flex; }
-  .a11y-text-extra-large .kids-mobile-menu,
-  .a11y-text-extra-large .kids-mobile-overlay { display: block; }
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-nav-links,
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-nav-actions {
+  display: none;
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-nav-compact-actions {
+  display: flex;
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-nav-compact-actions .kids-menu-toggle {
+  display: inline-flex;
+}
+
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-mobile-menu,
+:is(.a11y-text-large, .a11y-text-extra-large) .kids-mobile-overlay {
+  display: block;
+}
+
+@media (max-width: 390px) {
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-navbar,
+  :is(.a11y-text-large, .a11y-text-extra-large) .kids-header.is-scrolled .kids-navbar {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding-block: 8px;
+  }
 }
 
 /* Large-text reflow: content keeps its requested font size and changes shape. */
