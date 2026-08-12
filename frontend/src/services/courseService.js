@@ -1,106 +1,31 @@
-/**
- * Course service — derives per-user course state from the user's learning
- * data. This maps to a future REST API (GET /courses, GET /courses/:id)
- * where the backend returns the user's personalized course state.
- */
-import { COURSES as BASE_COURSES } from "../data/mock";
+import { request } from "./api";
 
-/**
- * Build the course catalog personalized for a given user's learning state.
- * Each lesson's status is derived from the user's completed/unlocked lessons.
- *
- * @param {object} user - the current user (with user.learning)
- * @returns {Array} list of courses with per-lesson status for this user
- */
-export function getUserCourses(user) {
-  const learning = user?.learning || {};
-  const completedLessons = learning.completedLessons || [];
-  const unlocked = learning.unlockedLessons || [];
-  const progress = learning.progress || {};
+/** Courses — API Contract §8.1-8.5. */
 
-  return BASE_COURSES.map((course) => {
-    let completedCount = 0;
-
-    const lessons = (course.lessons || []).map((lesson, idx) => {
-      let status;
-      if (completedLessons.includes(lesson.id)) {
-        status = "completed";
-        completedCount += 1;
-      } else if (unlocked.includes(lesson.id) || idx === 0) {
-        status = "current";
-      } else {
-        status = "locked";
-      }
-      return { ...lesson, status };
-    });
-
-    const courseProgress = progress[course.id];
-    const completedLessonCount =
-      courseProgress?.completedLessons ?? completedCount;
-
-    return {
-      ...course,
-      lessons,
-      completedLessons: completedLessonCount,
-      isLocked: course.isLocked,
-    };
-  });
+export async function getCourses(params = {}) {
+  return request({ url: "/courses", params });
 }
 
-/** Get a single personalized course by id. */
-export function getUserCourseById(user, courseId) {
-  const courses = getUserCourses(user);
-  return courses.find((c) => c.id === courseId) || courses[0] || null;
+/** Detail kursus: course + lessons + quizzes dalam satu request. */
+export async function getCourseById(courseId) {
+  return request({ url: `/courses/${courseId}` });
 }
 
-/** Get the list of quiz results for a user, enriched with course/lesson names. */
-export function getUserQuizHistory(user, quizResults) {
-  const results = quizResults || user?.learning?.quizResults || [];
-  const courses = getUserCourses(user);
-
-  return results.map((r, idx) => {
-    const course = courses.find((c) =>
-      (c.lessons || []).some((l) => l.id === r.lessonId),
-    );
-    const lesson = course?.lessons?.find((l) => l.id === r.lessonId);
-    return {
-      id: `qr_${idx}`,
-      lesson: lesson?.title || r.lessonId,
-      course: course?.title || "Kursus",
-      score: r.score,
-      date: r.date,
-      passed: r.passed,
-    };
-  });
+export async function getCategories() {
+  const payload = await request({ url: "/courses/categories" });
+  return payload.items;
 }
 
-/** Compute per-user dashboard stats. */
-export function getUserStats(user) {
-  const courses = getUserCourses(user);
-  const learning = user?.learning || {};
-  const quizResults = learning.quizResults || [];
+export async function createCourse(data) {
+  const payload = await request({ method: "post", url: "/courses", data });
+  return payload.course;
+}
 
-  const completedLessons = courses.reduce(
-    (s, c) => s + (c.completedLessons || 0),
-    0,
-  );
-  const totalLessons = courses.reduce((s, c) => s + (c.totalLessons || 0), 0);
-  const passed = quizResults.filter((q) => q.passed);
-  const avgScore = passed.length
-    ? Math.round(passed.reduce((s, q) => s + q.score, 0) / passed.length)
-    : 0;
+export async function updateCourse(courseId, data) {
+  const payload = await request({ method: "put", url: `/courses/${courseId}`, data });
+  return payload.course;
+}
 
-  return {
-    completedLessons,
-    totalLessons,
-    overallPct: totalLessons
-      ? Math.round((completedLessons / totalLessons) * 100)
-      : 0,
-    quizResults,
-    avgScore,
-    passedQuizzes: passed.length,
-    activeCourses: courses.filter(
-      (c) => !c.isLocked && c.completedLessons < c.totalLessons,
-    ).length,
-  };
+export async function deleteCourse(courseId) {
+  return request({ method: "delete", url: `/courses/${courseId}` });
 }

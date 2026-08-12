@@ -7,7 +7,6 @@ import {
   Badge,
   StatCard,
 } from "../../components/ui/ui";
-import { RECENT_ACTIVITIES } from "../../data/mock";
 import {
   BookIcon,
   TrophyIcon,
@@ -31,16 +30,29 @@ export default function UserDashboard() {
     setSelectedLesson,
     courses,
     quizHistory,
+    stats,
+    dashboard,
   } = useApp();
   const navigate = useNavigate();
 
   const COURSES = courses;
   const QUIZ_HISTORY = quizHistory;
 
-  const currentCourse = COURSES[0];
-  const currentLesson = currentCourse?.lessons?.find(
-    (l) => l.status === "current",
-  );
+  /**
+   * Kursus yang ditampilkan di kartu "Kursus Saat Ini".
+   *
+   * Diambil dari `continueLearning` milik server, bukan `courses[0]`. Server
+   * memprioritaskan kursus yang paling baru disentuh — tanpa itu, pengguna
+   * yang sedang di kursus ketiga terus dilempar kembali ke kursus pertama.
+   */
+  const resume = dashboard?.continueLearning ?? null;
+  const currentCourse =
+    COURSES.find((c) => c.id === resume?.courseId) ?? COURSES[0] ?? null;
+  // `continueLearning` memakai lessonId/lessonTitle; UI di bawah membaca id/title.
+  const currentLesson = resume
+    ? { id: resume.lessonId, title: resume.lessonTitle }
+    : null;
+
   const passedQuizzes = QUIZ_HISTORY.filter((q) => q.passed);
   const avgScore = passedQuizzes.length
     ? Math.round(
@@ -48,7 +60,23 @@ export default function UserDashboard() {
           passedQuizzes.length,
       )
     : 0;
-  const recentActivities = RECENT_ACTIVITIES.slice(0, 4);
+
+  /**
+   * Aktivitas terbaru pengguna INI, bukan feed global.
+   *
+   * Sebelumnya memakai `RECENT_ACTIVITIES` dari mock — daftar berisi nama
+   * orang lain yang tampil di dashboard pribadi setiap pengguna.
+   */
+  const recentActivities = QUIZ_HISTORY.slice(0, 4).map((q) => ({
+    id: q.quizId,
+    user: currentUser?.name ?? "Anda",
+    action: `${q.passed ? "Lulus" : "Mengerjakan"} kuis "${q.quizTitle}" dengan skor ${q.score}`,
+    time: new Date(q.takenAt).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    }),
+    type: "quiz",
+  }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -103,34 +131,31 @@ export default function UserDashboard() {
           }
           icon={<BookIcon size={20} />}
           color="#4F8EF7"
-          trend={{ value: 0, label: "kursus" }}
         />
         <StatCard
           label="Pelajaran Selesai"
           value={COURSES.reduce((s, c) => s + c.completedLessons, 0)}
           icon={<CheckCircleIcon size={20} />}
           color="#2ECC71"
-          trend={{ value: 3, label: "minggu ini" }}
         />
         <StatCard
           label="Rata-rata Kuis"
           value={`${avgScore}%`}
           icon={<TrophyIcon size={20} />}
           color="#F4B400"
-          trend={{ value: 5, label: "vs minggu lalu" }}
         />
         <StatCard
           label="Streak Belajar"
-          value="7 hari"
+          value={`${stats?.streakDays ?? 0} hari`}
           icon={<FireIcon size={20} />}
           color="#E74C3C"
-          trend={{ value: 2, label: "hari baru" }}
         />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Main column */}
         <div className="lg:col-span-2 space-y-5">
+          {currentCourse && (
           <Card>
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -143,13 +168,15 @@ export default function UserDashboard() {
               </div>
               <Badge variant="primary">{currentCourse.level}</Badge>
             </div>
-            <div className="bg-[var(--surface-2)] rounded-xl overflow-hidden mb-4">
-              <img
-                src={currentCourse.thumbnail}
-                alt={currentCourse.title}
-                className="w-full h-36 object-cover"
-              />
-            </div>
+            {currentCourse.thumbnail && (
+              <div className="bg-[var(--surface-2)] rounded-xl overflow-hidden mb-4">
+                <img
+                  src={currentCourse.thumbnail}
+                  alt={currentCourse.title}
+                  className="w-full h-36 object-cover"
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="text-[var(--text-muted)]">Progress</span>
               <span className="font-semibold text-[var(--text)]">
@@ -162,65 +189,45 @@ export default function UserDashboard() {
               max={currentCourse.totalLessons}
               showLabel
             />
-            <div className="mt-4 space-y-2">
-              {currentCourse.lessons.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                    lesson.status === "current"
-                      ? "bg-[var(--primary-light)] border border-[#4F8EF7]/30"
-                      : lesson.status === "completed"
-                        ? "bg-[var(--surface-2)]"
-                        : "bg-[var(--surface-2)] opacity-60"
-                  }`}
-                >
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      lesson.status === "completed"
-                        ? "bg-[#2ECC71] text-white"
-                        : lesson.status === "current"
-                          ? "bg-[#4F8EF7] text-white"
-                          : "bg-[#E2E8F0] text-[var(--text-subtle)]"
-                    }`}
-                  >
-                    {lesson.status === "completed" ? (
-                      <CheckCircleIcon size={14} />
-                    ) : lesson.status === "current" ? (
-                      <PlayIcon size={10} />
-                    ) : (
-                      <LockIcon size={12} />
-                    )}
+
+            {/*
+              Daftar pelajaran DIHAPUS dari kartu ini.
+
+              `GET /courses` sengaja tidak mengembalikan pelajaran per kursus —
+              menyertakannya berarti N+1 query hanya untuk merender satu
+              halaman. Yang dibutuhkan di sini cuma satu baris: pelajaran
+              berikutnya, dan itu sudah dihitung server sebagai
+              `continueLearning`. Daftar lengkapnya ada di halaman detail.
+            */}
+            {resume && resume.courseId === currentCourse.id && (
+              <div className="mt-4">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--primary-light)] border border-[#4F8EF7]/30">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-[#4F8EF7] text-white">
+                    <PlayIcon size={10} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium truncate ${
-                        lesson.status === "locked"
-                          ? "text-[var(--text-subtle)]"
-                          : "text-[var(--text)]"
-                      }`}
-                    >
-                      {lesson.title}
+                    <p className="text-sm font-medium truncate text-[var(--text)]">
+                      {resume.lessonTitle}
                     </p>
                     <p className="text-xs text-[var(--text-subtle)]">
-                      {lesson.duration}
+                      Pelajaran berikutnya
                     </p>
                   </div>
-                  {lesson.status === "current" && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setSelectedCourse(currentCourse.id);
-                        setSelectedLesson(lesson.id);
-                        navigate("/lesson");
-                      }}
-                    >
-                      Mulai
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCourse(resume.courseId);
+                      setSelectedLesson(resume.lessonId);
+                      navigate("/lesson");
+                    }}
+                  >
+                    Mulai
+                  </Button>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </Card>
+          )}
 
           <Card>
             <div className="flex items-center justify-between mb-4">
@@ -370,7 +377,7 @@ export default function UserDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/80">Streak Belajar</p>
-                <p className="text-3xl font-extrabold mt-1">7 🔥</p>
+                <p className="text-3xl font-extrabold mt-1">{stats?.streakDays ?? 0} 🔥</p>
                 <p className="text-xs text-white/70 mt-1">
                   Hari berturut-turut
                 </p>
