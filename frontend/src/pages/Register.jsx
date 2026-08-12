@@ -1,347 +1,242 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/app";
-import { Button, Input, Alert } from "../components/ui/ui";
-import { CheckIcon, EyeIcon, EyeOffIcon } from "../components/ui/Icons";
+import {
+  ArrowLeftIcon,
+  BookIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  HandSignIcon,
+  LockIcon,
+  MailIcon,
+  UserIcon,
+  UsersIcon,
+} from "../components/ui/Icons";
+import {
+  AuthBrandPanel,
+  AuthCard,
+  AuthField,
+  AuthStatus,
+  AuthSubmitButton,
+  PasswordToggle,
+  authEntrance,
+} from "../components/auth/AuthUI";
+import { useReducedMotion } from "../hooks/useLandingMotion";
+
+const BENEFITS = [
+  { label: "Belajar Sambil Bermain", icon: BookIcon },
+  { label: "Kenali Gerakan BISINDO", icon: HandSignIcon },
+  { label: "Simpan Progres Belajar", icon: CheckCircleIcon },
+];
 
 const PROFILES = [
   {
     id: "parent",
-    title: "Orang Tua dengan Anak Tunarungu",
-    desc: "Saya ingin belajar BISINDO untuk berkomunikasi dengan anak saya.",
-    emoji: "👨‍👩‍👧",
+    title: "Orang Tua dan Pendamping",
+    description: "Saya ingin mendampingi anak belajar dan berkomunikasi dengan BISINDO.",
+    icon: UsersIcon,
   },
   {
     id: "deaf",
-    title: "Penyandang Tunarungu/Gangguan Pendengaran",
-    desc: "Saya ingin meningkatkan kemampuan komunikasi BISINDO saya.",
-    emoji: "🤟",
+    title: "Teman Tuli",
+    description: "Saya ingin mengembangkan kemampuan komunikasi BISINDO.",
+    icon: HandSignIcon,
   },
   {
     id: "general",
     title: "Pelajar Umum",
-    desc: "Saya ingin belajar BISINDO untuk keperluan sosial atau profesional.",
-    emoji: "📚",
+    description: "Saya ingin belajar BISINDO untuk komunikasi yang lebih inklusif.",
+    icon: BookIcon,
   },
 ];
 
-const BENEFITS = [
-  "Akses ke seluruh kursus gratis",
-  "Video berkualitas tinggi",
-  "Kuis interaktif di setiap pelajaran",
-  "Pantau progres belajar Anda",
-];
+const premiumEase = [0.22, 1, 0.36, 1];
 
 export default function Register() {
   const { register } = useApp();
   const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
+  const nameRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPass, setConfirmPass] = useState("");
-  const [profile, setProfile] = useState(null);
-  const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [profile, setProfile] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  function handleStep1(e) {
-    e.preventDefault();
-    setError("");
+  const passwordMeetsRequirement = password.length >= 6;
+  const passwordsMatch = Boolean(confirmPassword) && password === confirmPassword;
 
-    if (!name.trim()) {
-      setError("Nama lengkap wajib diisi.");
-      return;
-    }
-    if (!email.includes("@")) {
-      setError("Format email tidak valid.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Kata sandi minimal 6 karakter.");
-      return;
-    }
-    if (password !== confirmPass) {
-      setError("Konfirmasi kata sandi tidak cocok.");
-      return;
-    }
+  function clearFieldError(field) {
+    if (fieldErrors[field]) setFieldErrors((current) => ({ ...current, [field]: "" }));
+  }
+
+  function validateDetails() {
+    const errors = {};
+    const normalizedEmail = email.trim();
+    if (!name.trim()) errors.name = "Nama belum diisi.";
+    if (!normalizedEmail) errors.email = "Alamat email belum diisi.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) errors.email = "Format email belum sesuai.";
+    if (!password) errors.password = "Kata sandi belum diisi.";
+    else if (!passwordMeetsRequirement) errors.password = "Kata sandi minimal 6 karakter.";
+    if (!confirmPassword) errors.confirmPassword = "Konfirmasi kata sandi belum diisi.";
+    else if (!passwordsMatch) errors.confirmPassword = "Konfirmasi kata sandi belum sama.";
+    setFieldErrors(errors);
+
+    if (errors.name) nameRef.current?.focus();
+    else if (errors.email) emailRef.current?.focus();
+    else if (errors.password) passwordRef.current?.focus();
+    else if (errors.confirmPassword) confirmRef.current?.focus();
+    return Object.keys(errors).length === 0;
+  }
+
+  function handleDetailsSubmit(event) {
+    event.preventDefault();
+    if (loading) return;
+    setAuthError("");
+    setConfirmTouched(true);
+    if (!validateDetails()) return;
+    setDirection(1);
     setStep(2);
   }
 
-  async function handleSubmit() {
+  async function handleRegister(event) {
+    event.preventDefault();
+    if (loading) return;
     if (!profile) {
-      setError("Pilih profil belajar Anda.");
+      setAuthError("Pilih profil belajar yang paling sesuai, ya.");
       return;
     }
+
+    setAuthError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-
-    const ok = await register({ name, email, password, profile });
-    if (!ok) {
-      setError("Email sudah terdaftar. Silakan gunakan email lain.");
+    try {
+      const ok = await register({ name: name.trim(), email: email.trim(), password, profile });
+      if (!ok) {
+        setAuthError("Email ini sudah digunakan. Coba gunakan email lain, ya.");
+        setLoading(false);
+        return;
+      }
+      setSuccess(true);
       setLoading(false);
-      return;
+    } catch {
+      setAuthError("Akun belum berhasil dibuat. Coba lagi sebentar, ya.");
+      setLoading(false);
     }
-    setSuccess(true);
-    setLoading(false);
   }
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[var(--surface-2)] flex items-center justify-center p-6">
-        <div className="w-full max-w-md text-center animate-scale-in">
-          <div className="w-20 h-20 bg-[var(--success-light)] rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckIcon size={36} className="text-[#2ECC71]" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-[var(--text)] mb-3">
-            Pendaftaran Berhasil! 🎉
-          </h1>
-          <p className="text-[var(--text-muted)] mb-6">
-            Akun Anda telah berhasil dibuat. Selamat datang di SignLearn!
-          </p>
-          <div className="bg-[var(--surface)] rounded-2xl p-5 border border-[var(--border)] mb-6 text-left">
-            <p className="text-sm text-[var(--text-muted)]">
-              Kami telah mengirimkan tautan verifikasi ke{" "}
-              <strong className="text-[var(--text)]">{email}</strong>. Periksa
-              kotak masuk Anda untuk menyelesaikan pendaftaran.
-            </p>
-          </div>
-          <Button fullWidth onClick={() => navigate("/login")}>
-            Lanjut ke Halaman Masuk
-          </Button>
-        </div>
-      </div>
-    );
+  function returnToDetails() {
+    setDirection(-1);
+    setStep(1);
+    setAuthError("");
   }
+
+  const stepMotion = {
+    initial: reducedMotion ? { opacity: 0 } : { opacity: 0, x: direction > 0 ? 14 : -14 },
+    animate: { opacity: 1, x: 0 },
+    exit: reducedMotion ? { opacity: 0 } : { opacity: 0, x: direction > 0 ? -10 : 10 },
+    transition: { duration: reducedMotion ? 0.16 : 0.28, ease: premiumEase },
+  };
 
   return (
-    <div className="min-h-screen bg-[var(--surface-2)] flex">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-[#4F8EF7] to-[#6C63FF] flex-col items-center justify-center p-12 relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 30% 30%, white 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        <div className="relative text-center text-white">
-          <div className="text-7xl mb-6">🌟</div>
-          <h2 className="text-3xl font-extrabold mb-4">
-            Bergabunglah dengan SignLearn
-          </h2>
-          <p className="text-white/80 text-lg max-w-sm leading-relaxed">
-            Mulai perjalanan belajar BISINDO Anda hari ini dan jadilah bagian
-            dari komunitas inklusif kami.
-          </p>
-          <div className="mt-10 space-y-3">
-            {BENEFITS.map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-3 bg-[var(--surface)]/10 px-4 py-2.5 rounded-xl"
-              >
-                <CheckIcon size={16} />
-                <span className="text-sm">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <main className="login-page auth-register-page">
+      <AuthBrandPanel
+        id="register-welcome-title"
+        eyebrow="Petualangan baru dimulai"
+        title="Yuk, Mulai Petualanganmu!"
+        description="Buat akun dan mulai belajar BISINDO dengan cara yang seru bersama SignLearn Kids."
+        benefits={BENEFITS}
+        celebratory
+      />
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-        <div className="w-full max-w-md py-8 animate-fade-in">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">S</span>
-            </div>
-            <span className="text-xl font-bold text-[var(--text)]">
-              SignLearn
-            </span>
-          </div>
+      <section className="login-form-panel auth-register-form-panel" aria-labelledby={success ? "register-success-title" : "register-title"}>
+        <AuthCard className={`auth-register-card ${success ? "is-success" : ""}`}>
+          {success ? (
+            <motion.div className="auth-register-success" initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: reducedMotion ? 0.18 : 0.38, ease: premiumEase }} aria-live="polite">
+              <motion.span className="auth-success-icon" initial={reducedMotion ? false : { scale: 0.75 }} animate={{ scale: 1 }} transition={{ duration: 0.3, ease: premiumEase }} aria-hidden="true"><CheckIcon size={34} /></motion.span>
+              <p className="login-eyebrow">Selamat datang!</p>
+              <h2 id="register-success-title">Akun berhasil dibuat!</h2>
+              <p>Akun untuk <strong>{name.trim()}</strong> sudah siap. Sekarang kamu bisa masuk dan mulai belajar BISINDO.</p>
+              <AuthSubmitButton type="button" loading={false} onClick={() => navigate("/login")}>Lanjut ke Halaman Masuk</AuthSubmitButton>
+            </motion.div>
+          ) : (
+            <>
+              <header className="login-form-header auth-register-header">
+                <p className="login-eyebrow">Langkah {step} dari 2</p>
+                <h2 id="register-title">{step === 1 ? "Daftar" : "Pilih Profil Belajar"}</h2>
+                <p>{step === 1 ? "Mulai petualangan belajarmu bersama SignLearn Kids." : "Bantu kami menyesuaikan pengalaman belajarmu."}</p>
+                <div className="auth-step-progress" aria-label={`Langkah ${step} dari 2`}><span style={{ width: `${step * 50}%` }} /></div>
+              </header>
 
-          {/* Stepper */}
-          <div className="flex items-center gap-3 mb-6">
-            {[1, 2].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                    step >= s
-                      ? "bg-[#4F8EF7] text-white"
-                      : "bg-[var(--surface-3)] text-[var(--text-subtle)]"
-                  }`}
-                >
-                  {step > s ? <CheckIcon size={14} /> : s}
-                </div>
-                <span
-                  className={`text-sm font-medium ${step >= s ? "text-[var(--text)]" : "text-[var(--text-subtle)]"}`}
-                >
-                  {s === 1 ? "Informasi Akun" : "Profil Belajar"}
-                </span>
-                {s < 2 && (
-                  <div
-                    className={`flex-1 h-0.5 w-8 ${step > s ? "bg-[#4F8EF7]" : "bg-[#E2E8F0]"}`}
-                  />
+              <AuthStatus error={authError} onDismiss={() => setAuthError("")} />
+
+              <AnimatePresence mode="wait" initial={false}>
+                {step === 1 ? (
+                  <motion.form key="details" className="login-form auth-register-form" onSubmit={handleDetailsSubmit} noValidate {...stepMotion}>
+                    <motion.div {...authEntrance(reducedMotion, 0.08)}>
+                      <AuthField inputRef={nameRef} id="register-name" label="Nama Lengkap" icon={UserIcon} type="text" placeholder="Nama kamu" value={name} onChange={(event) => { setName(event.target.value); clearFieldError("name"); }} autoComplete="name" error={fieldErrors.name} />
+                    </motion.div>
+                    <motion.div {...authEntrance(reducedMotion, 0.15)}>
+                      <AuthField inputRef={emailRef} id="register-email" label="Alamat Email" icon={MailIcon} type="email" inputMode="email" placeholder="contoh@email.com" value={email} onChange={(event) => { setEmail(event.target.value); clearFieldError("email"); }} autoComplete="email" error={fieldErrors.email} />
+                    </motion.div>
+                    <motion.div {...authEntrance(reducedMotion, 0.22)}>
+                      <AuthField inputRef={passwordRef} id="register-password" label="Kata Sandi" icon={LockIcon} type={showPassword ? "text" : "password"} placeholder="Masukkan kata sandi" value={password} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); clearFieldError("confirmPassword"); }} autoComplete="new-password" error={fieldErrors.password} describedBy="register-password-requirement" rightElement={<PasswordToggle visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} />} />
+                      <p id="register-password-requirement" className={`auth-password-feedback ${passwordMeetsRequirement ? "is-valid" : ""}`}><span aria-hidden="true">{passwordMeetsRequirement ? <CheckIcon size={13} /> : "○"}</span> Minimal 6 karakter</p>
+                    </motion.div>
+                    <motion.div {...authEntrance(reducedMotion, 0.29)}>
+                      <AuthField inputRef={confirmRef} id="register-confirm-password" label="Konfirmasi Kata Sandi" icon={LockIcon} type={showConfirmPassword ? "text" : "password"} placeholder="Masukkan kembali kata sandi" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); if (event.target.value) setConfirmTouched(true); clearFieldError("confirmPassword"); }} onBlur={() => setConfirmTouched(true)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} autoComplete="new-password" error={fieldErrors.confirmPassword} describedBy={confirmTouched && confirmPassword ? "register-password-match" : undefined} rightElement={<PasswordToggle visible={showConfirmPassword} onToggle={() => setShowConfirmPassword((visible) => !visible)} label="konfirmasi kata sandi" />} />
+                      {confirmTouched && confirmPassword && <p id="register-password-match" className={`auth-password-feedback ${passwordsMatch ? "is-valid" : "is-mismatch"}`} aria-live="polite"><span aria-hidden="true">{passwordsMatch ? <CheckIcon size={13} /> : "○"}</span> {passwordsMatch ? "Kata sandi cocok" : "Konfirmasi belum sama"}</p>}
+                    </motion.div>
+                    <motion.div {...authEntrance(reducedMotion, 0.36)}>
+                      <AuthSubmitButton type="submit" loading={false}>Lanjutkan</AuthSubmitButton>
+                    </motion.div>
+                  </motion.form>
+                ) : (
+                  <motion.form key="profile" className="auth-profile-form" onSubmit={handleRegister} {...stepMotion}>
+                    <div className="auth-profile-options" role="group" aria-label="Pilih profil belajar">
+                      {PROFILES.map(({ id, title, description, icon: Icon }, index) => (
+                        <motion.button
+                          key={id}
+                          type="button"
+                          className={`auth-profile-option ${profile === id ? "is-selected" : ""}`}
+                          onClick={() => { setProfile(id); setAuthError(""); }}
+                          aria-pressed={profile === id}
+                          initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: reducedMotion ? 0.14 : 0.28, delay: reducedMotion ? 0 : index * 0.06, ease: premiumEase }}
+                        >
+                          <span className="auth-profile-icon" aria-hidden="true"><Icon size={22} /></span>
+                          <span><strong>{title}</strong><small>{description}</small></span>
+                          <span className="auth-profile-check" aria-hidden="true">{profile === id && <CheckIcon size={14} />}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                    <div className="auth-register-actions">
+                      <button type="button" className="auth-secondary-button" onClick={returnToDetails}><ArrowLeftIcon size={17} /> Kembali</button>
+                      <AuthSubmitButton type="submit" loading={loading} loadingLabel="Sedang membuat akun...">Buat Akun</AuthSubmitButton>
+                    </div>
+                  </motion.form>
                 )}
-              </div>
-            ))}
-          </div>
+              </AnimatePresence>
 
-          <div className="bg-[var(--surface)] rounded-3xl p-8 shadow-sm border border-[var(--border)]">
-            {step === 1 ? (
-              <>
-                <h1 className="text-2xl font-extrabold text-[var(--text)] mb-1">
-                  Buat Akun Baru
-                </h1>
-                <p className="text-sm text-[var(--text-muted)] mb-6">
-                  Sudah punya akun?{" "}
-                  <button
-                    onClick={() => navigate("/login")}
-                    className="text-[var(--primary)] font-medium hover:underline"
-                  >
-                    Masuk di sini
-                  </button>
-                </p>
-
-                {error && (
-                  <div className="mb-4">
-                    <Alert
-                      type="danger"
-                      message={error}
-                      onClose={() => setError("")}
-                    />
-                  </div>
-                )}
-
-                <form onSubmit={handleStep1} className="space-y-4">
-                  <Input
-                    label="Nama Lengkap"
-                    placeholder="Masukkan nama lengkap"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                  <Input
-                    label="Alamat Email"
-                    type="email"
-                    placeholder="contoh@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <Input
-                    label="Kata Sandi"
-                    type={showPass ? "text" : "password"}
-                    placeholder="Minimal 6 karakter"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    rightElement={
-                      <button
-                        type="button"
-                        onClick={() => setShowPass(!showPass)}
-                        className="text-[var(--text-subtle)]"
-                      >
-                        {showPass ? (
-                          <EyeOffIcon size={16} />
-                        ) : (
-                          <EyeIcon size={16} />
-                        )}
-                      </button>
-                    }
-                  />
-                  <Input
-                    label="Konfirmasi Kata Sandi"
-                    type="password"
-                    placeholder="Ulangi kata sandi"
-                    value={confirmPass}
-                    onChange={(e) => setConfirmPass(e.target.value)}
-                  />
-                  <Button type="submit" fullWidth size="lg">
-                    Lanjut ke Profil Belajar
-                  </Button>
-                </form>
-              </>
-            ) : (
-              <>
-                <h1 className="text-2xl font-extrabold text-[var(--text)] mb-1">
-                  Pilih Profil Belajar
-                </h1>
-                <p className="text-sm text-[var(--text-muted)] mb-6">
-                  Profil ini membantu kami menyesuaikan pengalaman belajar Anda.
-                  Ini bukan peran sistem.
-                </p>
-
-                {error && (
-                  <div className="mb-4">
-                    <Alert
-                      type="danger"
-                      message={error}
-                      onClose={() => setError("")}
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-3 mb-6">
-                  {PROFILES.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setProfile(p.id)}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-150 ${
-                        profile === p.id
-                          ? "border-[#4F8EF7] bg-[var(--primary-light)]"
-                          : "border-[var(--border)] hover:border-[#4F8EF7]/40"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl">{p.emoji}</span>
-                        <div className="flex-1">
-                          <p
-                            className={`font-semibold text-sm ${
-                              profile === p.id
-                                ? "text-[var(--primary)]"
-                                : "text-[var(--text)]"
-                            }`}
-                          >
-                            {p.title}
-                          </p>
-                          <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                            {p.desc}
-                          </p>
-                        </div>
-                        {profile === p.id && (
-                          <div className="w-5 h-5 bg-[#4F8EF7] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <CheckIcon size={12} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setStep(1);
-                      setError("");
-                    }}
-                    className="flex-1"
-                  >
-                    Kembali
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    {loading ? "Mendaftar..." : "Buat Akun"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+              <motion.p className="login-register-link auth-login-link" {...authEntrance(reducedMotion, 0.44)}>Sudah punya akun? <button type="button" onClick={() => navigate("/login")}>Masuk di sini</button></motion.p>
+              <p className="login-security-note"><LockIcon size={14} /> Kata sandimu diproses dengan aman.</p>
+            </>
+          )}
+        </AuthCard>
+      </section>
+    </main>
   );
 }

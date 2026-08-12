@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SignLearn Kids">
+  <defs>
+    <linearGradient id="brand" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2797df"/>
+      <stop offset="1" stop-color="#0f5fa8"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#brand)" d="M13 5h38a8 8 0 0 1 8 8v34a12 12 0 0 1-12 12H13a8 8 0 0 1-8-8V13a8 8 0 0 1 8-8Z"/>
+  <text x="32" y="39" fill="#fff" font-family="Arial, sans-serif" font-size="21" font-weight="800" text-anchor="middle">SL</text>
+</svg>

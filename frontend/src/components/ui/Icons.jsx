@@ -16,6 +16,40 @@ const icon =
     </svg>
   );
 
+export function HandSignIcon({ size = 42, className = "" }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M12.4 22.7V11.4c0-2.1 1.5-3.8 3.5-3.8s3.5 1.7 3.5 3.8v8.2h1.2V6.9c0-2.2 1.6-3.9 3.6-3.9s3.6 1.7 3.6 3.9v12.7H29V9.8c0-2.1 1.5-3.8 3.5-3.8S36 7.7 36 9.8v14.6l2.3-2.8c1.4-1.7 3.8-2 5.4-.6 1.5 1.3 1.8 3.6.6 5.2l-8.1 10.9C33.2 41.1 28.5 44 23 44h-1.4C13.5 44 7 37.5 7 29.4v-3.8c0-2.1 1.5-3.8 3.5-3.8.7 0 1.3.2 1.9.9Z"
+        fill="currentColor"
+      />
+      <path
+        d="M19.4 19.6v7.1m8.4-7.1v7.1M36 24.4v3.4"
+        stroke="white"
+        strokeWidth="2.3"
+        strokeLinecap="round"
+        opacity="0.92"
+      />
+      <path
+        d="M13.1 30.2c3.8-.2 6.9 1.2 8.9 4.2"
+        stroke="white"
+        strokeWidth="2.3"
+        strokeLinecap="round"
+        opacity="0.92"
+      />
+    </svg>
+  );
+}
+
 export const HomeIcon = icon(
   <>
     <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -51,6 +85,62 @@ export const UsersIcon = icon(
     <circle cx="9" cy="7" r="4" />
     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </>,
+);
+
+export const AlphabetBlocksIcon = icon(
+  <>
+    <rect x="2.5" y="4" width="8.5" height="8.5" rx="2" />
+    <path d="m4.7 10 2-4h.2l2 4M5.5 8.7h2.6" />
+    <rect x="13" y="11.5" width="8.5" height="8.5" rx="2" />
+    <path d="M15.5 13.8v4h2.1a1 1 0 0 0 0-2h-2.1 2a1 1 0 0 0 0-2Z" />
+    <path d="M12.8 5.4h2.8M14.2 4v2.8" />
+  </>,
+);
+
+export const CalculatorIcon = icon(
+  <>
+    <rect x="4" y="2" width="16" height="20" rx="3" />
+    <rect x="7" y="5" width="10" height="4" rx="1" />
+    <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" />
+  </>,
+);
+
+export const PawIcon = icon(
+  <>
+    <ellipse cx="12" cy="15.5" rx="5" ry="4" />
+    <ellipse cx="5.8" cy="10" rx="2" ry="2.6" />
+    <ellipse cx="10" cy="6.8" rx="2" ry="2.6" />
+    <ellipse cx="14" cy="6.8" rx="2" ry="2.6" />
+    <ellipse cx="18.2" cy="10" rx="2" ry="2.6" />
+  </>,
+);
+
+export const UtensilsIcon = icon(
+  <>
+    <path d="M6 2v8M3.5 2v5a2.5 2.5 0 0 0 5 0V2M6 10v12" />
+    <path d="M16 2v20M16 2c3 1.7 4.5 4.2 4.5 7.5H16" />
+  </>,
+);
+
+export const EmotionIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.5 9h.01M15.5 9h.01M8.5 15c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" />
+  </>,
+);
+
+export const ActivityIcon = icon(
+  <>
+    <circle cx="15.5" cy="4.5" r="2" />
+    <path d="m13.5 8-3 4 3.5 2.5-2.5 6M13.5 8l3 3 3-1M10.5 12 6 11M14 14.5l4 5" />
+  </>,
+);
+
+export const GreetingIcon = icon(
+  <>
+    <path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+    <path d="M7 10h.01M12 10h.01M17 10h.01" />
   </>,
 );
 
@@ -303,5 +393,12 @@ export const DatabaseIcon = icon(
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
     <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+  </>,
+);
+
+export const MailIcon = icon(
+  <>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </>,
 );

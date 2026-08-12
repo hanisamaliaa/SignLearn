@@ -1,8 +1,11 @@
+import BrandLogo from "../common/BrandLogo";
+import { Reveal } from "./LandingMotion";
+
 const GROUPS = [
-  { title: "Belajar", links: ["Materi", "Permainan", "Penerjemah", "Progres"] },
-  { title: "Dukungan", links: ["Panduan Orang Tua", "Pusat Bantuan", "Hubungi Kami", "Tentang BISINDO"], id: "footer-support" },
-  { title: "Informasi", links: ["Kebijakan Privasi", "Ketentuan Penggunaan", "Pernyataan Aksesibilitas"] },
+  { title: "Jelajahi", links: [{ label: "Belajar", href: "#topik" }, { label: "Penerjemah", href: "#demo-gerakan" }, { label: "Permainan", href: "#cara-belajar" }, { label: "Progres", href: "#progres" }] },
+  { title: "Untuk keluarga", links: [{ label: "Panduan Orang Tua", href: "#orang-tua" }, { label: "Kembali ke atas", href: "#main-content" }], id: "footer-support" },
 ];
 export default function LandingFooter() {
-  return <footer className="kids-footer"><div className="kids-container kids-footer-grid"><div><a href="#main-content" className="kids-brand text-white" aria-label="SignLearn Kids, kembali ke atas"><span className="kids-brand-mark" aria-hidden="true">SL</span><span>SignLearn <strong>Kids</strong></span></a><p className="mt-5 max-w-sm">Platform belajar BISINDO yang menyenangkan, aman, dan inklusif untuk anak.</p></div>{GROUPS.map((group) => <nav key={group.title} id={group.id} aria-label={group.title}><h2>{group.title}</h2><ul>{group.links.map((link) => <li key={link}><a href={link === "Materi" ? "#topik" : link === "Progres" ? "#progres" : "#main-content"}>{link}</a></li>)}</ul></nav>)}</div><div className="kids-container kids-footer-bottom">© 2026 SignLearn Kids. Belajar dan berkomunikasi untuk semua.</div></footer>;
+  const year = new Date().getFullYear();
+  return <footer className="kids-footer"><div className="kids-footer-decor" aria-hidden="true"><i /><i /><i /></div><Reveal className="kids-container kids-footer-grid"><div className="kids-footer-brand"><BrandLogo href="#main-content" ariaLabel="SignLearn Kids, kembali ke atas" /><p>Platform belajar BISINDO yang menyenangkan, aman, dan inklusif untuk anak.</p><span className="kids-footer-promise">Belajar dengan tangan, tumbuh dengan empati.</span></div>{GROUPS.map((group) => <nav key={group.title} id={group.id} aria-label={group.title}><h2>{group.title}</h2><ul>{group.links.map((link) => <li key={link.label}><a href={link.href}>{link.label}</a></li>)}</ul></nav>)}</Reveal><div className="kids-container kids-footer-bottom"><span>© {year} SignLearn Kids.</span><span>Belajar dan berkomunikasi untuk semua.</span></div></footer>;
 }
