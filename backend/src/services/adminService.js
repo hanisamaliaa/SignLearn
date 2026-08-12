@@ -32,3 +32,23 @@ export async function getRecentActivities(filters = {}, options = {}) {
 
   return { items, pagination: meta(page, limit, total) };
 }
+
+/**
+ * `GET /admin/quiz-results` — daftar hasil kuis seluruh pengguna.
+ *
+ * `summary` dihitung atas SELURUH baris yang cocok filter, bukan atas halaman
+ * yang sedang ditampilkan. Menghitungnya dari `items` akan membuat rata-rata
+ * dan distribusi nilai berubah setiap kali admin menekan "halaman berikutnya" —
+ * angka yang ikut berpindah bersama scroll bukan laporan.
+ */
+export async function getQuizResults(filters = {}, options = {}) {
+  const { page, limit, offset } = paginate(options);
+
+  const [total, items, summary] = await Promise.all([
+    adminRepo.countQuizResults(filters),
+    adminRepo.findQuizResults(filters, { limit, offset }),
+    adminRepo.quizResultSummary(filters),
+  ]);
+
+  return { items, summary, pagination: meta(page, limit, total) };
+}

@@ -21,3 +21,18 @@ export const getRecentActivities = asyncHandler(async (req, res) => {
   const result = await adminService.getRecentActivities({ type }, { page, limit });
   success(res, result, "Aktivitas terbaru berhasil diambil.");
 });
+
+// ─── GET /admin/quiz-results ─────────────────────────────────────────────
+//
+// `passed` datang sebagai STRING dari query string. Melewatkannya apa adanya
+// membuat `"false"` bernilai truthy di repository, sehingga filter "hanya yang
+// gagal" justru mengembalikan yang lulus.
+export const getQuizResults = asyncHandler(async (req, res) => {
+  const { from, to, courseId, passed, page, limit } = req.query;
+
+  const result = await adminService.getQuizResults(
+    { from, to, courseId, passed: passed === undefined ? undefined : passed === "true" },
+    { page, limit },
+  );
+  success(res, result, "Hasil kuis berhasil diambil.");
+});

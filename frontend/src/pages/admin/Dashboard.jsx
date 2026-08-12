@@ -1,14 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, Badge } from "../../components/ui/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Badge } from "../../components/ui/ui";
 import {
   UsersIcon,
   BookIcon,
   ChartIcon,
   TrophyIcon,
-  PlusIcon,
-  ChevronUpIcon,
 } from "../../components/ui/Icons";
-import { MOCK_USERS_LIST, RECENT_ACTIVITIES, COURSES } from "../../data/mock";
+import { adminService, courseService, userService } from "../../services";
+import { useAdminResource } from "../../hooks/useAdminResource";
+
+/**
+ * Dashboard admin — seluruh angka berasal dari API.
+ *
+ * ── Yang DIHAPUS dari versi mock, dan kenapa ──────────────────────────
+ *
+ * Halaman ini sebelumnya menampilkan lima hal yang tidak pernah diukur:
+ *
+ *   · grafik "Pertumbuhan Jan–Mei" yang titiknya dikarang dari jumlah
+ *     pengguna (`base = total - 6`, lalu +1, +3, +5)
+ *   · pil "▲ 12% bulan ini" — konstanta, tidak pernah dihitung
+ *   · "Rata-rata Skor Kuis 78%" dan "Tingkat Penyelesaian 64%" — konstanta
+ *   · progres per kategori 67/40/0/0 — konstanta
+ *   · kolom "Pendaftar" pada tabel kursus: `48 + index * 17`
+ *
+ * Yang terakhir paling berbahaya. Angka itu naik rapi per baris sehingga
+ * terlihat seperti data sungguhan, dan tidak ada cara membedakannya dari
+ * pengukuran hanya dengan melihat layar. Sebuah dasbor yang meyakinkan tetapi
+ * salah lebih buruk daripada dasbor yang berkata "belum ada data" — keputusan
+ * diambil berdasarkan yang pertama.
+ *
+ * Sekarang setiap angka punya sumbernya:
+ *   totals & engagement  → GET /dashboard/admin
+ *   deret pertumbuhan    → GET /dashboard/admin/reports (generate_series)
+ *   kursus teratas       → topCourses pada endpoint yang sama
+ *   aktivitas            → GET /admin/activities
+ *   pengguna terbaru     → GET /users?sortBy=createdAt&sortDir=desc
+ */
 
 const STAT_CARDS = [
   {
@@ -36,27 +63,48 @@ const STAT_CARDS = [
     helper: "materi belajar",
   },
   {
-    label: "Kuis Diselesaikan",
+    label: "Total Kuis",
     key: "quizzes",
     color: "var(--adm-purple)",
     soft: "var(--adm-purple-soft)",
     icon: TrophyIcon,
-    helper: "oleh seluruh pengguna",
+    helper: "kuis tersedia",
   },
 ];
 
-const SUMMARY = [
-  { label: "Pengguna Aktif", value: (users) => users, color: "var(--adm-blue)", soft: "var(--adm-blue-soft)" },
-  { label: "Rata-rata Skor Kuis", value: () => "78%", color: "var(--adm-yellow)", soft: "var(--adm-yellow-soft)" },
-  { label: "Tingkat Penyelesaian", value: () => "64%", color: "var(--adm-coral)", soft: "var(--adm-coral-soft)" },
-];
+/** Rentang laporan: 30 hari terakhir, termasuk hari ini. */
+function last30Days() {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 29);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { from: iso(from), to: iso(to) };
+}
 
-const CATEGORY_PROGRESS = [
-  { label: "Alfabet", value: 67, color: "var(--adm-blue)" },
-  { label: "Angka", value: 40, color: "var(--adm-yellow)" },
-  { label: "Sapaan", value: 0, color: "var(--adm-coral)" },
-  { label: "Keluarga", value: 0, color: "var(--adm-purple)" },
-];
+const ACTIVITY_LABEL = {
+  user_registered: { icon: "🎓", tone: "is-green", verb: "mendaftar ke SignLearn" },
+  lesson_completed: { icon: "📖", tone: "is-blue", verb: "menyelesaikan pelajaran" },
+  quiz_passed: { icon: "📝", tone: "is-yellow", verb: "lulus kuis" },
+  course_created: { icon: "📚", tone: "is-blue", verb: "Kursus baru ditambahkan" },
+};
+
+/** "3 jam lalu" — relatif, karena stempel UTC penuh tidak terbaca sekilas. */
+function relativeTime(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(diff / 60000);
+  if (minutes < 1) return "baru saja";
+  if (minutes < 60) return `${minutes} menit lalu`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days} hari lalu`;
+  return new Date(iso).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 function useCountUp(target, duration = 900) {
   const [display, setDisplay] = useState(0);
@@ -100,16 +148,9 @@ function StatCardKids({ card, value, index = 0 }) {
       className="admin-stat-card group"
       style={{ "--card-accent": card.color, "--adm-i": index }}
     >
-      <div
-        className="admin-stat-orb"
-        style={{ background: card.soft }}
-        aria-hidden="true"
-      />
+      <div className="admin-stat-orb" style={{ background: card.soft }} aria-hidden="true" />
       <div className="relative z-10">
-        <div
-          className="admin-stat-icon"
-          style={{ background: card.color }}
-        >
+        <div className="admin-stat-icon" style={{ background: card.color }}>
           <Icon size={22} strokeWidth={2.2} />
         </div>
 
@@ -123,7 +164,7 @@ function StatCardKids({ card, value, index = 0 }) {
   );
 }
 
-function UserAvatar({ initials, index = 0 }) {
+function UserAvatar({ name, index = 0 }) {
   const colors = [
     "var(--adm-blue)",
     "var(--adm-coral)",
@@ -131,11 +172,15 @@ function UserAvatar({ initials, index = 0 }) {
     "var(--adm-green)",
     "var(--adm-purple)",
   ];
+  const initials = (name ?? "?")
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <div
-      className="admin-avatar"
-      style={{ background: colors[index % colors.length] }}
-    >
+    <div className="admin-avatar" style={{ background: colors[index % colors.length] }}>
       {initials}
     </div>
   );
@@ -151,37 +196,54 @@ function ProgressRow({ label, value, color }) {
         </span>
       </div>
       <div className="admin-progress-track">
-        <div
-          className="admin-progress-fill"
-          style={{ "--fill": `${value}%`, background: color }}
-        />
+        <div className="admin-progress-fill" style={{ "--fill": `${value}%`, background: color }} />
       </div>
     </div>
   );
 }
 
-function GrowthChart({ totalUsers }) {
-  const points = useMemo(() => {
-    const base = Math.max(2, totalUsers - 6);
-    return [base, base + 1, base + 3, base + 5, totalUsers + 2];
-  }, [totalUsers]);
+/**
+ * Grafik pendaftaran harian dari deret laporan.
+ *
+ * Sumbu-Y dimulai dari NOL, bukan dari nilai terkecil. Memangkas dasar sumbu
+ * membuat selisih 2 pendaftar terlihat seperti lonjakan dramatis — teknik yang
+ * membuat grafik terasa hidup sekaligus membuatnya berbohong.
+ */
+function GrowthChart({ series }) {
+  const points = useMemo(() => (series ?? []).map((p) => p.newUsers), [series]);
 
-  const max = Math.max(...points) + 2;
-  const min = Math.max(0, Math.min(...points) - 2);
+  if (points.length < 2) {
+    return (
+      <div className="admin-chart-wrap flex items-center justify-center h-[230px] text-sm text-[var(--text-subtle)]">
+        Belum cukup data untuk menggambar tren.
+      </div>
+    );
+  }
+
+  const max = Math.max(1, ...points);
   const width = 640;
   const height = 230;
   const padX = 18;
   const padY = 18;
   const step = (width - padX * 2) / (points.length - 1);
-  const range = Math.max(1, max - min);
 
   const coords = points.map((point, index) => ({
     x: padX + step * index,
-    y: height - padY - ((point - min) / range) * (height - padY * 2),
+    y: height - padY - (point / max) * (height - padY * 2),
   }));
 
   const line = coords.map((p) => `${p.x},${p.y}`).join(" ");
   const area = `${coords[0].x},${height - padY} ${line} ${coords.at(-1).x},${height - padY}`;
+
+  const labelAt = (index) => {
+    const iso = series[index]?.date;
+    if (!iso) return "";
+    return new Date(`${iso}T00:00:00Z`).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+  };
 
   return (
     <div className="admin-chart-wrap">
@@ -189,18 +251,10 @@ function GrowthChart({ totalUsers }) {
         viewBox={`0 0 ${width} ${height}`}
         className="w-full h-[230px]"
         role="img"
-        aria-label="Grafik pertumbuhan pengguna dari Januari sampai Mei"
+        aria-label={`Grafik pendaftaran pengguna harian, ${series.length} hari terakhir`}
       >
         {[45, 95, 145, 195].map((y) => (
-          <line
-            key={y}
-            x1="18"
-            x2="622"
-            y1={y}
-            y2={y}
-            stroke="var(--adm-border-soft)"
-            strokeWidth="1"
-          />
+          <line key={y} x1="18" x2="622" y1={y} y2={y} stroke="var(--adm-border-soft)" strokeWidth="1" />
         ))}
 
         <polygon points={area} fill="var(--adm-blue-soft)" opacity="0.9" />
@@ -214,122 +268,206 @@ function GrowthChart({ totalUsers }) {
         />
 
         {coords.map((point, index) => (
-          <g key={index}>
-            <circle
-              className="admin-chart-point"
-              cx={point.x}
-              cy={point.y}
-              r="6"
-              fill="var(--adm-yellow)"
-              stroke="var(--adm-blue)"
-              strokeWidth="3"
-            >
-              <title>{`${points[index]} pengguna`}</title>
-            </circle>
-          </g>
+          <circle
+            key={series[index].date}
+            className="admin-chart-point"
+            cx={point.x}
+            cy={point.y}
+            r="5"
+            fill="var(--adm-yellow)"
+            stroke="var(--adm-blue)"
+            strokeWidth="3"
+          >
+            <title>{`${labelAt(index)}: ${points[index]} pendaftar`}</title>
+          </circle>
         ))}
       </svg>
 
       <div className="admin-chart-labels">
-        {["Jan", "Feb", "Mar", "Apr", "Mei"].map((month) => (
-          <span key={month}>{month}</span>
-        ))}
+        <span>{labelAt(0)}</span>
+        <span>{labelAt(Math.floor((series.length - 1) / 2))}</span>
+        <span>{labelAt(series.length - 1)}</span>
       </div>
     </div>
   );
 }
 
 export default function AdminDashboard() {
-  const activeUsers = MOCK_USERS_LIST.filter(
-    (user) => user.status === "active",
-  ).length;
-  const totalLessons = COURSES.reduce((sum, course) => sum + course.totalLessons, 0);
+  const range = useMemo(last30Days, []);
+
+  /**
+   * Empat permintaan sekaligus, dan setiap kegagalan ditangkap SENDIRI-sendiri.
+   *
+   * `Promise.all` tanpa `.catch()` per cabang berarti satu endpoint yang
+   * bermasalah mengosongkan seluruh dasbor. Yang benar: bagian yang datanya
+   * gagal menampilkan keadaan kosong, sisanya tetap tampil.
+   */
+  const load = useCallback(async () => {
+    const [overview, report, activities, recentUsers, courses] = await Promise.all([
+      adminService.getAdminDashboard(),
+      adminService.getAdminReports({ ...range, groupBy: "day" }).catch(() => null),
+      adminService.getActivities({ limit: 6 }).catch(() => ({ items: [] })),
+      userService
+        .getUsers({ limit: 5, sortBy: "createdAt", sortDir: "desc" })
+        .catch(() => ({ items: [] })),
+      courseService.getCourses({ limit: 100 }).catch(() => ({ items: [] })),
+    ]);
+
+    return { overview, report, activities, recentUsers, courses };
+  }, [range]);
+
+  const { data, loading, error } = useAdminResource(load, [range]);
+
+  if (loading) {
+    return (
+      <div className="admin-dashboard space-y-6">
+        <section className="admin-dashboard-hero">
+          <div>
+            <p className="admin-eyebrow">SignLearn Administration</p>
+            <h2 className="admin-welcome-title">Memuat dasbor…</h2>
+          </div>
+        </section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          {STAT_CARDS.map((card) => (
+            <div key={card.key} className="admin-stat-card animate-pulse h-[150px]" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="admin-panel text-center py-16">
+        <div className="text-4xl mb-3">⚠️</div>
+        <h3 className="font-bold text-[var(--text)] mb-1">Gagal memuat dasbor</h3>
+        <p className="text-sm text-[var(--text-muted)]">{error.message}</p>
+      </div>
+    );
+  }
+
+  const totals = data?.overview?.totals ?? {};
+  const engagement = data?.overview?.engagement ?? {};
+  const growth = data?.overview?.growth ?? {};
+  const series = data?.report?.series ?? [];
+  const topCourses = data?.report?.topCourses ?? [];
+  const activities = data?.activities?.items ?? [];
+  const recentUsers = data?.recentUsers?.items ?? [];
+  const courses = data?.courses?.items ?? [];
 
   const statValues = {
-    users: MOCK_USERS_LIST.length,
-    courses: COURSES.length,
-    lessons: totalLessons,
-    quizzes: "142",
+    users: totals.users ?? 0,
+    courses: totals.courses ?? 0,
+    lessons: totals.lessons ?? 0,
+    quizzes: totals.quizzes ?? 0,
   };
+
+  const summaryCards = [
+    {
+      label: "Pengguna Aktif",
+      value: totals.activeUsers ?? 0,
+      helper: `dari ${totals.users ?? 0} pengguna`,
+      color: "var(--adm-blue)",
+      soft: "var(--adm-blue-soft)",
+    },
+    {
+      label: "Rata-rata Skor Kuis",
+      value: `${engagement.avgQuizScore ?? 0}%`,
+      helper: "seluruh pengerjaan",
+      color: "var(--adm-yellow)",
+      soft: "var(--adm-yellow-soft)",
+    },
+    {
+      label: "Pendaftar Baru",
+      value: growth.newUsers30d ?? 0,
+      helper: `${growth.newUsers7d ?? 0} dalam 7 hari terakhir`,
+      color: "var(--adm-coral)",
+      soft: "var(--adm-coral-soft)",
+    },
+  ];
+
+  // Peta pendaftar per kursus dari laporan. Kursus yang tidak muncul di
+  // `topCourses` memang belum disentuh siapa pun pada rentang ini — kolomnya
+  // diisi "—", bukan angka tebakan.
+  const enrollmentByCourse = new Map(
+    topCourses.map((c) => [c.courseId, { enrollments: c.enrollments, rate: c.completionRate }]),
+  );
+
+  const progressPalette = [
+    "var(--adm-blue)",
+    "var(--adm-yellow)",
+    "var(--adm-coral)",
+    "var(--adm-purple)",
+    "var(--adm-green)",
+  ];
 
   return (
     <div className="admin-dashboard space-y-6">
       <section className="admin-dashboard-hero">
         <div>
           <p className="admin-eyebrow">SignLearn Administration</p>
-          <h2 className="admin-welcome-title">
-            Selamat Datang, Admin! 
-          </h2>
+          <h2 className="admin-welcome-title">Selamat Datang, Admin!</h2>
         </div>
-
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {STAT_CARDS.map((card, index) => (
-          <StatCardKids
-            key={card.key}
-            card={card}
-            value={statValues[card.key]}
-            index={index}
-          />
+          <StatCardKids key={card.key} card={card} value={statValues[card.key]} index={index} />
         ))}
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {SUMMARY.map((item, index) => {
-          const value =
-            item.label === "Pengguna Aktif"
-              ? item.value(activeUsers)
-              : item.value();
-
-          return (
-            <div
-              key={item.label}
-              className="admin-mini-card"
-              style={{ "--mini-soft": item.soft, "--mini-color": item.color, "--adm-i": index }}
-            >
-              <div className="admin-mini-dot" />
-              <div>
-                <p className="admin-mini-value">
-                  <AnimatedValue value={value} />
-                </p>
-                <p className="admin-mini-label">{item.label}</p>
-                {item.label === "Pengguna Aktif" && (
-                  <p className="admin-mini-helper">
-                    dari {MOCK_USERS_LIST.length} pengguna
-                  </p>
-                )}
-              </div>
+        {summaryCards.map((item, index) => (
+          <div
+            key={item.label}
+            className="admin-mini-card"
+            style={{ "--mini-soft": item.soft, "--mini-color": item.color, "--adm-i": index }}
+          >
+            <div className="admin-mini-dot" />
+            <div>
+              <p className="admin-mini-value">
+                <AnimatedValue value={item.value} />
+              </p>
+              <p className="admin-mini-label">{item.label}</p>
+              <p className="admin-mini-helper">{item.helper}</p>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-6">
         <div className="admin-panel">
           <div className="admin-panel-heading">
             <div>
-              <h3>Pertumbuhan Pengguna</h3>
-              <p>Pengguna baru bergabung tiap bulan</p>
+              <h3>Pendaftar Baru</h3>
+              <p>30 hari terakhir</p>
             </div>
-            <span className="admin-trend-pill">
-              <ChevronUpIcon size={14} />
-              12% bulan ini
-            </span>
+            <span className="admin-count-pill">{growth.newUsers30d ?? 0} total</span>
           </div>
-          <GrowthChart totalUsers={MOCK_USERS_LIST.length} />
+          <GrowthChart series={series} />
         </div>
 
         <div className="admin-panel">
           <div className="admin-panel-heading">
             <div>
               <h3>Tingkat Penyelesaian</h3>
-              <p>Per kategori kursus</p>
+              <p>Kursus paling aktif 30 hari terakhir</p>
             </div>
           </div>
           <div className="space-y-5 pt-2">
-            {CATEGORY_PROGRESS.map((item) => (
-              <ProgressRow key={item.label} {...item} />
+            {topCourses.length === 0 && (
+              <p className="text-sm text-[var(--text-subtle)] py-6 text-center">
+                Belum ada aktivitas belajar pada rentang ini.
+              </p>
+            )}
+            {topCourses.map((course, index) => (
+              <ProgressRow
+                key={course.courseId}
+                label={course.title}
+                // API mengirim pecahan (0.41); kontrak §10.5 memang begitu.
+                value={Math.round((course.completionRate ?? 0) * 100)}
+                color={progressPalette[index % progressPalette.length]}
+              />
             ))}
           </div>
         </div>
@@ -340,21 +478,24 @@ export default function AdminDashboard() {
           <div className="admin-panel-heading">
             <div>
               <h3>Pengguna Terbaru</h3>
-              <p>Aktivitas pendaftar terbaru di SignLearn</p>
+              <p>Pendaftar paling akhir di SignLearn</p>
             </div>
-            <span className="admin-count-pill">
-              {MOCK_USERS_LIST.length} total
-            </span>
+            <span className="admin-count-pill">{totals.users ?? 0} total</span>
           </div>
 
           <div className="space-y-2">
-            {MOCK_USERS_LIST.slice(0, 5).map((user, index) => (
+            {recentUsers.length === 0 && (
+              <p className="text-sm text-[var(--text-subtle)] py-6 text-center">
+                Belum ada pengguna terdaftar.
+              </p>
+            )}
+            {recentUsers.map((user, index) => (
               <div key={user.id} className="admin-list-row">
-                <UserAvatar initials={user.avatar} index={index} />
+                <UserAvatar name={user.name} index={index} />
                 <div className="flex-1 min-w-0">
                   <p className="admin-list-title truncate">{user.name}</p>
                   <p className="admin-list-subtitle truncate">
-                    {user.profile} · {user.joinDate}
+                    {user.email} · {user.joinDate ?? "—"}
                   </p>
                 </div>
                 <Badge
@@ -372,37 +513,42 @@ export default function AdminDashboard() {
           <div className="admin-panel-heading">
             <div>
               <h3>Aktivitas Terbaru</h3>
-              <p>Perkembangan belajar pengguna</p>
+              <p>Diturunkan dari data, bukan log terpisah</p>
             </div>
           </div>
 
           <div className="space-y-2">
-            {RECENT_ACTIVITIES.map((activity) => (
-              <div key={activity.id} className="admin-activity-row">
-                <div
-                  className={`admin-activity-icon ${
-                    activity.type === "quiz"
-                      ? "is-yellow"
-                      : activity.type === "lesson"
-                        ? "is-blue"
-                        : "is-green"
-                  }`}
-                >
-                  {activity.type === "quiz"
-                    ? "📝"
-                    : activity.type === "lesson"
-                      ? "📖"
-                      : "🎓"}
+            {activities.length === 0 && (
+              <p className="text-sm text-[var(--text-subtle)] py-6 text-center">
+                Belum ada aktivitas tercatat.
+              </p>
+            )}
+            {activities.map((activity) => {
+              const meta = ACTIVITY_LABEL[activity.type] ?? {
+                icon: "•",
+                tone: "is-blue",
+                verb: activity.type,
+              };
+              return (
+                <div key={activity.id} className="admin-activity-row">
+                  <div className={`admin-activity-icon ${meta.tone}`}>{meta.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    {/*
+                      `actor` boleh null — skema tidak menyimpan siapa yang
+                      membuat kursus. Menuliskan "Administrator" di sana akan
+                      membuat log audit berbohong.
+                    */}
+                    <p className="admin-list-title">{activity.actor?.name ?? "Sistem"}</p>
+                    <p className="admin-list-subtitle leading-relaxed">
+                      {meta.verb}
+                      {activity.subject?.title ? ` — ${activity.subject.title}` : ""}
+                      {activity.meta?.score !== undefined ? ` (skor ${activity.meta.score})` : ""}
+                    </p>
+                    <p className="admin-activity-time">{relativeTime(activity.createdAt)}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="admin-list-title">{activity.user}</p>
-                  <p className="admin-list-subtitle leading-relaxed">
-                    {activity.action}
-                  </p>
-                  <p className="admin-activity-time">{activity.time}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -411,7 +557,7 @@ export default function AdminDashboard() {
         <div className="admin-panel-heading px-1">
           <div>
             <h3>Ringkasan Kursus</h3>
-            <p>Performa dan perkembangan setiap kursus</p>
+            <p>Pendaftar dihitung dari aktivitas 30 hari terakhir</p>
           </div>
         </div>
 
@@ -419,41 +565,33 @@ export default function AdminDashboard() {
           <table className="admin-table">
             <thead>
               <tr>
-                {[
-                  "Kursus",
-                  "Kategori",
-                  "Level",
-                  "Pelajaran",
-                  "Pendaftar",
-                  "Penyelesaian",
-                ].map((column) => (
-                  <th key={column}>{column}</th>
-                ))}
+                {["Kursus", "Kategori", "Level", "Pelajaran", "Pendaftar", "Penyelesaian"].map(
+                  (column) => (
+                    <th key={column}>{column}</th>
+                  ),
+                )}
               </tr>
             </thead>
             <tbody>
-              {COURSES.map((course, index) => {
-                const completion =
-                  course.totalLessons > 0
-                    ? Math.round(
-                        (course.completedLessons / course.totalLessons) * 100,
-                      )
-                    : 0;
-                const enrollment = 48 + index * 17;
+              {courses.map((course) => {
+                const stat = enrollmentByCourse.get(course.id);
+                const completion = stat ? Math.round(stat.rate * 100) : null;
 
                 return (
                   <tr key={course.id}>
                     <td>
                       <div className="flex items-center gap-3 min-w-[220px]">
-                        <img
-                          src={course.thumbnail}
-                          alt=""
-                          className="admin-course-thumb"
-                        />
+                        {course.thumbnail ? (
+                          <img src={course.thumbnail} alt="" className="admin-course-thumb" />
+                        ) : (
+                          <div className="admin-course-thumb bg-[var(--surface-3)] flex items-center justify-center text-xs">
+                            📚
+                          </div>
+                        )}
                         <span className="admin-table-title">{course.title}</span>
                       </div>
                     </td>
-                    <td>{course.category}</td>
+                    <td>{course.category ?? "—"}</td>
                     <td>
                       <Badge
                         variant={
@@ -469,28 +607,36 @@ export default function AdminDashboard() {
                       </Badge>
                     </td>
                     <td>{course.totalLessons}</td>
-                    <td>{enrollment}</td>
+                    <td>{stat ? stat.enrollments : "—"}</td>
                     <td>
-                      <div className="flex items-center gap-2 min-w-[120px]">
-                        <div className="admin-table-progress">
-                          <span
-                            style={{
-                              width: `${completion}%`,
-                              background:
-                                completion >= 60
-                                  ? "var(--adm-blue)"
-                                  : "var(--adm-yellow)",
-                            }}
-                          />
+                      {completion === null ? (
+                        <span className="text-[var(--text-subtle)]">—</span>
+                      ) : (
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <div className="admin-table-progress">
+                            <span
+                              style={{
+                                width: `${completion}%`,
+                                background:
+                                  completion >= 60 ? "var(--adm-blue)" : "var(--adm-yellow)",
+                              }}
+                            />
+                          </div>
+                          <strong>{completion}%</strong>
                         </div>
-                        <strong>{completion}%</strong>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+
+          {courses.length === 0 && (
+            <div className="text-center py-12 text-[var(--text-subtle)]">
+              <p>Belum ada kursus.</p>
+            </div>
+          )}
         </div>
       </section>
     </div>

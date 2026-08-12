@@ -90,3 +90,41 @@ export function validateActivityQuery(_body, _params, query = {}) {
 
   return errors;
 }
+
+/**
+ * GET /admin/quiz-results.
+ *
+ * Berbeda dari `validateReportQuery`, `from` dan `to` di sini OPSIONAL: tanpa
+ * keduanya endpoint memakai paginasi (`LIMIT`), bukan agregasi lintas seluruh
+ * tabel, sehingga tidak ada risiko pemindaian tak terbatas.
+ *
+ * Yang tetap dijaga: bila salah satunya dikirim ia harus tanggal sah, dan
+ * `from` tidak boleh mendahului `to`. Rentang terbalik mengembalikan daftar
+ * kosong yang terlihat seperti "belum ada yang mengerjakan kuis" — kesimpulan
+ * yang salah dan sangat sulit dilacak.
+ */
+export function validateQuizResultQuery(_body, _params, query = {}) {
+  const errors = [];
+
+  const from = query.from === undefined ? null : parseIsoDate(query.from);
+  const to = query.to === undefined ? null : parseIsoDate(query.to);
+
+  if (query.from !== undefined && !from) {
+    errors.push(err("from", "Parameter from harus tanggal sah berformat YYYY-MM-DD."));
+  }
+  if (query.to !== undefined && !to) {
+    errors.push(err("to", "Parameter to harus tanggal sah berformat YYYY-MM-DD."));
+  }
+  if (from && to && from > to) {
+    errors.push(err("from", "Tanggal from tidak boleh setelah tanggal to."));
+  }
+
+  if (query.courseId !== undefined && !/^\d+$/.test(String(query.courseId))) {
+    errors.push(err("courseId", "courseId harus berupa angka."));
+  }
+  if (query.passed !== undefined && !["true", "false"].includes(String(query.passed))) {
+    errors.push(err("passed", "passed harus 'true' atau 'false'."));
+  }
+
+  return errors;
+}
