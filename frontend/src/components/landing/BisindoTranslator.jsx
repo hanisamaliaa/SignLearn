@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeftIcon,
   ArrowRightIcon,
   CameraIcon,
   ChevronDownIcon,
@@ -14,6 +13,8 @@ import {
 import { useInView, useReducedMotion } from "../../hooks/useLandingMotion";
 import { useBisindoRecognition } from "../../hooks/useBisindoRecognition";
 import TranslationResult from "./TranslationResult";
+import TranslatorIntro from "./TranslatorIntro";
+import CameraPracticePanel from "./CameraPracticePanel";
 
 // These words come from the original SignLearn demo. The repository does not
 // currently include playable sign assets, so suggestions only populate input.
@@ -28,30 +29,27 @@ function lookupSigns(value) {
   return signs;
 }
 
-function TranslatorHeader({ inView, reducedMotion }) {
-  const reveal = (delay) => ({
-    initial: reducedMotion ? false : { opacity: 0, y: 18 },
-    animate: inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 },
-    transition: { duration: reducedMotion ? 0 : 0.52, delay: reducedMotion ? 0 : delay, ease: [0.22, 1, 0.36, 1] },
-  });
-  return (
-    <header className="kids-translator-header">
-      <motion.p className="kids-translator-eyebrow" {...reveal(0)}>Dua cara untuk berkomunikasi</motion.p>
-      <motion.h2 id="demo-title" {...reveal(0.06)}>Penerjemah BISINDO</motion.h2>
-      <motion.p {...reveal(0.12)}>Ubah kata menjadi gerakan BISINDO atau gunakan kamera untuk mengenali bahasa isyarat secara real-time.</motion.p>
-    </header>
-  );
-}
-
 function TranslationModeSwitch({ mode, onChange, inView, reducedMotion }) {
+  const handleKeyDown = (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    const nextMode = mode === "text" ? "camera" : "text";
+    onChange(nextMode);
+    event.currentTarget.parentElement?.querySelector(`[data-mode="${nextMode}"]`)?.focus();
+  };
   return (
     <motion.div className="kids-mode-switch" role="tablist" aria-label="Pilih mode penerjemah" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }} transition={{ duration: reducedMotion ? 0 : 0.46, delay: reducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}>
       <button
         type="button"
         role="tab"
+        id="translator-tab-text"
+        data-mode="text"
+        aria-controls="translator-panel-text"
         aria-selected={mode === "text"}
+        tabIndex={mode === "text" ? 0 : -1}
         className={mode === "text" ? "is-active" : ""}
         onClick={() => onChange("text")}
+        onKeyDown={handleKeyDown}
       >
         {mode === "text" && <motion.span layoutId="kids-mode-active-pill" className="kids-mode-active-pill" transition={{ duration: reducedMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }} />}
         <GridIcon size={19} />
@@ -60,9 +58,14 @@ function TranslationModeSwitch({ mode, onChange, inView, reducedMotion }) {
       <button
         type="button"
         role="tab"
+        id="translator-tab-camera"
+        data-mode="camera"
+        aria-controls="translator-panel-camera"
         aria-selected={mode === "camera"}
+        tabIndex={mode === "camera" ? 0 : -1}
         className={mode === "camera" ? "is-active" : ""}
         onClick={() => onChange("camera")}
+        onKeyDown={handleKeyDown}
       >
         {mode === "camera" && <motion.span layoutId="kids-mode-active-pill" className="kids-mode-active-pill" transition={{ duration: reducedMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }} />}
         <CameraIcon size={19} />
@@ -317,62 +320,19 @@ function useCameraSession() {
   return { videoRef, state, start, stop };
 }
 
-function CameraPanel({ camera, recognition }) {
-  const active = camera.state === "active";
-  const detectionState = recognition.debugInfo?.state;
-  const detectionText = recognition.status === "error"
-    ? "Layanan AI tidak terhubung"
-    : detectionState === "COMMITTED"
-      ? "Gerakan dikenali ✓"
-      : detectionState === "DETECTING"
-        ? "Tangan ditemukan — sedang membaca..."
-        : detectionState === "WAIT_FOR_RELEASE"
-          ? "Huruf tersimpan — lanjutkan gerakan berikutnya"
-          : detectionState === "LOW_CONFIDENCE" || detectionState === "UNKNOWN"
-            ? "Coba perjelas posisi tangan"
-            : "Arahkan tangan ke area panduan";
-
-  return (
-    <article className="kids-translator-card kids-camera-panel">
-      <header>
-        <div><span className="kids-translator-card-icon" aria-hidden="true"><CameraIcon size={22} /></span><div><h3>Kamera BISINDO</h3><p>Pastikan tangan terlihat jelas di kamera.</p></div></div>
-        {active && <span className="kids-camera-active"><i /> Kamera aktif</span>}
-      </header>
-      <div className={`kids-camera-viewport ${active ? "is-active" : ""}`}>
-        <video ref={camera.videoRef} muted playsInline aria-label="Pratinjau kamera langsung" />
-        {!active && (
-          <div className="kids-camera-permission">
-            <span aria-hidden="true"><CameraIcon size={44} /></span>
-            <h4>Gunakan kamera untuk mengenali gerakan BISINDO</h4>
-            <p>Kamera hanya aktif setelah kamu memberikan izin.</p>
-            <button type="button" className="kids-translator-primary" onClick={camera.start} disabled={camera.state === "requesting"}>
-              <CameraIcon size={18} /> {camera.state === "requesting" ? "Meminta izin..." : "Aktifkan Kamera"}
-            </button>
-            {camera.state === "denied" && <p className="kids-camera-message" role="alert">Izin kamera belum diberikan. Kamu bisa mengizinkannya dari pengaturan browser lalu mencoba lagi.</p>}
-            {camera.state === "unsupported" && <p className="kids-camera-message" role="alert">Kamera belum didukung di perangkat ini.</p>}
-            {camera.state === "error" && <p className="kids-camera-message" role="alert">Kamera belum dapat digunakan. Yuk coba lagi.</p>}
-          </div>
-        )}
-        {active && <><div className="kids-hand-guide" aria-hidden="true"><span /></div><div className={`kids-detection-status ${recognition.status === "error" ? "is-error" : ""}`}><i /> {detectionText}</div></>}
-      </div>
-      {active && <div className="kids-camera-controls"><p>{recognition.error || "Tahan sebentar hingga huruf dikenali. Kamu bisa langsung berganti huruf; beri jeda singkat hanya untuk mengulang huruf yang sama."}</p><button type="button" className="kids-control-button" onClick={camera.stop}>Matikan Kamera</button></div>}
-    </article>
-  );
-}
-
 function CameraToTextMode({ camera, reducedMotion }) {
   const recognition = useBisindoRecognition({
     active: camera.state === "active",
     videoRef: camera.videoRef,
   });
 
-  return <div className="kids-camera-mode"><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.05 }}><CameraPanel camera={camera} recognition={recognition} /></motion.div><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.12 }}><TranslationResult recognition={recognition} /></motion.div></div>;
+  return <div className="kids-camera-mode"><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, x: -18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reducedMotion ? 0 : 0.44, delay: reducedMotion ? 0 : 0.04 }}><CameraPracticePanel camera={camera} recognition={recognition} reducedMotion={reducedMotion} /></motion.div><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reducedMotion ? 0 : 0.44, delay: reducedMotion ? 0 : 0.1 }}><TranslationResult recognition={recognition} cameraActive={camera.state === "active"} /></motion.div></div>;
 }
 
 export default function BisindoTranslator() {
   const reducedMotion = useReducedMotion();
   const { ref, inView } = useInView({ rootMargin: "0px 0px -10%", threshold: 0.18 });
-  const [mode, setMode] = useState("text");
+  const [mode, setMode] = useState("camera");
   const camera = useCameraSession();
 
   const changeMode = (nextMode) => {
@@ -384,10 +344,13 @@ export default function BisindoTranslator() {
     <section ref={ref} id="demo-gerakan" className="kids-section kids-demo-section kids-translator-section" aria-labelledby="demo-title">
       <div className="kids-translator-decor" aria-hidden="true"><span /><span /></div>
       <div className="kids-container kids-translator-container">
-        <TranslatorHeader inView={inView} reducedMotion={reducedMotion} />
+        <TranslatorIntro inView={inView} reducedMotion={reducedMotion} />
         <TranslationModeSwitch mode={mode} onChange={changeMode} inView={inView} reducedMotion={reducedMotion} />
         <AnimatePresence mode="wait" initial={false}><motion.div
           key={mode}
+          id={`translator-panel-${mode}`}
+          role="tabpanel"
+          aria-labelledby={`translator-tab-${mode}`}
           className="kids-mode-stage"
           initial={reducedMotion ? false : { opacity: 0, y: 10, scale: 0.995 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}

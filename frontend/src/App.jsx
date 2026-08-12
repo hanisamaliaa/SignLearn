@@ -3,10 +3,12 @@ import { AppProvider } from "./context/app";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import AppRoutes from "./routes";
+import ScrollCoordinator from "./components/common/ScrollCoordinator";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollCoordinator />
       <AppProvider>
         <ThemeProvider>
           <SettingsProvider>
