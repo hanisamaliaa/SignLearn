@@ -55,25 +55,40 @@ export default function Progress() {
       </div>
 
       {/* Overall progress */}
-      <Card className="bg-gradient-to-r from-[#4F8EF7] to-[#6C63FF] text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <Card className="relative overflow-hidden border-[#c9dceb] bg-[#fffdf3]">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#ffe8a6]/70" />
+        <div className="absolute -bottom-16 left-8 h-32 w-32 rounded-full bg-[#dff3ff]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-white/70 text-sm mb-1">Progress Keseluruhan</p>
-            <p className="text-5xl font-extrabold mb-1">{overallPct}%</p>
-            <p className="text-white/70 text-sm">
-              {completedLessons} dari {totalLessons} pelajaran selesai
+            <p className="mb-1 text-sm font-bold text-[#2e86bf]">Progress belajar</p>
+            <h2 className="text-3xl font-extrabold text-[#123e63] sm:text-4xl">
+              Meningkat pesat! 
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#536777]">
+              {completedLessons} dari {totalLessons} pelajaran selesai. Tinggal sedikit lagi menuju target berikutnya.
             </p>
           </div>
-          <div className="lg:w-2/3">
-            <div className="h-4 bg-[var(--surface)]/20 rounded-full overflow-hidden">
+          <div className="w-full lg:max-w-xl">
+            <div className="mb-2 flex items-center justify-between text-sm font-extrabold text-[#214e72]">
+              <span>Progress keseluruhan</span>
+              <span>{overallPct}%</span>
+            </div>
+            <div
+              className="h-4 overflow-hidden rounded-full bg-white shadow-inner"
+              role="progressbar"
+              aria-label="Progress keseluruhan"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={overallPct}
+            >
               <div
-                className="h-full bg-[var(--surface)] rounded-full transition-all duration-1000"
+                className="h-full rounded-full bg-[#2e86bf] transition-[width] duration-700"
                 style={{ width: `${overallPct}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-white/60 mt-1">
-              <span>0%</span>
-              <span>100%</span>
+            <div className="mt-1 flex justify-between text-xs font-semibold text-[#71889a]">
+              <span>Mulai</span>
+              <span>Level berikutnya</span>
             </div>
           </div>
         </div>

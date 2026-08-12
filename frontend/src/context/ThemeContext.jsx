@@ -31,6 +31,9 @@ export function ThemeProvider({ children }) {
   const userSettings = currentUser?.settings || {};
   const theme = userSettings.theme || "system";
   const fontSize = userSettings.fontSize ?? DEFAULT_FONT_SIZE;
+  const accessibility = userSettings.accessibility || {};
+  const highContrast = Boolean(accessibility.highContrast);
+  const reducedMotion = Boolean(accessibility.reducedMotion);
 
   // Synced local state so the OS "system" listener can reflect live changes.
   const [resolvedTheme, setResolvedTheme] = useState(() => resolveTheme(theme));
@@ -68,6 +71,12 @@ export function ThemeProvider({ children }) {
     );
   }, [fontSize]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.toggleAttribute("data-high-contrast", highContrast);
+    root.toggleAttribute("data-reduced-motion", reducedMotion);
+  }, [highContrast, reducedMotion]);
+
   const setThemeValue = useCallback(
     (value) => {
       if (value === "light" || value === "dark" || value === "system") {
@@ -87,6 +96,19 @@ export function ThemeProvider({ children }) {
     [currentUser, updateUserSettings],
   );
 
+  const setAccessibilityValue = useCallback(
+    (key, value) => {
+      updateUserSettings({
+        ...currentUser?.settings,
+        accessibility: {
+          ...currentUser?.settings?.accessibility,
+          [key]: Boolean(value),
+        },
+      });
+    },
+    [currentUser, updateUserSettings],
+  );
+
   const value = useMemo(
     () => ({
       theme,
@@ -96,8 +118,21 @@ export function ThemeProvider({ children }) {
       setFontSize: setFontSizeValue,
       minFontSize: MIN_FONT_SIZE,
       maxFontSize: MAX_FONT_SIZE,
+      highContrast,
+      reducedMotion,
+      setHighContrast: (value) => setAccessibilityValue("highContrast", value),
+      setReducedMotion: (value) => setAccessibilityValue("reducedMotion", value),
     }),
-    [theme, setThemeValue, resolvedTheme, fontSize, setFontSizeValue],
+    [
+      theme,
+      setThemeValue,
+      resolvedTheme,
+      fontSize,
+      setFontSizeValue,
+      highContrast,
+      reducedMotion,
+      setAccessibilityValue,
+    ],
   );
 
   return (

@@ -70,8 +70,18 @@ const SECURITY_ITEMS = [
 ];
 
 export default function Settings() {
-  const { theme, setTheme, fontSize, setFontSize, minFontSize, maxFontSize } =
-    useTheme();
+  const {
+    theme,
+    setTheme,
+    fontSize,
+    setFontSize,
+    minFontSize,
+    maxFontSize,
+    highContrast,
+    reducedMotion,
+    setHighContrast,
+    setReducedMotion,
+  } = useTheme();
   const {
     language,
     setLanguage,
@@ -207,6 +217,34 @@ export default function Settings() {
                 </span>
               </div>
             </div>
+            <div className="space-y-3 border-t border-[var(--border-light)] pt-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kontras tinggi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Membuat teks dan batas elemen lebih mudah dibedakan.
+                  </p>
+                </div>
+                <Toggle
+                  checked={highContrast}
+                  onChange={setHighContrast}
+                  ariaLabel="Kontras tinggi"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kurangi animasi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Mengurangi gerakan dan transisi agar lebih nyaman.
+                  </p>
+                </div>
+                <Toggle
+                  checked={reducedMotion}
+                  onChange={setReducedMotion}
+                  ariaLabel="Kurangi animasi"
+                />
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -242,7 +280,7 @@ export default function Settings() {
                 <Toggle
                   checked={notifications[item.key]}
                   onChange={(v) => setNotification(item.key, v)}
-                  label={item.label}
+                  ariaLabel={item.label}
                 />
               </div>
             ))}
@@ -281,7 +319,7 @@ export default function Settings() {
                 <Toggle
                   checked={privacy[item.key]}
                   onChange={(v) => setPrivacy(item.key, v)}
-                  label={item.label}
+                  ariaLabel={item.label}
                 />
               </div>
             ))}
@@ -320,7 +358,7 @@ export default function Settings() {
                 <Toggle
                   checked={security[item.key]}
                   onChange={(v) => setSecurity(item.key, v)}
-                  label={item.label}
+                  ariaLabel={item.label}
                 />
               </div>
             ))}
