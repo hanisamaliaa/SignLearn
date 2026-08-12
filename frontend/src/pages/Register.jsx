@@ -154,8 +154,8 @@ export default function Register() {
     <main className="login-page auth-register-page">
       <AuthBrandPanel
         id="register-welcome-title"
-        eyebrow="Petualangan baru dimulai"
-        title="Yuk, Mulai Petualanganmu!"
+        eyebrow="Pembelajaran baru dimulai"
+        title="Yuk, Mulai Pembelajaranmu!"
         description="Buat akun dan mulai belajar BISINDO dengan cara yang seru bersama SignLearn Kids."
         benefits={BENEFITS}
         celebratory
