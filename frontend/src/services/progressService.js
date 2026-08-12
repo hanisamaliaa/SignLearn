@@ -1,44 +1,30 @@
 import { request } from "./api";
 
+/**
+ * Progress & dashboard — API Contract §10.1-10.5.
+ *
+ * Aturan buka-kunci pelajaran TIDAK diduplikasi di frontend. Server yang
+ * memutuskannya, karena ia satu-satunya pihak yang melihat progres sekaligus
+ * hasil kuis. Menyalin aturannya ke klien berarti dua sumber kebenaran yang
+ * pasti menyimpang — dan yang di klien dapat dilewati lewat DevTools.
+ */
+
 export async function getUserProgress() {
+  return request({ url: "/progress" });
+}
+
+export async function getCourseAccess(courseId) {
+  const payload = await request({ url: `/progress/courses/${courseId}` });
+  return payload.items;
+}
+
+/** Idempoten — menandai `completed` dua kali tidak menggeser `completedAt`. */
+export async function updateLessonProgress(lessonId, status = "completed") {
   return request({
-    method: "get",
-    url: "/progress",
-    mockData: {
-      success: true,
-      progress: {
-        coursesCompleted: 1,
-        lessonsCompleted: 6,
-        quizzesTaken: 8,
-        avgScore: 82,
-      },
-    },
+    method: "put", url: `/progress/lessons/${lessonId}`, data: { status },
   });
 }
 
-export async function updateLessonProgress(lessonId, payload) {
-  return request({
-    method: "put",
-    url: `/progress/lessons/${lessonId}`,
-    data: payload,
-    mockData: {
-      success: true,
-      progress: { lessonId, ...payload },
-    },
-  });
-}
-
-export async function getDashboardData() {
-  return request({
-    method: "get",
-    url: "/dashboard",
-    mockData: {
-      success: true,
-      dashboard: {
-        currentCourse: null,
-        quizHistory: [],
-        recentActivities: [],
-      },
-    },
-  });
+export async function getDashboard() {
+  return request({ url: "/dashboard/me" });
 }

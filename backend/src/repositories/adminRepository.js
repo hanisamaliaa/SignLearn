@@ -108,3 +108,132 @@ export async function findActivities({ type } = {}, { limit = 20, offset = 0 } =
     createdAt: r.created_at.toISOString(),
   }));
 }
+
+// ─── Hasil kuis lintas-pengguna ──────────────────────────────────────────
+//
+// ── Kenapa ini TIDAK diambil dari feed aktivitas ──────────────────────
+//
+// `findActivities({ type: "quiz_passed" })` hanya memuat baris `WHERE qr.passed`.
+// Laporan yang dibangun darinya akan melaporkan nol kegagalan selamanya — dan
+// grafik "distribusi nilai" yang tidak pernah menampilkan batang merah adalah
+// kebohongan yang terlihat meyakinkan. Endpoint ini membaca `quiz_results`
+// apa adanya, lulus maupun tidak.
+
+/**
+ * Membangun klausa WHERE untuk laporan hasil kuis.
+ *
+ * Rentang tanggal INKLUSIF di kedua ujung: `to` dibandingkan terhadap
+ * `to::date + 1` dengan operator `<`. Menulis `taken_at <= $to::date` akan
+ * memotong seluruh pengerjaan pada hari terakhir kecuali yang tepat pukul
+ * 00:00:00 — laporan "1-31 Agustus" diam-diam berhenti di 30 Agustus.
+ */
+function buildResultFilters({ from, to, courseId, passed } = {}) {
+  const clauses = [];
+  const values = [];
+
+  if (from) {
+    values.push(from);
+    clauses.push(`qr.taken_at >= $${values.length}::date`);
+  }
+  if (to) {
+    values.push(to);
+    clauses.push(`qr.taken_at < ($${values.length}::date + 1)`);
+  }
+  if (courseId) {
+    values.push(courseId);
+    clauses.push(`q.course_id = $${values.length}`);
+  }
+  if (passed !== undefined) {
+    values.push(passed);
+    clauses.push(`qr.passed = $${values.length}`);
+  }
+
+  return {
+    where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    values,
+    nextIndex: values.length + 1,
+  };
+}
+
+const RESULT_JOINS = `
+  FROM quiz_results qr
+  JOIN quizzes q ON q.id = qr.quiz_id
+  JOIN courses c ON c.id = q.course_id
+  JOIN users   u ON u.id = qr.user_id
+`;
+
+export async function countQuizResults(filters = {}) {
+  const { where, values } = buildResultFilters(filters);
+  const { rows } = await query(
+    `SELECT COUNT(*)::int AS total ${RESULT_JOINS} ${where}`,
+    values,
+  );
+  return rows[0].total;
+}
+
+export async function findQuizResults(filters = {}, { limit = 20, offset = 0 } = {}) {
+  const { where, values, nextIndex } = buildResultFilters(filters);
+  values.push(limit, offset);
+
+  const { rows } = await query(
+    // `answers` sengaja TIDAK diambil. Kolom itu memuat penanda benar/salah
+    // per soal; membawanya ke laporan berarti kunci jawaban ikut terkirim
+    // setiap kali halaman admin dibuka.
+    `SELECT qr.id, qr.score, qr.passed, qr.taken_at,
+            u.id AS user_id, u.name AS user_name, u.email AS user_email,
+            q.id AS quiz_id, q.title AS quiz_title, q.min_passing_score,
+            c.id AS course_id, c.title AS course_title
+       ${RESULT_JOINS} ${where}
+      ORDER BY qr.taken_at DESC, qr.id DESC
+      LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
+    values,
+  );
+
+  return rows.map((r) => ({
+    id: String(r.id),
+    score: Number(r.score),
+    passed: r.passed,
+    minPassingScore: Number(r.min_passing_score),
+    takenAt: r.taken_at.toISOString(),
+    user: { id: String(r.user_id), name: r.user_name, email: r.user_email },
+    quiz: { id: String(r.quiz_id), title: r.quiz_title },
+    course: { id: String(r.course_id), title: r.course_title },
+  }));
+}
+
+/**
+ * Ringkasan nilai pada rentang yang sama.
+ *
+ * Ambang 90 dan 70 di sini adalah pilihan TAMPILAN, bukan aturan kelulusan.
+ * Kelulusan ditentukan `quizzes.min_passing_score` per kuis dan sudah tersimpan
+ * di kolom `passed`; itulah yang dipakai `passedCount`. Menyamakan keduanya
+ * akan membuat kuis ber-KKM 60 terlihat gagal padahal pesertanya lulus.
+ */
+export async function quizResultSummary(filters = {}) {
+  const { where, values } = buildResultFilters(filters);
+  const { rows } = await query(
+    `SELECT COUNT(*)::int                                      AS total,
+            COUNT(*) FILTER (WHERE qr.passed)::int             AS passed_count,
+            COUNT(*) FILTER (WHERE qr.score >= 90)::int        AS band_high,
+            COUNT(*) FILTER (WHERE qr.score >= 70
+                               AND qr.score <  90)::int        AS band_mid,
+            COUNT(*) FILTER (WHERE qr.score <  70)::int        AS band_low,
+            ROUND(AVG(qr.score))::int                          AS avg_score
+       ${RESULT_JOINS} ${where}`,
+    values,
+  );
+
+  const r = rows[0];
+  return {
+    total: Number(r.total),
+    passedCount: Number(r.passed_count),
+    // AVG atas himpunan kosong bernilai NULL. Mengirim null memaksa setiap
+    // pemakai di frontend menuliskan penjagaannya sendiri; 0 sudah benar.
+    avgScore: r.avg_score === null ? 0 : Number(r.avg_score),
+    bands: {
+      high: Number(r.band_high),
+      mid: Number(r.band_mid),
+      low: Number(r.band_low),
+    },
+  };
+}

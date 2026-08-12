@@ -4,7 +4,10 @@ import * as aiController from "../controllers/aiController.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { requireAdmin } from "../middleware/rbac.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
-import { validateActivityQuery } from "../validators/reportValidator.js";
+import {
+  validateActivityQuery,
+  validateQuizResultQuery,
+} from "../validators/reportValidator.js";
 
 const router = Router();
 
@@ -39,6 +42,17 @@ router.get(
   "/activities",
   validate(validateActivityQuery),
   adminController.getRecentActivities,
+);
+
+// Hasil kuis seluruh pengguna — sumber data halaman Laporan.
+//
+// Ini BUKAN duplikat `/admin/activities?type=quiz_passed`. Feed aktivitas
+// hanya memuat pengerjaan yang LULUS; laporan membutuhkan keduanya, kalau
+// tidak distribusi nilainya tidak pernah menampilkan satu pun kegagalan.
+router.get(
+  "/quiz-results",
+  validate(validateQuizResultQuery),
+  adminController.getQuizResults,
 );
 
 // ─── Fitur AI (placeholder, API Contract §10.8) ──────────────────────────
