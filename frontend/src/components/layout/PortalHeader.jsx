@@ -50,7 +50,11 @@ export default function PortalHeader({
 
   return (
     <header
-      className={`h-16 bg-[var(--header-bg)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0`}
+      className={`h-20 ${
+        variant === "admin"
+          ? "bg-[#EEF7FF]"
+          : "bg-[var(--header-bg)] border-b border-[var(--border)]"
+      } flex items-center justify-between px-5 sm:px-6 xl:px-8 flex-shrink-0`}
     >
       <div className="flex items-center gap-3">
         <button
@@ -60,7 +64,7 @@ export default function PortalHeader({
           <MenuIcon size={20} />
         </button>
         <div>
-          <h1 className="text-base font-semibold text-[var(--text)]">
+          <h1 className={`text-base font-extrabold ${variant === "admin" ? "text-[#15202B]" : "text-[var(--text)]"}`}>
             {title}
           </h1>
           <p className="text-xs text-[var(--text-subtle)]">{subtitle}</p>
@@ -69,19 +73,47 @@ export default function PortalHeader({
 
       {variant === "admin" ? (
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 bg-[var(--surface-3)] px-3 py-1.5 rounded-xl">
-            <div className="w-2 h-2 bg-[#2ECC71] rounded-full" />
-            <span className="text-xs text-[var(--text-muted)] font-medium">
-              Sistem Aktif
-            </span>
+          <div className="admin-system-status" aria-label="Status sistem">
+            <span className="admin-system-dot" />
+            <span>Sistem aktif</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
-              {userInitial}
-            </div>
-            <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
-              {firstName}
-            </span>
+
+          <div className="relative">
+            <button
+              onClick={() => {
+                setProfileOpen(!profileOpen);
+                setNotifOpen(false);
+              }}
+              className="admin-profile-pill"
+              aria-label="Menu profil admin"
+            >
+              <span className="admin-header-avatar">{userInitial}</span>
+              <span className="text-sm font-extrabold text-[#26384D] hidden sm:block">
+                {firstName}
+              </span>
+              <ChevronDownIcon size={14} className="text-[#8B9AAA]" />
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-12 w-48 bg-white rounded-2xl shadow-xl border border-[#E7EEF6] z-50 overflow-hidden">
+                <button
+                  onClick={() => {
+                    navigate("/admin/settings");
+                    setProfileOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-[#26384D] hover:bg-[#EAF3FF] flex items-center gap-2"
+                >
+                  <SettingsIcon size={15} /> Pengaturan
+                </button>
+                <div className="border-t border-[#E7EEF6]" />
+                <button
+                  onClick={onLogout}
+                  className="w-full text-left px-4 py-3 text-sm font-bold text-[#E94F55] hover:bg-[#FFF0F1] flex items-center gap-2"
+                >
+                  <LogoutIcon size={15} /> Keluar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (

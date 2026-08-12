@@ -25,7 +25,7 @@ export default function PortalLayout({ variant }) {
   return (
     <div
       className={`flex h-screen ${
-        variant === "admin" ? "bg-[var(--surface-2)]" : "bg-[var(--bg)]"
+        variant === "admin" ? "bg-[#EEF7FF] admin-portal" : "bg-[var(--bg)]"
       } overflow-hidden`}
     >
       {sidebarOpen && (
@@ -51,7 +51,7 @@ export default function PortalLayout({ variant }) {
           onLogout={logout}
         />
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6 max-w-7xl mx-auto animate-fade-in">
+          <div className="p-5 sm:p-6 xl:p-8 max-w-[1500px] w-full mx-auto animate-fade-in">
             <Outlet />
           </div>
         </main>

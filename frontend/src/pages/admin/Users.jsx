@@ -197,7 +197,7 @@ export default function AdminUsers() {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-[var(--surface)] rounded-2xl p-4 border border-[var(--border)] text-center"
+            className="bg-[var(--surface)] rounded-2xl p-4 border border-[var(--border)] admin-kids-card text-center"
           >
             <p className="text-2xl font-extrabold" style={{ color: s.color }}>
               {s.value}
