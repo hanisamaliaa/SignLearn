@@ -14,7 +14,9 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: parseInt(process.env.PORT || "5173"),
-    strictPort: true,
+    // Fall back to the next available port when the default is already used.
+    // An explicit PORT value is still used as the preferred port.
+    strictPort: false,
   },
   preview: {
     host: "0.0.0.0",

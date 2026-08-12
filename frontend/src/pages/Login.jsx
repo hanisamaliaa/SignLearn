@@ -1,210 +1,112 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/app";
-import { Button, Input, Alert } from "../components/ui/ui";
-import { EyeIcon, EyeOffIcon } from "../components/ui/Icons";
+import {
+  ChartIcon,
+  CheckIcon,
+  LockIcon,
+  MailIcon,
+  PlayIcon,
+  VideoIcon,
+} from "../components/ui/Icons";
+import {
+  AuthBrandPanel,
+  AuthCard,
+  AuthField,
+  AuthStatus,
+  AuthSubmitButton,
+  PasswordToggle,
+  authEntrance,
+} from "../components/auth/AuthUI";
+import { useReducedMotion } from "../hooks/useLandingMotion";
 
-const STATS = [
-  { value: "2.4K+", label: "Pelajar" },
-  { value: "38", label: "Pelajaran" },
-  { value: "8", label: "Kursus" },
+const BENEFITS = [
+  { label: "Belajar Sambil Bermain", icon: PlayIcon },
+  { label: "Video Gerakan BISINDO", icon: VideoIcon },
+  { label: "Pantau Progresmu", icon: ChartIcon },
 ];
 
 export default function Login() {
   const { login } = useApp();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const reducedMotion = useReducedMotion();
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const [email, setEmail] = useState(() => localStorage.getItem("signlearn.rememberedEmail") || "");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [error, setError] = useState("");
+  const [remember, setRemember] = useState(() => Boolean(localStorage.getItem("signlearn.rememberedEmail")));
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
+  const validate = () => {
+    const next = {};
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) next.email = "Alamat email belum diisi.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) next.email = "Format email belum sesuai.";
+    if (!password) next.password = "Kata sandi belum diisi.";
+    setFieldErrors(next);
+    if (next.email) emailRef.current?.focus();
+    else if (next.password) passwordRef.current?.focus();
+    return Object.keys(next).length === 0;
+  };
 
-    if (!email || !password) {
-      setError("Email dan kata sandi wajib diisi.");
-      return;
-    }
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (loading) return;
+    setAuthError("");
+    if (!validate()) return;
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-
-    const result = await login(email, password);
-    if (!result.success) setError(result.message);
-    setLoading(false);
+    try {
+      const result = await login(email.trim(), password);
+      if (!result.success) {
+        setAuthError("Email atau kata sandi belum cocok. Coba lagi, ya.");
+        setLoading(false);
+        return;
+      }
+      if (remember) localStorage.setItem("signlearn.rememberedEmail", email.trim());
+      else localStorage.removeItem("signlearn.rememberedEmail");
+    } catch {
+      setAuthError("Kami belum bisa menghubungkan akunmu. Coba lagi sebentar, ya.");
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-2)] flex">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-[#4F8EF7] to-[#3A7DE0] flex-col items-center justify-center p-12 relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 30% 30%, white 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        <div className="relative text-center text-white">
-          <div className="text-7xl mb-6">🤟</div>
-          <h2 className="text-3xl font-extrabold mb-4">
-            Selamat Datang Kembali!
-          </h2>
-          <p className="text-white/80 text-lg max-w-sm leading-relaxed">
-            Lanjutkan perjalanan belajar BISINDO Anda. Setiap pelajaran adalah
-            langkah menuju komunikasi yang lebih inklusif.
-          </p>
-          <div className="mt-10 grid grid-cols-3 gap-4 text-center">
-            {STATS.map((s) => (
-              <div
-                key={s.label}
-                className="bg-[var(--surface)]/10 rounded-2xl p-4"
-              >
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-white/70 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <main className="login-page">
+      <AuthBrandPanel id="login-welcome-title" eyebrow="Ruang belajar yang aman dan seru" title="Selamat Datang Kembali!" description="Mari lanjutkan petualangan belajar BISINDO bersama SignLearn Kids." benefits={BENEFITS} />
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md animate-fade-in">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-9 h-9 bg-[#4F8EF7] rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">S</span>
-            </div>
-            <span className="text-xl font-bold text-[var(--text)]">
-              SignLearn
-            </span>
-          </div>
+      <section className="login-form-panel" aria-labelledby="login-title">
+        <AuthCard>
+          <motion.header className="login-form-header" {...authEntrance(reducedMotion, 0.08)}>
+            <p className="login-eyebrow">Senang melihatmu lagi</p>
+            <h2 id="login-title">Masuk</h2>
+            <p>Siap lanjut belajar BISINDO hari ini?</p>
+          </motion.header>
 
-          <div className="bg-[var(--surface)] rounded-3xl p-8 shadow-sm border border-[var(--border)]">
-            <h1 className="text-2xl font-extrabold text-[var(--text)] mb-1">
-              Masuk ke Akun Anda
-            </h1>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
-              Belum punya akun?{" "}
-              <button
-                onClick={() => navigate("/register")}
-                className="text-[var(--primary)] font-medium hover:underline"
-              >
-                Daftar di sini
-              </button>
-            </p>
+          <AuthStatus error={authError} onDismiss={() => setAuthError("")} />
 
-            {error && (
-              <div className="mb-4">
-                <Alert
-                  type="danger"
-                  message={error}
-                  onClose={() => setError("")}
-                />
-              </div>
-            )}
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
+            <motion.div {...authEntrance(reducedMotion, 0.16)}>
+              <AuthField inputRef={emailRef} id="login-email" label="Alamat Email" icon={MailIcon} type="email" inputMode="email" placeholder="contoh@email.com" value={email} onChange={(event) => { setEmail(event.target.value); if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: "" })); }} autoComplete="email" error={fieldErrors.email} />
+            </motion.div>
+            <motion.div {...authEntrance(reducedMotion, 0.23)}>
+              <div className="login-password-label"><label htmlFor="login-password">Kata Sandi</label><button type="button" onClick={() => navigate("/forgot-password")}>Lupa Sandi?</button></div>
+              <AuthField inputRef={passwordRef} id="login-password" label={null} icon={LockIcon} type={showPass ? "text" : "password"} placeholder="Masukkan kata sandi" value={password} onChange={(event) => { setPassword(event.target.value); if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: "" })); }} autoComplete="current-password" error={fieldErrors.password} rightElement={<PasswordToggle visible={showPass} onToggle={() => setShowPass((visible) => !visible)} />} />
+            </motion.div>
+            <motion.label className="login-remember" {...authEntrance(reducedMotion, 0.3)}><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span className="login-checkbox" aria-hidden="true"><CheckIcon size={14} /></span><span>Ingat saya</span></motion.label>
+            <motion.div {...authEntrance(reducedMotion, 0.37)}>
+              <AuthSubmitButton type="submit" loading={loading} loadingLabel="Sedang masuk...">Masuk</AuthSubmitButton>
+            </motion.div>
+          </form>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="Alamat Email"
-                type="email"
-                placeholder="contoh@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-              <Input
-                label="Kata Sandi"
-                type={showPass ? "text" : "password"}
-                placeholder="Masukkan kata sandi"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                rightElement={
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="text-[var(--text-subtle)] hover:text-[var(--text-muted)]"
-                  >
-                    {showPass ? (
-                      <EyeOffIcon size={16} />
-                    ) : (
-                      <EyeIcon size={16} />
-                    )}
-                  </button>
-                }
-              />
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-sm text-[var(--primary)] hover:underline font-medium"
-                >
-                  Lupa kata sandi?
-                </button>
-              </div>
-              <Button type="submit" fullWidth size="lg" disabled={loading}>
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg
-                      className="animate-spin w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                    Memuat...
-                  </span>
-                ) : (
-                  "Masuk"
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 p-4 bg-[var(--surface-2)] rounded-xl border border-[var(--border)]">
-              <p className="text-xs font-semibold text-[var(--text-muted)] mb-2">
-                🔑 Akun Demo
-              </p>
-              <div className="space-y-1 text-xs text-[var(--text-muted)]">
-                <p>
-                  <span className="font-medium">Pengguna:</span>{" "}
-                  budi@example.com / password
-                </p>
-                <p>
-                  <span className="font-medium">Admin:</span> admin@signlearn.id
-                  / admin123
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-center text-xs text-[var(--text-subtle)] mt-6">
-            Dengan masuk, Anda menyetujui{" "}
-            <span className="text-[var(--primary)] cursor-pointer hover:underline">
-              Syarat Layanan
-            </span>{" "}
-            dan{" "}
-            <span className="text-[var(--primary)] cursor-pointer hover:underline">
-              Kebijakan Privasi
-            </span>
-          </p>
-        </div>
-      </div>
-    </div>
+          <motion.p className="login-register-link" {...authEntrance(reducedMotion, 0.44)}>Belum punya akun? <button type="button" onClick={() => navigate("/register")}>Daftar di sini</button></motion.p>
+          <motion.p className="login-security-note" {...authEntrance(reducedMotion, 0.48)}><LockIcon size={14} /> Masuk dengan aman ke ruang belajarmu.</motion.p>
+        </AuthCard>
+      </section>
+    </main>
   );
 }

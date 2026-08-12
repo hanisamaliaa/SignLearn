@@ -5,16 +5,25 @@ export function useReducedMotion() {
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updatePreference = () => setReducedMotion(media.matches);
+    const root = document.documentElement;
+    const updatePreference = () =>
+      setReducedMotion(
+        media.matches || root.classList.contains("kids-reduce-motion"),
+      );
+    const observer = new MutationObserver(updatePreference);
     updatePreference();
     media.addEventListener("change", updatePreference);
-    return () => media.removeEventListener("change", updatePreference);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      media.removeEventListener("change", updatePreference);
+      observer.disconnect();
+    };
   }, []);
 
   return reducedMotion;
 }
 
-export function useInView({ rootMargin = "0px 0px -12%", threshold = 0.12 } = {}) {
+export function useInView({ rootMargin = "0px 0px -12%", threshold = 0.18 } = {}) {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
 
