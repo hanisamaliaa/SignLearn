@@ -25,23 +25,43 @@ export default function PortalSidebar({
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       }`}
     >
-      {/* No X/close button here: desktop uses collapse, mobile closes after selecting a menu item. */}
-      <div className={`user-sidebar-brand ${collapsed ? "lg:justify-center" : ""}`}>
-        <BrandLogo
-          className={`portal-brand ${collapsed ? "lg:[&_.kids-brand-wordmark]:hidden" : ""}`}
-        />
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="user-sidebar-collapse hidden lg:grid"
-            aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
-            aria-expanded={!collapsed}
-            title={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
-          >
-            <ChevronRightIcon size={16} className={collapsed ? "" : "rotate-180"} />
-          </button>
-        )}
+      {variant === "admin" && onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="admin-sidebar-collapse-btn hidden lg:grid"
+          aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+          aria-expanded={!collapsed}
+        >
+          <ChevronRightIcon
+            size={13}
+            className={`transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`}
+          />
+        </button>
+      )}
+
+      <div
+        className={`flex items-center h-16 px-5 border-b ${
+          collapsed ? "lg:justify-center lg:px-2" : "justify-between"
+        } ${
+          variant === "admin" ? "admin-sidebar-border" : "border-[var(--border)]"
+        } flex-shrink-0`}
+      >
+        <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
+          <BrandLogo className="portal-brand" />
+        </div>
+        <button
+          type="button"
+          aria-label="Tutup menu samping"
+          className={`min-w-11 min-h-11 flex items-center justify-center rounded-xl ${
+            variant === "admin"
+              ? "lg:hidden text-[var(--adm-text-muted)]"
+              : "lg:hidden text-[var(--text-muted)]"
+          } ${collapsed ? "lg:hidden" : ""}`}
+          onClick={onClose}
+        >
+          <XIcon size={18} />
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Navigasi utama">
@@ -80,6 +100,7 @@ export default function PortalSidebar({
           </div>
         </div>
         <button
+          type="button"
           onClick={onLogout}
           title={collapsed ? "Keluar" : undefined}
           className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-3 text-sm font-extrabold transition-colors user-sidebar-logout ${

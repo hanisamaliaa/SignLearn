@@ -40,6 +40,7 @@ export default function PortalHeader({
   subtitle,
   currentUser,
   onOpenSidebar,
+  onAccessibility,
   onLogout,
 }) {
   const navigate = useNavigate();
@@ -64,7 +65,9 @@ export default function PortalHeader({
     >
       <div className="flex items-center gap-3">
         <button
-          className={`lg:hidden ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+          type="button"
+          aria-label="Buka menu samping"
+          className={`lg:hidden w-11 h-11 flex items-center justify-center rounded-xl ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)] hover:bg-[var(--adm-surface-alt)]" : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-3)]"}`}
           onClick={onOpenSidebar}
         >
           <MenuIcon size={20} />
@@ -83,6 +86,15 @@ export default function PortalHeader({
             <span className="admin-system-dot" />
             <span>Sistem aktif</span>
           </div>
+
+          <button
+            type="button"
+            onClick={onAccessibility}
+            className="admin-a11y-button"
+            aria-label="Buka pengaturan aksesibilitas"
+          >
+            <SettingsIcon size={18} />
+          </button>
 
           <button
             type="button"
@@ -136,9 +148,25 @@ export default function PortalHeader({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAccessibility}
+            className="w-11 h-11 flex items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+            aria-label="Buka pengaturan aksesibilitas"
+          >
+            <SettingsIcon size={18} />
+          </button>
           <div className="relative">
-            <button onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); }} className="user-header-icon" aria-label="Notifikasi">
+            <button
+              onClick={() => {
+                setNotifOpen(!notifOpen);
+                setProfileOpen(false);
+              }}
+              className="relative w-11 h-11 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+              data-focus-secondary="true"
+              aria-label="Notifikasi"
+            >
               <BellIcon size={18} />
               <span className="user-header-notif-dot" />
             </button>
@@ -161,10 +189,24 @@ export default function PortalHeader({
             )}
           </div>
           <div className="relative">
-            <button onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} className="user-header-profile" aria-label="Menu profil">
-              <SignLearnAvatar id={currentUser?.profile?.avatar} size="sm" />
-              <span className="user-header-profile-name hidden sm:block">{firstName}</span>
-              <ChevronDownIcon size={14} className="text-[var(--text-subtle)]" />
+            <button
+              onClick={() => {
+                setProfileOpen(!profileOpen);
+                setNotifOpen(false);
+              }}
+              className="min-h-11 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
+              aria-label="Menu profil"
+            >
+              <div className="w-7 h-7 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                {userInitial}
+              </div>
+              <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
+                {firstName}
+              </span>
+              <ChevronDownIcon
+                size={14}
+                className="text-[var(--text-subtle)]"
+              />
             </button>
             {profileOpen && (
               <div className="user-header-dropdown absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl">

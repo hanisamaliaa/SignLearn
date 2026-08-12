@@ -67,7 +67,7 @@ export default function Lesson() {
   const prevLesson = lessonIdx > 0 ? course.lessons[lessonIdx - 1] : null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="lesson-page space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate("/course-detail")}
@@ -85,8 +85,11 @@ export default function Lesson() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-5">
           <Card padding="none" className="overflow-hidden">
-            <div
-              className="relative w-full aspect-video bg-[#1A2332] flex items-center justify-center cursor-pointer group"
+            <button
+              type="button"
+              aria-pressed={playing}
+              aria-label={playing ? `Jeda ${lesson.title}` : `Putar ${lesson.title}`}
+              className="relative w-full aspect-video bg-[#1A2332] flex items-center justify-center cursor-pointer group text-left"
               onClick={() => setPlaying(!playing)}
             >
               <div className="absolute inset-0 bg-gradient-to-t from-[#1A2332]/60 to-transparent" />
@@ -130,7 +133,7 @@ export default function Lesson() {
                 </div>
                 <span className="text-white/60 text-xs">{lesson.duration}</span>
               </div>
-            </div>
+            </button>
             <div className="p-4 flex items-center justify-between border-t border-[var(--border)]">
               <div>
                 <h2 className="font-bold text-[var(--text)]">{lesson.title}</h2>

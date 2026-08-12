@@ -60,7 +60,9 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", resolvedTheme);
-    root.style.colorScheme = resolvedTheme;
+    if (!root.classList.contains("a11y-high-contrast")) {
+      root.style.colorScheme = resolvedTheme;
+    }
   }, [resolvedTheme]);
 
   // Apply the global font size to the root element.

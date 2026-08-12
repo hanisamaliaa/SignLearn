@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { ArrowLeftIcon, CameraIcon, CheckCircleIcon, HandSignIcon } from "../ui/Icons";
 import mascotImage from "../../assets/characters/signlearn-login-mascot.webp";
+import { APP_DESTINATIONS } from "../../config/landingNavigation";
 
 const STEPS = [
   { icon: CameraIcon, title: "Aktifkan kamera", text: "Izinkan kamera agar tanganmu terlihat." },
@@ -17,17 +18,17 @@ export default function TranslatorIntro({ inView, reducedMotion }) {
 
   return (
     <div className="kids-demo-intro">
-      <motion.a className="kids-demo-back" href="#topik" {...reveal(0)}>
-        <ArrowLeftIcon size={17} /> Kembali ke materi
+      <motion.a className="kids-demo-back" href={APP_DESTINATIONS.topics.href} {...reveal(0)}>
+        <ArrowLeftIcon size={17} /> Kembali ke topik
       </motion.a>
       <div className="kids-demo-intro-grid">
         <motion.header className="kids-translator-header" {...reveal(0.05, -18)}>
-          <p className="kids-translator-eyebrow">Penerjemah interaktif BISINDO</p>
+          <p className="kids-translator-eyebrow">Coba BISINDO langsung</p>
           <h2 id="demo-title">Yuk, Coba Gerakannya! <span aria-hidden="true">👋</span></h2>
-          <p>Gunakan kamera untuk mengenali isyarat BISINDO secara real-time, atau ubah tulisan menjadi contoh gerakan.</p>
+          <p>Tunjukkan gerakanmu lewat kamera, atau ketik kata yang ingin kamu lihat dalam BISINDO.</p>
           <div className="kids-demo-trust" aria-label="Informasi penggunaan kamera">
             <span><i aria-hidden="true" /> Kamera hanya aktif setelah kamu mengizinkannya</span>
-            <span><i aria-hidden="true" /> Frame dipakai untuk pengenalan langsung</span>
+            <span><i aria-hidden="true" /> Gambar dipakai hanya saat gerakan sedang dibaca</span>
           </div>
         </motion.header>
         <motion.div className="kids-demo-mascot" aria-hidden="true" {...reveal(0.12, 18)}>

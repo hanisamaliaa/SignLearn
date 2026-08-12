@@ -1,3 +1,5 @@
+import { useEffect, useId, useRef } from "react";
+
 // ─── Button ─────────────────────────────────────────────────────────────────
 export function Button({
   variant = "primary",
@@ -316,8 +318,10 @@ export function Alert({ type, message, onClose }) {
       <span className="flex-1">{message}</span>
       {onClose && (
         <button
+          type="button"
           onClick={onClose}
           className="opacity-60 hover:opacity-100 transition-opacity"
+          aria-label="Tutup pesan"
         >
           ✕
         </button>
@@ -328,23 +332,79 @@ export function Alert({ type, message, onClose }) {
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 export function Modal({ open, onClose, title, children, size = "md" }) {
+  const titleId = useId();
+  const dialogRef = useRef(null);
+  const restoreFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    restoreFocusRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const getFocusable = () => [...(dialogRef.current?.querySelectorAll(
+      "button, input, select, textarea, [href], [tabindex]:not([tabindex='-1'])",
+    ) ?? [])].filter((element) => !element.disabled);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = getFocusable();
+      if (!items.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      if (event.shiftKey && document.activeElement === items[0]) {
+        event.preventDefault();
+        items.at(-1).focus();
+      } else if (!event.shiftKey && document.activeElement === items.at(-1)) {
+        event.preventDefault();
+        items[0].focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    requestAnimationFrame(() => {
+      (getFocusable()[0] ?? dialogRef.current)?.focus();
+    });
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      restoreFocusRef.current?.focus?.();
+    };
+  }, [open]);
+
   if (!open) return null;
   const widths = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl" };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
+      <button
+        type="button"
+        aria-label="Tutup dialog"
+        tabIndex="-1"
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : "Dialog"}
+        tabIndex="-1"
         className={`relative w-full ${widths[size]} bg-[var(--surface)] rounded-2xl shadow-xl animate-scale-in`}
       >
         {title && (
           <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-            <h2 className="text-lg font-semibold text-[var(--text)]">
+            <h2 id={titleId} className="text-lg font-semibold text-[var(--text)]">
               {title}
             </h2>
             <button
+              type="button"
               onClick={onClose}
               className="text-[var(--text-subtle)] hover:text-[var(--text)] transition-colors"
               aria-label="Tutup"

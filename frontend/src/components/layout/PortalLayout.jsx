@@ -4,11 +4,13 @@ import { useApp } from "../../context/app";
 import { adminNavItems, userNavItems } from "../../config/navigation";
 import PortalHeader from "./PortalHeader";
 import PortalSidebar from "./PortalSidebar";
+import AccessibilityMenu from "../landing/AccessibilityMenu";
 
 export default function PortalLayout({ variant }) {
   const { pathname } = useLocation();
   const { logout, currentUser } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
 
   const collapseStorageKey = `signlearn-sidebar-collapsed-${variant}`;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -50,7 +52,9 @@ export default function PortalLayout({ variant }) {
       } overflow-hidden`}
     >
       {sidebarOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Tutup menu samping"
           className="fixed inset-0 z-20 bg-black/30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -72,14 +76,19 @@ export default function PortalLayout({ variant }) {
           subtitle={subtitle}
           currentUser={currentUser}
           onOpenSidebar={() => setSidebarOpen(true)}
+          onAccessibility={() => setAccessibilityOpen(true)}
           onLogout={logout}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto" data-route-scroll-container>
           <div className="p-5 sm:p-6 xl:p-8 max-w-[1500px] w-full mx-auto animate-fade-in">
             <Outlet />
           </div>
         </main>
       </div>
+      <AccessibilityMenu
+        open={accessibilityOpen}
+        onClose={() => setAccessibilityOpen(false)}
+      />
     </div>
   );
 }
