@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Badge, Button, Card, ProgressBar } from "../../components/ui/ui";
+import { Badge, Button, ProgressBar } from "../../components/ui/ui";
 import {
   ArrowRightIcon,
   BookIcon,

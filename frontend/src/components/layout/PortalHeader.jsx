@@ -11,7 +11,6 @@ import {
   UserIcon,
 } from "../ui/Icons";
 import { useTheme } from "../../context/ThemeContext";
-import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
 const NOTIFICATIONS = [
   {

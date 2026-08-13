@@ -118,9 +118,14 @@ export default function LandingHeader({ onLogin, onRegister, onAccessibility }) 
           <button type="button" className="kids-button kids-button-secondary" onClick={onLogin}>Masuk</button>
           <button type="button" className="kids-button kids-button-yellow" onClick={onRegister}>Mulai Belajar</button>
         </div>
-        <button ref={menuToggleRef} type="button" className="kids-icon-button kids-menu-toggle" aria-label={menuOpen ? "Tutup menu" : "Buka menu"} aria-expanded={menuOpen} aria-controls={menuId} onClick={() => setMenuOpen((open) => !open)}>
-          <span className={`kids-menu-glyph ${menuOpen ? "is-open" : ""}`} aria-hidden="true"><i /><i /><i /></span>
-        </button>
+        <div className="kids-nav-compact-actions">
+          <button type="button" className="kids-icon-button" onClick={onAccessibility} aria-label="Buka pengaturan aksesibilitas" title="Aksesibilitas">
+            <SettingsIcon size={20} />
+          </button>
+          <button ref={menuToggleRef} type="button" className="kids-icon-button kids-menu-toggle" aria-label={menuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"} aria-expanded={menuOpen} aria-controls={menuId} onClick={() => setMenuOpen((open) => !open)}>
+            <span className={`kids-menu-glyph ${menuOpen ? "is-open" : ""}`} aria-hidden="true"><i /><i /><i /></span>
+          </button>
+        </div>
       </div>
       <button type="button" className={`kids-mobile-overlay ${menuOpen ? "is-open" : ""}`} aria-label="Tutup menu navigasi" tabIndex="-1" onClick={() => { setMenuOpen(false); menuToggleRef.current?.focus(); }} />
       <nav ref={mobileMenuRef} id={menuId} className={`kids-mobile-menu ${menuOpen ? "is-open" : ""}`} aria-label="Navigasi seluler">

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "../ui/Icons";
 import { useAccessibility } from "../../context/AccessibilityContext";
 
@@ -13,17 +14,20 @@ export default function AccessibilityMenu({ open, onClose }) {
   const textSizeLegendId = useId();
   const panelRef = useRef(null);
   const restoreFocusRef = useRef(null);
+  const [resetMessage, setResetMessage] = useState("");
   const {
     textSize,
     highContrast,
     reduceMotion,
     subtitles,
     focusMode,
+    theme,
     setTextSize,
     setHighContrast,
     setReduceMotion,
     setSubtitles,
     setFocusMode,
+    setTheme,
     resetAccessibility,
   } = useAccessibility();
 
@@ -77,7 +81,7 @@ export default function AccessibilityMenu({ open, onClose }) {
     { label: "Mode fokus", checked: focusMode, onChange: setFocusMode },
   ];
 
-  return (
+  return createPortal(
     <div
       className="kids-a11y-backdrop"
       role="presentation"
@@ -127,6 +131,11 @@ export default function AccessibilityMenu({ open, onClose }) {
         </fieldset>
 
         <div className="kids-a11y-toggles">
+          <fieldset className="kids-theme-options">
+            <legend>Tampilan</legend>
+            <label><input type="radio" name="a11y-theme" checked={theme === "light"} onChange={() => setTheme("light")} /><span>☀️ Terang</span></label>
+            <label><input type="radio" name="a11y-theme" checked={theme === "dark"} onChange={() => setTheme("dark")} /><span>🌙 Gelap</span></label>
+          </fieldset>
           {toggles.map((toggle) => (
             <label key={toggle.label} className="kids-toggle-row">
               <span>{toggle.label}</span>
@@ -141,12 +150,13 @@ export default function AccessibilityMenu({ open, onClose }) {
         </div>
 
         <div className="kids-a11y-footer">
-          <button type="button" className="kids-reset-button" onClick={resetAccessibility}>
+          <button type="button" className="kids-reset-button" onClick={() => { resetAccessibility(); setResetMessage("Pengaturan default dipulihkan"); window.setTimeout(() => setResetMessage(""), 2500); }}>
             Kembalikan ke default
           </button>
-          <span role="status" aria-live="polite">Tersimpan otomatis</span>
+          <span role="status" aria-live="polite">{resetMessage || "Tersimpan otomatis"}</span>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

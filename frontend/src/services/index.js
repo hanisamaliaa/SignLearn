@@ -12,6 +12,7 @@ export * as quizService from "./quizService";
 export * as progressService from "./progressService";
 export * as userService from "./userService";
 export * as adminService from "./adminService";
+export * as translationService from "./translationService";
 export { bootstrapSession, onAuthFailure, normalizeError, API_MOCK_MODE } from "./api";
 
 // Layanan AI BISINDO berdiri sendiri — origin berbeda, tanpa sesi SignLearn.
