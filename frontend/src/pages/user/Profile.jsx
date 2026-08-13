@@ -11,7 +11,7 @@ import * as authService from "../../services/authService";
 import { normalizeError } from "../../services/api";
 
 /**
- * ── Tiga cacat yang diperbaiki di halaman ini ─────────────────────────
+ * ── Cacat yang diperbaiki di halaman ini ──────────────────────────────
  *
  * 1. NILAI AWAL DIBACA DARI JALUR YANG TIDAK ADA.
  *    Form mengambil `currentUser.profile.phone` dan `currentUser.profile.avatar`.
@@ -29,9 +29,16 @@ import { normalizeError } from "../../services/api";
  *
  * 3. UBAH KATA SANDI TIDAK MEMANGGIL APA PUN.
  *    Handler-nya hanya menunggu 700 ms lalu mengosongkan input dan mengaku
- *    berhasil. Pengguna mengira kata sandinya berganti padahal tidak — dan
- *    baru menyadarinya saat gagal masuk. `authService.changePassword` sudah
- *    tersedia sejak awal dan kini benar-benar dipakai.
+ *    berhasil. `authService.changePassword` sudah tersedia sejak awal dan kini
+ *    benar-benar dipakai.
+ *
+ * 4. STATISTIK DIHITUNG DARI DATA YANG TERPOTONG.
+ *    Rata-rata kuis sempat dihitung dari `quizHistory`, yang merupakan
+ *    `dashboard.recentQuizzes` — dibatasi LIMIT 5 di repository. Rata-rata atas
+ *    lima pengerjaan terakhir yang dilabeli "Rata-rata Kuis" akan berbeda dari
+ *    angka yang sama di halaman lain, tanpa ada yang tahu kenapa. Seluruh
+ *    statistik di sini kini berasal dari `stats`, yang dihitung server atas
+ *    seluruh riwayat.
  */
 
 const PROFILE_LABELS = {
@@ -53,8 +60,27 @@ const STATUS_LABELS = {
   suspended: "Ditangguhkan",
 };
 
+/**
+ * "2026-08-12" → "12 Agustus 2026".
+ *
+ * `timeZone: "UTC"` wajib: `joinDate` adalah DATE polos, dan tanpa penguncian
+ * zona waktu ia diparsing sebagai tengah malam UTC lalu digeser mundur satu
+ * hari bagi siapa pun yang berada di zona negatif.
+ */
+function formatJoinDate(value) {
+  if (!value) return "—";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default function Profile() {
-  const { currentUser, updateProfile, stats } = useApp();
+  const { currentUser, updateProfile, logout, stats } = useApp();
 
   const [name, setName] = useState(currentUser?.name || "");
   const [email] = useState(currentUser?.email || "");
@@ -105,10 +131,23 @@ export default function Profile() {
   /**
    * Mengubah kata sandi — benar-benar memanggil `POST /auth/change-password`.
    *
-   * Pemeriksaan di sini hanya menyaring kesalahan yang paling sering terjadi.
-   * Kebijakan penuh (8 karakter, huruf besar/kecil, angka, simbol, bukan deret,
-   * bukan kata sandi umum, tidak memuat identitas) tetap ditegakkan server, dan
-   * pesannya ditampilkan apa adanya ketika ditolak.
+   * ── Dua hal yang mudah salah di sini ──────────────────────────────
+   *
+   * 1. Endpoint ini membalas `data: null` pada keberhasilan. Memeriksa
+   *    `result.success` akan melempar TypeError pada `null`, dan bila blok
+   *    try hanya punya `finally` tanpa `catch`, pengguna tidak melihat apa pun.
+   *    Keberhasilan ditandai TIDAK ADANYA lemparan, bukan isi payload.
+   *
+   * 2. Server MENGAKHIRI SESI setelah kata sandi berganti (`clearRefreshCookie`,
+   *    pesannya pun berbunyi "Silakan masuk kembali"). Membiarkan pengguna di
+   *    halaman ini berarti ia memegang sesi mati yang gagal pada aksi
+   *    berikutnya, dengan galat yang tidak berhubungan. Karena itu ia langsung
+   *    dikeluarkan dan diminta masuk lagi.
+   *
+   * Pemeriksaan lokal di bawah hanya menyaring kesalahan yang paling sering
+   * terjadi. Kebijakan penuh (8 karakter, huruf besar/kecil, angka, simbol,
+   * bukan deret, bukan kata sandi umum, tidak memuat identitas) tetap
+   * ditegakkan server, dan pesannya ditampilkan apa adanya ketika ditolak.
    */
   async function handleChangePassword(e) {
     e.preventDefault();
@@ -130,30 +169,34 @@ export default function Profile() {
     setChangingPass(true);
     try {
       await authService.changePassword(currentPass, newPass);
+
       setCurrentPass("");
       setNewPass("");
       setConfirmPass("");
-      flash("Kata sandi berhasil diperbarui.");
+      flash("Kata sandi berhasil diubah. Silakan masuk kembali.");
+
+      // Jeda singkat supaya pesan di atas sempat terbaca sebelum berpindah.
+      window.setTimeout(() => logout(), 1500);
     } catch (error) {
-      const e2 = normalizeError(error);
+      const failure = normalizeError(error);
       // Validator mengembalikan daftar per-field; gabungkan supaya pengguna
       // melihat SELURUH aturan yang belum terpenuhi sekaligus.
-      const detail = (e2.errors ?? []).map((x) => x.message).join(" ");
-      setPassError(detail || e2.message || "Gagal memperbarui kata sandi.");
-    } finally {
+      const detail = (failure.errors ?? []).map((x) => x.message).join(" ");
+      setPassError(detail || failure.message || "Gagal memperbarui kata sandi.");
       setChangingPass(false);
     }
   }
 
   const accountInfo = [
     { label: "Peran", value: ROLE_LABELS[currentUser?.role] ?? "Pengguna" },
-    { label: "Bergabung", value: currentUser?.joinDate ?? "—" },
+    { label: "Bergabung", value: formatJoinDate(currentUser?.joinDate) },
     { label: "Status", value: STATUS_LABELS[currentUser?.status] ?? "—" },
   ];
 
-  // Statistik diturunkan dari ringkasan progres milik pengguna ini. Bila
-  // ringkasannya belum dimuat, kartunya disembunyikan — angka nol akan terbaca
-  // sebagai "sudah diukur, hasilnya kosong", padahal artinya "belum diukur".
+  // Seluruhnya dari `stats` (ringkasan progres milik pengguna ini, dihitung
+  // server). Bila belum dimuat, kartunya disembunyikan — angka nol akan
+  // terbaca sebagai "sudah diukur, hasilnya kosong", padahal artinya
+  // "belum diukur".
   const learningStats = stats
     ? [
         { label: "Kursus Dimulai", value: String(stats.coursesStarted ?? 0) },
@@ -163,6 +206,7 @@ export default function Profile() {
         },
         { label: "Kuis Lulus", value: String(stats.quizzesPassed ?? 0) },
         { label: "Progres Keseluruhan", value: `${stats.overallPercent ?? 0}%` },
+        { label: "Streak", value: `${stats.streakDays ?? 0} hari` },
       ]
     : null;
 
@@ -178,9 +222,7 @@ export default function Profile() {
         </p>
       </header>
 
-      {saved && (
-        <Alert type="success" message={saved} onClose={() => setSaved("")} />
-      )}
+      {saved && <Alert type="success" message={saved} onClose={() => setSaved("")} />}
       {saveError && (
         <Alert type="danger" message={saveError} onClose={() => setSaveError("")} />
       )}
@@ -214,33 +256,31 @@ export default function Profile() {
                   className="flex items-center justify-between gap-4 text-sm"
                 >
                   <span className="text-[var(--text-muted)]">{info.label}</span>
-                  <span className="font-bold text-[var(--text)]">
-                    {info.value}
-                  </span>
+                  <span className="font-bold text-[var(--text)]">{info.value}</span>
                 </div>
               ))}
             </div>
           </Card>
 
           {learningStats && (
-          <Card className="border-[#d4e0e7]">
-            <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
-              Statistik Belajar
-            </h3>
-            <div className="space-y-3">
-              {learningStats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="flex items-center justify-between gap-4 text-sm"
-                >
-                  <span className="text-[var(--text-muted)]">{stat.label}</span>
-                  <span className="font-extrabold text-[var(--primary)]">
-                    {stat.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
+            <Card className="border-[#d4e0e7]">
+              <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
+                Statistik Belajar
+              </h3>
+              <div className="space-y-3">
+                {learningStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex items-center justify-between gap-4 text-sm"
+                  >
+                    <span className="text-[var(--text-muted)]">{stat.label}</span>
+                    <span className="font-extrabold text-[var(--primary)]">
+                      {stat.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
 
@@ -261,7 +301,11 @@ export default function Profile() {
                 <legend className="mb-3 text-sm font-bold text-[var(--text)]">
                   Avatar SignLearn
                 </legend>
-                <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Pilih avatar profil">
+                <div
+                  className="grid grid-cols-3 gap-3"
+                  role="radiogroup"
+                  aria-label="Pilih avatar profil"
+                >
                   {SIGNLEARN_AVATARS.map((item) => {
                     const selected = avatar === item.id;
                     return (
@@ -288,7 +332,6 @@ export default function Profile() {
                     );
                   })}
                 </div>
-              
               </fieldset>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -298,26 +341,24 @@ export default function Profile() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Nama lengkap Anda"
                 />
-                {/*
-                  Email hanya dibaca. Server MENGABAIKANNYA diam-diam pada
-                  PUT /users/profile (§7.2), jadi kolom yang bisa diketik akan
-                  memberi kesan alamatnya berubah padahal tidak sama sekali.
-                */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="profil-email"
-                    className="text-sm font-medium text-[var(--text)]"
-                  >
-                    Alamat Email
-                  </label>
-                  <input
-                    id="profil-email"
+                <div>
+                  {/*
+                    Email hanya dibaca. Server MENGABAIKANNYA diam-diam pada
+                    PUT /users/profile (§7.2), jadi kolom yang bisa diketik akan
+                    memberi kesan alamatnya berubah padahal tidak sama sekali.
+                  */}
+                  <Input
+                    label="Alamat Email"
                     type="email"
                     value={email}
                     readOnly
-                    className="w-full cursor-not-allowed rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-sm text-[var(--text-muted)]"
+                    aria-describedby="email-readonly-note"
+                    className="cursor-not-allowed bg-[var(--surface-2)] text-[var(--text-muted)]"
                   />
-                  <p className="text-xs text-[var(--text-subtle)]">
+                  <p
+                    id="email-readonly-note"
+                    className="mt-1 text-xs text-[var(--text-subtle)]"
+                  >
                     Email tidak dapat diubah dari halaman ini.
                   </p>
                 </div>
@@ -348,7 +389,9 @@ export default function Profile() {
                           : "border-[var(--border)] hover:border-[#9cc8e2]"
                       }`}
                     >
-                      <div className="mb-1 text-xl" aria-hidden="true">{item.emoji}</div>
+                      <div className="mb-1 text-xl" aria-hidden="true">
+                        {item.emoji}
+                      </div>
                       <p
                         className={`text-xs font-bold ${
                           profile === item.id
@@ -362,7 +405,8 @@ export default function Profile() {
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-[var(--text-subtle)]">
-                  Profil belajar bukan peran sistem — hanya membantu personalisasi pengalaman belajar Anda.
+                  Profil belajar bukan peran sistem — hanya membantu personalisasi
+                  pengalaman belajar Anda.
                 </p>
               </div>
 
@@ -417,6 +461,9 @@ export default function Profile() {
                   placeholder="Ulangi kata sandi baru"
                 />
               </div>
+              <p className="text-xs text-[var(--text-subtle)]">
+                Setelah kata sandi berganti, Anda akan diminta masuk kembali.
+              </p>
               <div className="flex justify-end">
                 <Button type="submit" variant="outline" disabled={changingPass}>
                   {changingPass ? "Memperbarui…" : "Perbarui Kata Sandi"}
