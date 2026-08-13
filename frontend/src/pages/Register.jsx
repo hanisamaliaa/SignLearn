@@ -76,7 +76,27 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const passwordMeetsRequirement = password.length >= 6;
+  /**
+   * Syarat kata sandi — CERMINAN `passwordPolicy.js` di backend.
+   *
+   * Sebelumnya di sini hanya `password.length >= 6`, sementara server menuntut
+   * 8 karakter beserta huruf besar, huruf kecil, angka, dan simbol. Akibatnya
+   * "abc123" lolos pemeriksaan di layar, dikirim, lalu ditolak 422 — dan
+   * pendaftar membaca daftar aturan yang tidak pernah ditampilkan sebelumnya.
+   *
+   * Server tetap pemutus terakhir (ia juga menolak deret seperti "1234",
+   * karakter berulang, kata sandi umum, dan yang memuat nama/email pendaftar).
+   * Daftar di bawah hanya memindahkan penolakan yang paling sering terjadi ke
+   * saat mengetik, bukan setelah menekan tombol.
+   */
+  const passwordChecks = [
+    { id: "length", label: "Minimal 8 karakter", ok: password.length >= 8 },
+    { id: "upper", label: "Ada huruf kapital (A-Z)", ok: /[A-Z]/.test(password) },
+    { id: "lower", label: "Ada huruf kecil (a-z)", ok: /[a-z]/.test(password) },
+    { id: "digit", label: "Ada angka (0-9)", ok: /[0-9]/.test(password) },
+    { id: "symbol", label: "Ada simbol (! @ # $ %)", ok: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const passwordMeetsRequirement = passwordChecks.every((c) => c.ok);
   const passwordsMatch = Boolean(confirmPassword) && password === confirmPassword;
 
   function clearFieldError(field) {
@@ -90,7 +110,10 @@ export default function Register() {
     if (!normalizedEmail) errors.email = "Alamat email belum diisi.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) errors.email = "Format email belum sesuai.";
     if (!password) errors.password = "Kata sandi belum diisi.";
-    else if (!passwordMeetsRequirement) errors.password = "Kata sandi minimal 6 karakter.";
+    else if (!passwordMeetsRequirement) {
+      const missing = passwordChecks.filter((c) => !c.ok).map((c) => c.label.toLowerCase());
+      errors.password = `Kata sandi belum memenuhi: ${missing.join(", ")}.`;
+    }
     if (!confirmPassword) errors.confirmPassword = "Konfirmasi kata sandi belum diisi.";
     else if (!passwordsMatch) errors.confirmPassword = "Konfirmasi kata sandi belum sama.";
     setFieldErrors(errors);
@@ -193,7 +216,19 @@ export default function Register() {
                     </motion.div>
                     <motion.div {...authEntrance(reducedMotion, 0.22)}>
                       <AuthField inputRef={passwordRef} id="register-password" label="Kata Sandi" icon={LockIcon} type={showPassword ? "text" : "password"} placeholder="Masukkan kata sandi" value={password} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); clearFieldError("confirmPassword"); }} autoComplete="new-password" error={fieldErrors.password} describedBy="register-password-requirement" rightElement={<PasswordToggle visible={showPassword} onToggle={() => setShowPassword((visible) => !visible)} />} />
-                      <p id="register-password-requirement" className={`auth-password-feedback ${passwordMeetsRequirement ? "is-valid" : ""}`}><span aria-hidden="true">{passwordMeetsRequirement ? <CheckIcon size={13} /> : "○"}</span> Minimal 6 karakter</p>
+                      <ul id="register-password-requirement" className="auth-password-checklist">
+                        {passwordChecks.map((check) => (
+                          <li
+                            key={check.id}
+                            className={`auth-password-feedback ${check.ok ? "is-valid" : ""}`}
+                          >
+                            <span aria-hidden="true">
+                              {check.ok ? <CheckIcon size={13} /> : "○"}
+                            </span>{" "}
+                            {check.label}
+                          </li>
+                        ))}
+                      </ul>
                     </motion.div>
                     <motion.div {...authEntrance(reducedMotion, 0.29)}>
                       <AuthField inputRef={confirmRef} id="register-confirm-password" label="Konfirmasi Kata Sandi" icon={LockIcon} type={showConfirmPassword ? "text" : "password"} placeholder="Masukkan kembali kata sandi" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); if (event.target.value) setConfirmTouched(true); clearFieldError("confirmPassword"); }} onBlur={() => setConfirmTouched(true)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} autoComplete="new-password" error={fieldErrors.confirmPassword} describedBy={confirmTouched && confirmPassword ? "register-password-match" : undefined} rightElement={<PasswordToggle visible={showConfirmPassword} onToggle={() => setShowConfirmPassword((visible) => !visible)} label="konfirmasi kata sandi" />} />
