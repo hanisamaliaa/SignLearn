@@ -217,19 +217,34 @@ export function AppProvider({ children }) {
     setUsers([]);
     setDashboard(null);
     setProgress(null);
-    navigate("/");
+    navigate("/login");
   }, [navigate]);
 
   const updateProfile = useCallback(async (data) => {
     try {
       // Halaman Profile mengirim `profileType`; API menamainya `profile`.
+      const avatar = data.avatar ?? data.profile?.avatar;
+      const phone = data.phone ?? data.profile?.phone;
       const user = await userService.updateProfile({
         name: data.name,
-        phone: data.phone ?? data.profile?.phone,
-        avatar: data.avatar ?? data.profile?.avatar,
+        phone,
+        avatar,
         profile: data.profileType ?? undefined,
       });
-      setCurrentUser(toUiUser(user));
+
+      // Beberapa respons API hanya mengembalikan sebagian blok profile.
+      // Gabungkan dengan state lama agar avatar/sidebar langsung konsisten.
+      setCurrentUser((previous) =>
+        toUiUser({
+          ...user,
+          profile: {
+            ...(previous?.profile ?? {}),
+            ...(user?.profile ?? {}),
+            ...(phone !== undefined ? { phone } : {}),
+            ...(avatar !== undefined ? { avatar } : {}),
+          },
+        }),
+      );
       return { success: true, message: "" };
     } catch (error) {
       const e = normalizeError(error);

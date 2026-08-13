@@ -77,9 +77,9 @@ export default function Courses() {
 
   const getProgress = (course) => course.totalLessons ? Math.round((course.completedLessons / course.totalLessons) * 100) : 0;
 
-  const openCourse = (course) => {
+  const openCourse = async (course) => {
     if (course.isLocked) return;
-    setSelectedCourse(course.id);
+    await setSelectedCourse(course.id);
     navigate("/course-detail");
   };
 

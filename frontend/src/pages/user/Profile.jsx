@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useApp } from "../../context/app";
 import { Card, Button, Input, Alert } from "../../components/ui/ui";
 import { CheckCircleIcon } from "../../components/ui/Icons";
+import { changePassword } from "../../services/authService";
 import {
   SignLearnAvatar,
   SIGNLEARN_AVATARS,
@@ -20,21 +21,35 @@ const PROFILE_OPTIONS = [
   { id: "general", label: "Pelajar Umum", emoji: "📚" },
 ];
 
-const ACCOUNT_INFO = [
-  { label: "Peran", value: "Pengguna" },
-  { label: "Bergabung", value: "2025-01-15" },
-  { label: "Status", value: "Aktif" },
-];
-
-const STATS = [
-  { label: "Kursus Aktif", value: "3" },
-  { label: "Pelajaran Selesai", value: "6" },
-  { label: "Rata-rata Kuis", value: "82%" },
-  { label: "Streak Terpanjang", value: "7 hari" },
-];
-
 export default function Profile() {
-  const { currentUser, updateProfile } = useApp();
+  const { currentUser, updateProfile, courses, quizHistory, stats } = useApp();
+
+  const activeCourses = (courses ?? []).filter(
+    (course) => !course.isLocked && (course.completedLessons ?? 0) < (course.totalLessons ?? 0),
+  ).length;
+  const completedLessons = (courses ?? []).reduce(
+    (total, course) => total + (course.completedLessons ?? 0),
+    0,
+  );
+  const averageQuiz = (quizHistory ?? []).length
+    ? Math.round((quizHistory ?? []).reduce((total, quiz) => total + (quiz.score ?? 0), 0) / quizHistory.length)
+    : 0;
+  const joinedDate = currentUser?.createdAt
+    ? new Date(currentUser.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+    : "—";
+
+  const accountInfo = [
+    { label: "Peran", value: "Pengguna" },
+    { label: "Bergabung", value: joinedDate },
+    { label: "Status", value: currentUser?.status === "inactive" ? "Tidak aktif" : "Aktif" },
+  ];
+
+  const statsItems = [
+    { label: "Kursus Aktif", value: String(activeCourses) },
+    { label: "Pelajaran Selesai", value: String(completedLessons) },
+    { label: "Rata-rata Kuis", value: `${averageQuiz}%` },
+    { label: "Streak Terpanjang", value: `${stats?.streakDays ?? 0} hari` },
+  ];
 
   const [name, setName] = useState(currentUser?.name || "");
   const [email, setEmail] = useState(currentUser?.email || "");
@@ -51,13 +66,14 @@ export default function Profile() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [passError, setPassError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    setSaveError("");
 
-    updateProfile({
+    const result = await updateProfile({
       name,
       email,
       profileType: profile,
@@ -67,9 +83,14 @@ export default function Profile() {
       },
     });
 
-    setSaved(true);
+    if (result.success) {
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 3000);
+    } else {
+      setSaveError(result.message || "Perubahan profil gagal disimpan.");
+    }
+
     setSaving(false);
-    window.setTimeout(() => setSaved(false), 3000);
   }
 
   async function handleChangePassword(e) {
@@ -90,13 +111,21 @@ export default function Profile() {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setCurrentPass("");
-    setNewPass("");
-    setConfirmPass("");
-    setSaved(true);
-    setSaving(false);
-    window.setTimeout(() => setSaved(false), 3000);
+    try {
+      const result = await changePassword(currentPass, newPass);
+      if (!result.success) {
+        setPassError(result.message || "Kata sandi gagal diubah.");
+        return;
+      }
+
+      setCurrentPass("");
+      setNewPass("");
+      setConfirmPass("");
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -116,6 +145,13 @@ export default function Profile() {
           type="success"
           message="Perubahan berhasil disimpan! Informasi Anda telah diperbarui."
           onClose={() => setSaved(false)}
+        />
+      )}
+      {saveError && (
+        <Alert
+          type="danger"
+          message={saveError}
+          onClose={() => setSaveError("")}
         />
       )}
 
@@ -142,7 +178,7 @@ export default function Profile() {
               Informasi Akun
             </h3>
             <div className="space-y-3">
-              {ACCOUNT_INFO.map((info) => (
+              {accountInfo.map((info) => (
                 <div
                   key={info.label}
                   className="flex items-center justify-between gap-4 text-sm"
@@ -161,7 +197,7 @@ export default function Profile() {
               Statistik Belajar
             </h3>
             <div className="space-y-3">
-              {STATS.map((stat) => (
+              {statsItems.map((stat) => (
                 <div
                   key={stat.label}
                   className="flex items-center justify-between gap-4 text-sm"
@@ -230,13 +266,19 @@ export default function Profile() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Nama lengkap Anda"
                 />
-                <Input
-                  label="Alamat Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@contoh.com"
-                />
+                <div>
+                  <Input
+                    label="Alamat Email"
+                    type="email"
+                    value={email}
+                    readOnly
+                    aria-describedby="email-readonly-note"
+                    placeholder="email@contoh.com"
+                  />
+                  <p id="email-readonly-note" className="mt-1 text-xs text-[var(--text-subtle)]">
+                    Email akun dikelola dari sisi keamanan akun.
+                  </p>
+                </div>
               </div>
 
               <Input
