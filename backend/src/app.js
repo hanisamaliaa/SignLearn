@@ -5,6 +5,7 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
 import { env } from "./config/env.js";
+import { testConnection } from "./config/database.js";
 import { globalLimiter } from "./middleware/rateLimit.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 import routes from "./routes/index.js";
@@ -71,9 +72,11 @@ app.use(globalLimiter);
 
 // ─── Health check ────────────────────────────────────────────────────────
 // Di luar prefix versi: monitoring tidak boleh rusak saat API naik versi.
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "ok",
+app.get("/api/health", async (_req, res) => {
+  const database = await testConnection();
+  res.status(database.ok ? 200 : 503).json({
+    status: database.ok ? "ok" : "unavailable",
+    database: database.ok ? "connected" : "unavailable",
     uptime: Math.round(process.uptime()),
     environment: env.nodeEnv,
   });

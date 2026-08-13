@@ -110,9 +110,9 @@ const accessSecret = readSecret(
   process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET,
 );
 
-if (isProduction && !process.env.DATABASE_URL) {
+if (!process.env.DATABASE_URL) {
   errors.push(
-    "DATABASE_URL wajib diisi di produksi — backend tidak dapat berjalan tanpa database.",
+    "DATABASE_URL wajib diisi — backend tidak dapat berjalan tanpa database PostgreSQL.",
   );
 }
 

@@ -240,6 +240,31 @@ CREATE TABLE quiz_results (
 
 CREATE INDEX idx_results_user ON quiz_results (user_id, taken_at DESC);
 
+-- ─── BISINDO Translation Bank ──────────────────────────────────
+CREATE TABLE translations (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  word            VARCHAR(120) NOT NULL,
+  normalized_word VARCHAR(120) NOT NULL UNIQUE,
+  translation     VARCHAR(240) NOT NULL,
+  description     TEXT,
+  category        VARCHAR(100) NOT NULL DEFAULT 'Umum',
+  status          VARCHAR(20) NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active', 'inactive')),
+  sign_image      VARCHAR(500),
+  sign_video      VARCHAR(500),
+  aliases         TEXT[] NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_translations_status_word ON translations (status, normalized_word);
+CREATE INDEX idx_translations_category ON translations (category);
+CREATE INDEX idx_translations_aliases ON translations USING GIN (aliases);
+
+CREATE TRIGGER trg_translations_updated_at
+  BEFORE UPDATE ON translations
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ─── Seed peran ────────────────────────────────────────────────
 INSERT INTO roles (name) VALUES ('admin'), ('user')
 ON CONFLICT (name) DO NOTHING;

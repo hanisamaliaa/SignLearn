@@ -16,18 +16,15 @@ import TranslationResult from "./TranslationResult";
 import TranslatorIntro from "./TranslatorIntro";
 import CameraPracticePanel from "./CameraPracticePanel";
 import { useAccessibility } from "../../context/AccessibilityContext";
+import { translationService } from "../../services";
 
-// These words come from the original SignLearn demo. The repository does not
-// currently include playable sign assets, so suggestions only populate input.
 const EXISTING_DEMO_WORDS = ["Halo", "Terima kasih", "Maaf", "Tolong", "Teman"];
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25];
-const SIGN_LIBRARY = new Map();
 
-function lookupSigns(value) {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  const signs = words.map((word) => SIGN_LIBRARY.get(word.toLocaleLowerCase("id-ID")));
-  if (!words.length || signs.some((sign) => !sign)) throw new Error("unavailable");
-  return signs;
+function toSign(item) {
+  if (item.signVideo) return { word: item.word, type: "video", src: item.signVideo, description: item.description };
+  if (item.signImage) return { word: item.word, type: "image", src: item.signImage, description: item.description };
+  return { word: item.word, type: "text", src: `text:${item.id}`, translation: item.translation, description: item.description };
 }
 
 function TranslationModeSwitch({ mode, onChange, inView, reducedMotion }) {
@@ -219,8 +216,14 @@ function SignPlayer({ status, query, signs, onRetry, onShowSuggestions }) {
                   />
                 )}
               </video>
-            ) : (
+            ) : currentSign.type === "image" ? (
               <img src={currentSign.src} alt={`Gerakan BISINDO untuk ${currentSign.word}`} />
+            ) : (
+              <div className="kids-sign-text-fallback" role="img" aria-label={`Representasi BISINDO untuk ${currentSign.word}: ${currentSign.translation}`}>
+                <HandSignIcon size={48} />
+                <strong>{currentSign.translation}</strong>
+                <span>{currentSign.description || "Media gerakan akan segera ditambahkan."}</span>
+              </div>
             )}
           </motion.div>
           )}
@@ -264,8 +267,8 @@ function TextToSignMode({ reducedMotion }) {
     setQuery(nextQuery);
     setStatus("loading");
     try {
-      await Promise.resolve();
-      setSigns(lookupSigns(nextQuery));
+      const item = await translationService.lookupTranslation(nextQuery);
+      setSigns([toSign(item)]);
       setStatus("success");
     } catch {
       setSigns([]);

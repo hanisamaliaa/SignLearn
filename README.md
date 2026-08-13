@@ -93,7 +93,7 @@ pip install -r requirements.txt
 cd ..
 ```
 
-Setelah itu frontend dan layanan AI dapat dijalankan bersama dari satu terminal:
+Setelah itu backend, frontend, dan layanan AI dapat dijalankan bersama dari satu terminal:
 
 ```bash
 npm run dev

@@ -35,7 +35,7 @@ export const STORAGE_KEYS = {
 };
 
 // Backend API base URL (fallback for local dev)
-export const API_DEFAULT_BASE_URL = "http://localhost:5000/api";
+export const API_DEFAULT_BASE_URL = "http://localhost:4000/api/v1";
 
 // Feature placeholders
 export const AI_SUBTITLE_PLACEHOLDER =

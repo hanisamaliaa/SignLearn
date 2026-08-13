@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { ChevronRightIcon, LogoutIcon } from "../ui/Icons";
+import { ChevronRightIcon, LogoutIcon, XIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
 import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
@@ -14,8 +14,6 @@ export default function PortalSidebar({
   onToggleCollapse,
 }) {
   const isAdmin = variant === "admin";
-  const logoutClass = isAdmin ? "admin-logout-link" : "user-sidebar-logout";
-
   return (
     <aside
       data-collapsed={collapsed ? "true" : "false"}

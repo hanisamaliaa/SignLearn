@@ -13,6 +13,11 @@ if (!existsSync(uvicorn)) {
 }
 
 const services = [
+  spawn("npm", ["--prefix", "backend", "run", "dev"], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+  }),
   spawn(
     uvicorn,
     ["app.main:app", "--app-dir", "ai", "--host", "127.0.0.1", "--port", "8000"],
