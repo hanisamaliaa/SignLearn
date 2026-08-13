@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useApp } from "../../context/app";
 import { Card, Button, Input, Alert } from "../../components/ui/ui";
-import { CameraIcon, CheckCircleIcon } from "../../components/ui/Icons";
+import { CheckCircleIcon } from "../../components/ui/Icons";
+import {
+  SignLearnAvatar,
+  SIGNLEARN_AVATARS,
+  resolveAvatarId,
+} from "../../components/common/SignLearnAvatar";
 
 const PROFILE_LABELS = {
   parent: "Orang Tua dengan Anak Tunarungu",
@@ -34,7 +39,12 @@ export default function Profile() {
   const [name, setName] = useState(currentUser?.name || "");
   const [email, setEmail] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.profile?.phone || "");
-  const [profile, setProfile] = useState(currentUser?.profileType || "general");
+  const [profile, setProfile] = useState(
+    currentUser?.profileType || "general",
+  );
+  const [avatar, setAvatar] = useState(
+    resolveAvatarId(currentUser?.profile?.avatar),
+  );
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
@@ -45,23 +55,21 @@ export default function Profile() {
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Persist the edited profile into context + localStorage so it survives
-    // logout/refresh and login again.
     updateProfile({
       name,
       email,
       profileType: profile,
       profile: {
         phone,
-        avatar: name.slice(0, 2).toUpperCase(),
+        avatar,
       },
     });
 
     setSaved(true);
     setSaving(false);
-    setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(false), 3000);
   }
 
   async function handleChangePassword(e) {
@@ -82,25 +90,26 @@ export default function Profile() {
     }
 
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((resolve) => setTimeout(resolve, 700));
     setCurrentPass("");
     setNewPass("");
     setConfirmPass("");
     setSaved(true);
     setSaving(false);
-    setTimeout(() => setSaved(false), 3000);
+    window.setTimeout(() => setSaved(false), 3000);
   }
 
   return (
     <div className="space-y-6">
-      <div>
+      <header>
+        <p className="mb-1 text-sm font-bold text-[#2e86bf]">AKUN SAYA</p>
         <h1 className="text-2xl font-extrabold text-[var(--text)]">
           Profil Saya
         </h1>
-        <p className="text-[var(--text-muted)] mt-1">
+        <p className="mt-1 text-[var(--text-muted)]">
           Kelola informasi dan pengaturan akun Anda
         </p>
-      </div>
+      </header>
 
       {saved && (
         <Alert
@@ -110,43 +119,36 @@ export default function Profile() {
         />
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Left column */}
         <div className="space-y-4">
-          <Card className="text-center">
-            <div className="relative inline-block mb-4">
-              <div className="w-24 h-24 bg-gradient-to-br from-[#4F8EF7] to-[#6C63FF] rounded-full flex items-center justify-center text-white text-3xl font-extrabold mx-auto">
-                {currentUser?.profile?.avatar ||
-                  currentUser?.name?.slice(0, 2).toUpperCase() ||
-                  "U"}
-              </div>
-              <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-[var(--surface)] border-2 border-[var(--border)] rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors shadow-sm">
-                <CameraIcon size={14} />
-              </button>
+          <Card className="overflow-hidden border-[#d4e0e7] text-center">
+            <div className="rounded-2xl bg-[#fff8df] p-5">
+              <SignLearnAvatar id={avatar} size="xl" className="mx-auto" />
             </div>
-            <h2 className="font-bold text-[var(--text)] text-lg">
+            <h2 className="mt-4 text-lg font-extrabold text-[var(--text)]">
               {currentUser?.name}
             </h2>
-            <p className="text-sm text-[var(--text-muted)] mt-0.5">
+            <p className="mt-0.5 text-sm text-[var(--text-muted)]">
               {currentUser?.email}
             </p>
-            <div className="mt-3 inline-flex items-center gap-1.5 bg-[var(--primary-light)] text-[var(--primary)] px-3 py-1 rounded-full text-xs font-medium">
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--primary-light)] px-3 py-1.5 text-xs font-bold text-[var(--primary)]">
               {PROFILE_LABELS[currentUser?.profileType || "general"]}
             </div>
           </Card>
 
-          <Card>
-            <h3 className="font-bold text-[var(--text)] mb-4 text-sm">
+          <Card className="border-[#d4e0e7]">
+            <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
               Informasi Akun
             </h3>
             <div className="space-y-3">
               {ACCOUNT_INFO.map((info) => (
                 <div
                   key={info.label}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center justify-between gap-4 text-sm"
                 >
                   <span className="text-[var(--text-muted)]">{info.label}</span>
-                  <span className="font-medium text-[var(--text)]">
+                  <span className="font-bold text-[var(--text)]">
                     {info.value}
                   </span>
                 </div>
@@ -154,19 +156,19 @@ export default function Profile() {
             </div>
           </Card>
 
-          <Card>
-            <h3 className="font-bold text-[var(--text)] mb-4 text-sm">
+          <Card className="border-[#d4e0e7]">
+            <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
               Statistik Belajar
             </h3>
             <div className="space-y-3">
-              {STATS.map((s) => (
+              {STATS.map((stat) => (
                 <div
-                  key={s.label}
-                  className="flex items-center justify-between text-sm"
+                  key={stat.label}
+                  className="flex items-center justify-between gap-4 text-sm"
                 >
-                  <span className="text-[var(--text-muted)]">{s.label}</span>
-                  <span className="font-bold text-[var(--primary)]">
-                    {s.value}
+                  <span className="text-[var(--text-muted)]">{stat.label}</span>
+                  <span className="font-extrabold text-[var(--primary)]">
+                    {stat.value}
                   </span>
                 </div>
               ))}
@@ -175,13 +177,53 @@ export default function Profile() {
         </div>
 
         {/* Right column */}
-        <div className="lg:col-span-2 space-y-5">
-          <Card>
-            <h2 className="text-lg font-bold text-[var(--text)] mb-5">
-              Informasi Pribadi
-            </h2>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
+        <div className="space-y-5 lg:col-span-2">
+          <Card className="border-[#d4e0e7]">
+            <div className="mb-6">
+              <h2 className="text-lg font-extrabold text-[var(--text)]">
+                Informasi Pribadi
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                Pilih avatar yang paling kamu suka, lalu lengkapi informasi akun.
+              </p>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-5">
+              <fieldset>
+                <legend className="mb-3 text-sm font-bold text-[var(--text)]">
+                  Avatar SignLearn
+                </legend>
+                <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Pilih avatar profil">
+                  {SIGNLEARN_AVATARS.map((item) => {
+                    const selected = avatar === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setAvatar(item.id)}
+                        className={`min-h-36 rounded-2xl border-2 p-3 text-center transition-all focus-visible:outline-4 ${
+                          selected
+                            ? "border-[#2e86bf] bg-[#eef8fd] shadow-sm"
+                            : "border-[var(--border)] bg-[var(--surface)] hover:border-[#9cc8e2]"
+                        }`}
+                      >
+                        <SignLearnAvatar id={item.id} size="lg" className="mx-auto" />
+                        <span className="mt-2 block text-sm font-extrabold text-[var(--text)]">
+                          {item.name}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-[var(--text-muted)]">
+                          {item.role}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              
+              </fieldset>
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                   label="Nama Lengkap"
                   value={name}
@@ -196,6 +238,7 @@ export default function Profile() {
                   placeholder="email@contoh.com"
                 />
               </div>
+
               <Input
                 label="Nomor Telepon"
                 type="tel"
@@ -204,66 +247,45 @@ export default function Profile() {
                 placeholder="08xxxxxxxxxx"
               />
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[var(--text)]">
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--text)]">
                   Profil Belajar
                 </label>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {PROFILE_OPTIONS.map((p) => (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {PROFILE_OPTIONS.map((item) => (
                     <button
-                      key={p.id}
+                      key={item.id}
                       type="button"
-                      onClick={() => setProfile(p.id)}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        profile === p.id
-                          ? "border-[#4F8EF7] bg-[var(--primary-light)]"
-                          : "border-[var(--border)] hover:border-[#4F8EF7]/40"
+                      onClick={() => setProfile(item.id)}
+                      aria-pressed={profile === item.id}
+                      className={`min-h-20 rounded-xl border-2 p-3 text-center transition-all ${
+                        profile === item.id
+                          ? "border-[#2e86bf] bg-[var(--primary-light)]"
+                          : "border-[var(--border)] hover:border-[#9cc8e2]"
                       }`}
                     >
-                      <div className="text-xl mb-1">{p.emoji}</div>
+                      <div className="mb-1 text-xl" aria-hidden="true">{item.emoji}</div>
                       <p
-                        className={`text-xs font-medium ${
-                          profile === p.id
+                        className={`text-xs font-bold ${
+                          profile === item.id
                             ? "text-[var(--primary)]"
                             : "text-[var(--text-muted)]"
                         }`}
                       >
-                        {p.label}
+                        {item.label}
                       </p>
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-[var(--text-subtle)]">
-                  Profil belajar bukan peran sistem — hanya membantu
-                  personalisasi pengalaman belajar Anda.
+                <p className="mt-2 text-xs text-[var(--text-subtle)]">
+                  Profil belajar bukan peran sistem — hanya membantu personalisasi pengalaman belajar Anda.
                 </p>
               </div>
 
-              <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={saving}>
+              <div className="flex justify-end border-t border-[var(--border-light)] pt-4">
+                <Button type="submit" disabled={saving} size="lg">
                   {saving ? (
-                    <span className="flex items-center gap-2">
-                      <svg
-                        className="animate-spin w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                      Menyimpan...
-                    </span>
+                    "Menyimpan..."
                   ) : (
                     <>
                       <CheckCircleIcon size={16} /> Simpan Perubahan
@@ -274,8 +296,8 @@ export default function Profile() {
             </form>
           </Card>
 
-          <Card>
-            <h2 className="text-lg font-bold text-[var(--text)] mb-5">
+          <Card className="border-[#d4e0e7]">
+            <h2 className="mb-5 text-lg font-extrabold text-[var(--text)]">
               Ubah Kata Sandi
             </h2>
             {passError && (
@@ -295,7 +317,7 @@ export default function Profile() {
                 onChange={(e) => setCurrentPass(e.target.value)}
                 placeholder="Masukkan kata sandi saat ini"
               />
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                   label="Kata Sandi Baru"
                   type="password"
