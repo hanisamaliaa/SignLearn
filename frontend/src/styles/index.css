@@ -6673,8 +6673,65 @@ textarea,
 [data-theme="dark"] .user-progress-track { background: #293a50; }
 [data-theme="dark"] .user-lesson-row:hover,
 [data-theme="dark"] .user-list-row:hover { background: #1d2d44; }
-[data-theme="dark"] .user-text-button,
-[data-theme="dark"] .user-full-button { color: #78aaff; }
+[data-theme="dark"] .user-text-button { color: #78aaff; }
+
+/*
+ * ── Perbaikan kontras dark mode ───────────────────────────────────────
+ *
+ * Semua aturan di bawah ini menutup pasangan warna yang GAGAL WCAG AA saat
+ * tema gelap. Polanya sama di setiap kasus dan layak diingat:
+ *
+ *   latar memakai token yang ikut berubah gelap (`--ud-*-soft`),
+ *   sementara warna TEKS-nya dipatok nilai terang-mode dan tidak pernah
+ *   di-override — sehingga teks gelap mendarat di atas latar gelap.
+ *
+ * Kasus terburuk kebalikannya: `.user-full-button` menahan latar
+ * `#f5f9fd` yang nyaris putih sementara teksnya diubah menjadi biru muda,
+ * menghasilkan rasio 2.21:1 — praktis tidak terbaca.
+ *
+ * Angka rasio di komentar diukur dengan pemindai kontras terhadap warna
+ * hasil render sungguhan, bukan diperkirakan.
+ */
+
+/* 2.21:1 → latar ikut digelapkan, bukan hanya teksnya. */
+[data-theme="dark"] .user-full-button { background: #1e365a; color: #bcd6ff; }
+
+/* 2.26:1 — teks #356da8 di atas --ud-blue-soft (#1e365a). */
+[data-theme="dark"] .user-chip,
+[data-theme="dark"] .user-level-pill,
+[data-theme="dark"] .user-count-pill { background: #1e365a; color: #bcd6ff; }
+
+/* 2.42:1 — teks #287b59 di atas --ud-green-soft (#173a2f). */
+[data-theme="dark"] .user-chip-green { color: #86e2b6; }
+
+/* Skor & lencana hasil kuis: latar DAN teks sama-sama dipatok terang-mode. */
+[data-theme="dark"] .user-score.passed { color: #86e2b6; }
+[data-theme="dark"] .user-score.failed { color: #ffaaa5; }
+[data-theme="dark"] .user-result-badge.passed { background: #173a2f; color: #86e2b6; }
+[data-theme="dark"] .user-result-badge.failed { background: #41252a; color: #ffaaa5; }
+
+/* Teks pendamping abu-abu: #a0adbb terlalu redup di atas panel gelap. */
+[data-theme="dark"] .user-list-row span:not(.user-score):not(.user-result-badge) {
+  color: #b3c1d4;
+}
+
+/* Ikon amber pada latar --ud-yellow-soft (#3b3218). */
+[data-theme="dark"] .user-goal-star,
+[data-theme="dark"] .user-panel-icon.yellow { color: #f2c76b; }
+
+/*
+ * Label sekunder abu-abu.
+ *
+ * `#526980` dan `#60738a` dipilih untuk kartu berlatar putih; di atas panel
+ * gelap keduanya turun ke 3.1-3.2:1. Masih terbaca sekilas, tetapi di bawah
+ * ambang AA — dan justru dipakai untuk keterangan angka progres, tempat salah
+ * baca paling merugikan.
+ */
+[data-theme="dark"] .user-level-progress-top,
+[data-theme="dark"] .user-progress-row > div:first-child { color: #a7b6c9; }
+
+/* Track progres: #e8eef4 nyaris putih dan menutupi isian berwarna di atasnya. */
+[data-theme="dark"] .user-progress-track { background: #2a3a50; }
 [data-theme="dark"] .user-small-button { background: #244b7d; color: #e8f1ff; }
 [data-theme="dark"] .user-streak-panel { background: linear-gradient(135deg, #17243a 0%, #202c3f 100%); }
 

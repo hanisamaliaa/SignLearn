@@ -7,6 +7,32 @@ import {
   SIGNLEARN_AVATARS,
   resolveAvatarId,
 } from "../../components/common/SignLearnAvatar";
+import * as authService from "../../services/authService";
+import { normalizeError } from "../../services/api";
+
+/**
+ * ── Tiga cacat yang diperbaiki di halaman ini ─────────────────────────
+ *
+ * 1. NILAI AWAL DIBACA DARI JALUR YANG TIDAK ADA.
+ *    Form mengambil `currentUser.profile.phone` dan `currentUser.profile.avatar`.
+ *    Pada API, `user.profile` adalah STRING enum ("general" | "parent" | "deaf"),
+ *    bukan objek — peninggalan bentuk data era localStorage. Membaca `.phone`
+ *    dari sebuah string menghasilkan `undefined` tanpa melempar error, jadi
+ *    form selalu terbuka kosong. Menyimpan lalu mengirim balik kekosongan itu,
+ *    sehingga nomor telepon terhapus diam-diam dan avatar tertimpa nilai
+ *    bawaan — persis gejala "perubahan profil tidak tersimpan".
+ *
+ * 2. PENYIMPANAN TIDAK PERNAH DITUNGGU.
+ *    `updateProfile(...)` dipanggil tanpa `await`, lalu spanduk "berhasil
+ *    disimpan" ditampilkan tanpa syarat. Kegagalan server terlihat persis
+ *    seperti keberhasilan.
+ *
+ * 3. UBAH KATA SANDI TIDAK MEMANGGIL APA PUN.
+ *    Handler-nya hanya menunggu 700 ms lalu mengosongkan input dan mengaku
+ *    berhasil. Pengguna mengira kata sandinya berganti padahal tidak — dan
+ *    baru menyadarinya saat gagal masuk. `authService.changePassword` sudah
+ *    tersedia sejak awal dan kini benar-benar dipakai.
+ */
 
 const PROFILE_LABELS = {
   parent: "Orang Tua dengan Anak Tunarungu",
@@ -20,58 +46,70 @@ const PROFILE_OPTIONS = [
   { id: "general", label: "Pelajar Umum", emoji: "📚" },
 ];
 
-const ACCOUNT_INFO = [
-  { label: "Peran", value: "Pengguna" },
-  { label: "Bergabung", value: "2025-01-15" },
-  { label: "Status", value: "Aktif" },
-];
-
-const STATS = [
-  { label: "Kursus Aktif", value: "3" },
-  { label: "Pelajaran Selesai", value: "6" },
-  { label: "Rata-rata Kuis", value: "82%" },
-  { label: "Streak Terpanjang", value: "7 hari" },
-];
+const ROLE_LABELS = { admin: "Admin", user: "Pengguna" };
+const STATUS_LABELS = {
+  active: "Aktif",
+  inactive: "Nonaktif",
+  suspended: "Ditangguhkan",
+};
 
 export default function Profile() {
-  const { currentUser, updateProfile } = useApp();
+  const { currentUser, updateProfile, stats } = useApp();
 
   const [name, setName] = useState(currentUser?.name || "");
-  const [email, setEmail] = useState(currentUser?.email || "");
-  const [phone, setPhone] = useState(currentUser?.profile?.phone || "");
-  const [profile, setProfile] = useState(
-    currentUser?.profileType || "general",
-  );
-  const [avatar, setAvatar] = useState(
-    resolveAvatarId(currentUser?.profile?.avatar),
-  );
+  const [email] = useState(currentUser?.email || "");
+  // `currentUser.phone` dan `.avatar` adalah kolom tingkat atas pada DTO user,
+  // BUKAN properti di dalam `currentUser.profile` (yang berupa string enum).
+  const [phone, setPhone] = useState(currentUser?.phone || "");
+  const [profile, setProfile] = useState(currentUser?.profileType || "general");
+  const [avatar, setAvatar] = useState(resolveAvatarId(currentUser?.avatar));
+
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
-  const [saved, setSaved] = useState(false);
+
+  const [saved, setSaved] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [passError, setPassError] = useState("");
+  const [changingPass, setChangingPass] = useState(false);
+
+  function flash(message) {
+    setSaved(message);
+    window.setTimeout(() => setSaved(""), 3500);
+  }
 
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    setSaveError("");
 
-    updateProfile({
-      name,
-      email,
+    // `email` sengaja TIDAK dikirim: server mengabaikannya diam-diam (§7.2),
+    // dan mengirimkannya hanya menyamarkan bahwa ia memang tidak dapat diubah.
+    const outcome = await updateProfile({
+      name: name.trim(),
+      phone: phone.trim() || null,
+      avatar,
       profileType: profile,
-      profile: {
-        phone,
-        avatar,
-      },
     });
 
-    setSaved(true);
     setSaving(false);
-    window.setTimeout(() => setSaved(false), 3000);
+
+    if (!outcome?.success) {
+      setSaveError(outcome?.message || "Gagal menyimpan perubahan.");
+      return;
+    }
+    flash("Perubahan berhasil disimpan! Informasi Anda telah diperbarui.");
   }
 
+  /**
+   * Mengubah kata sandi — benar-benar memanggil `POST /auth/change-password`.
+   *
+   * Pemeriksaan di sini hanya menyaring kesalahan yang paling sering terjadi.
+   * Kebijakan penuh (8 karakter, huruf besar/kecil, angka, simbol, bukan deret,
+   * bukan kata sandi umum, tidak memuat identitas) tetap ditegakkan server, dan
+   * pesannya ditampilkan apa adanya ketika ditolak.
+   */
   async function handleChangePassword(e) {
     e.preventDefault();
     setPassError("");
@@ -80,24 +118,53 @@ export default function Profile() {
       setPassError("Masukkan kata sandi saat ini.");
       return;
     }
-    if (newPass.length < 6) {
-      setPassError("Kata sandi baru minimal 6 karakter.");
-      return;
-    }
     if (newPass !== confirmPass) {
       setPassError("Konfirmasi kata sandi tidak cocok.");
       return;
     }
+    if (newPass === currentPass) {
+      setPassError("Kata sandi baru harus berbeda dari kata sandi saat ini.");
+      return;
+    }
 
-    setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setCurrentPass("");
-    setNewPass("");
-    setConfirmPass("");
-    setSaved(true);
-    setSaving(false);
-    window.setTimeout(() => setSaved(false), 3000);
+    setChangingPass(true);
+    try {
+      await authService.changePassword(currentPass, newPass);
+      setCurrentPass("");
+      setNewPass("");
+      setConfirmPass("");
+      flash("Kata sandi berhasil diperbarui.");
+    } catch (error) {
+      const e2 = normalizeError(error);
+      // Validator mengembalikan daftar per-field; gabungkan supaya pengguna
+      // melihat SELURUH aturan yang belum terpenuhi sekaligus.
+      const detail = (e2.errors ?? []).map((x) => x.message).join(" ");
+      setPassError(detail || e2.message || "Gagal memperbarui kata sandi.");
+    } finally {
+      setChangingPass(false);
+    }
   }
+
+  const accountInfo = [
+    { label: "Peran", value: ROLE_LABELS[currentUser?.role] ?? "Pengguna" },
+    { label: "Bergabung", value: currentUser?.joinDate ?? "—" },
+    { label: "Status", value: STATUS_LABELS[currentUser?.status] ?? "—" },
+  ];
+
+  // Statistik diturunkan dari ringkasan progres milik pengguna ini. Bila
+  // ringkasannya belum dimuat, kartunya disembunyikan — angka nol akan terbaca
+  // sebagai "sudah diukur, hasilnya kosong", padahal artinya "belum diukur".
+  const learningStats = stats
+    ? [
+        { label: "Kursus Dimulai", value: String(stats.coursesStarted ?? 0) },
+        {
+          label: "Pelajaran Selesai",
+          value: `${stats.lessonsCompleted ?? 0} / ${stats.totalLessons ?? 0}`,
+        },
+        { label: "Kuis Lulus", value: String(stats.quizzesPassed ?? 0) },
+        { label: "Progres Keseluruhan", value: `${stats.overallPercent ?? 0}%` },
+      ]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -112,11 +179,10 @@ export default function Profile() {
       </header>
 
       {saved && (
-        <Alert
-          type="success"
-          message="Perubahan berhasil disimpan! Informasi Anda telah diperbarui."
-          onClose={() => setSaved(false)}
-        />
+        <Alert type="success" message={saved} onClose={() => setSaved("")} />
+      )}
+      {saveError && (
+        <Alert type="danger" message={saveError} onClose={() => setSaveError("")} />
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -142,7 +208,7 @@ export default function Profile() {
               Informasi Akun
             </h3>
             <div className="space-y-3">
-              {ACCOUNT_INFO.map((info) => (
+              {accountInfo.map((info) => (
                 <div
                   key={info.label}
                   className="flex items-center justify-between gap-4 text-sm"
@@ -156,12 +222,13 @@ export default function Profile() {
             </div>
           </Card>
 
+          {learningStats && (
           <Card className="border-[#d4e0e7]">
             <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
               Statistik Belajar
             </h3>
             <div className="space-y-3">
-              {STATS.map((stat) => (
+              {learningStats.map((stat) => (
                 <div
                   key={stat.label}
                   className="flex items-center justify-between gap-4 text-sm"
@@ -174,6 +241,7 @@ export default function Profile() {
               ))}
             </div>
           </Card>
+          )}
         </div>
 
         {/* Right column */}
@@ -230,13 +298,29 @@ export default function Profile() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Nama lengkap Anda"
                 />
-                <Input
-                  label="Alamat Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@contoh.com"
-                />
+                {/*
+                  Email hanya dibaca. Server MENGABAIKANNYA diam-diam pada
+                  PUT /users/profile (§7.2), jadi kolom yang bisa diketik akan
+                  memberi kesan alamatnya berubah padahal tidak sama sekali.
+                */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="profil-email"
+                    className="text-sm font-medium text-[var(--text)]"
+                  >
+                    Alamat Email
+                  </label>
+                  <input
+                    id="profil-email"
+                    type="email"
+                    value={email}
+                    readOnly
+                    className="w-full cursor-not-allowed rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-sm text-[var(--text-muted)]"
+                  />
+                  <p className="text-xs text-[var(--text-subtle)]">
+                    Email tidak dapat diubah dari halaman ini.
+                  </p>
+                </div>
               </div>
 
               <Input
@@ -323,7 +407,7 @@ export default function Profile() {
                   type="password"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="8+ karakter, huruf besar/kecil, angka, simbol"
                 />
                 <Input
                   label="Konfirmasi Kata Sandi Baru"
@@ -334,8 +418,8 @@ export default function Profile() {
                 />
               </div>
               <div className="flex justify-end">
-                <Button type="submit" variant="outline" disabled={saving}>
-                  Perbarui Kata Sandi
+                <Button type="submit" variant="outline" disabled={changingPass}>
+                  {changingPass ? "Memperbarui…" : "Perbarui Kata Sandi"}
                 </Button>
               </div>
             </form>
