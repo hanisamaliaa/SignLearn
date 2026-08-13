@@ -161,9 +161,6 @@ export default function UserDashboard() {
       {/* ================= HERO ================= */}
       <section className="user-dashboard-hero">
         <div>
-          <p className="user-eyebrow">
-            SIGNLEARN • AREA BELAJAR
-          </p>
 
           <h1 className="user-welcome-title">
             Hai, {firstName}! 

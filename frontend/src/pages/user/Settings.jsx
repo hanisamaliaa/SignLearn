@@ -33,11 +33,6 @@ const NOTIFICATION_ITEMS = [
     label: "Laporan Mingguan",
     desc: "Ringkasan progress belajar setiap minggu",
   },
-  {
-    key: "email",
-    label: "Notifikasi Email",
-    desc: "Terima notifikasi penting via email",
-  },
 ];
 
 export default function Settings() {
