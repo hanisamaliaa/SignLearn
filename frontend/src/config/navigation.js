@@ -89,6 +89,14 @@ export const adminNavItems = [
     roles: ["admin"],
   },
   {
+    label: "Bank Kata",
+    page: "admin/translations",
+    path: "/admin/translations",
+    icon: GridIcon,
+    section: "Manajemen",
+    roles: ["admin"],
+  },
+  {
     label: "Laporan",
     page: "admin/reports",
     path: "/admin/reports",

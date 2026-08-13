@@ -104,6 +104,14 @@ const SAMPLE_COURSES = [
   },
 ];
 
+const SAMPLE_TRANSLATIONS = [
+  { word: "Halo", translation: "HALO", category: "Sapaan", aliases: ["hai"] },
+  { word: "Terima kasih", translation: "TERIMA KASIH", category: "Sapaan", aliases: ["terimakasih", "makasih"] },
+  { word: "Maaf", translation: "MAAF", category: "Percakapan", aliases: [] },
+  { word: "Tolong", translation: "TOLONG", category: "Percakapan", aliases: [] },
+  { word: "Teman", translation: "TEMAN", category: "Keluarga dan Sosial", aliases: ["kawan"] },
+];
+
 // ─── Langkah seed ────────────────────────────────────────────────────────
 
 async function seedRoles() {
@@ -186,6 +194,18 @@ async function seedCourses() {
   console.log(`  ✓ ${SAMPLE_COURSES.length} kursus, ${total} pelajaran`);
 }
 
+async function seedTranslations() {
+  for (const item of SAMPLE_TRANSLATIONS) {
+    await query(
+      `INSERT INTO translations (word, normalized_word, translation, category, aliases)
+       VALUES ($1, LOWER($1), $2, $3, $4)
+       ON CONFLICT (normalized_word) DO NOTHING`,
+      [item.word, item.translation, item.category, item.aliases],
+    );
+  }
+  console.log(`  ✓ ${SAMPLE_TRANSLATIONS.length} kata BISINDO contoh`);
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -209,6 +229,7 @@ async function main() {
   await seedRoles();
   const generatedPassword = await seedAdmin();
   await seedCourses();
+  await seedTranslations();
 
   if (generatedPassword) {
     console.log(`

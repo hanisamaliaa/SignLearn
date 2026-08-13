@@ -108,6 +108,33 @@
     score    INT NOT NULL DEFAULT 0
   );
 
+  CREATE TABLE IF NOT EXISTS translations (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    word            VARCHAR(120) NOT NULL,
+    normalized_word VARCHAR(120) NOT NULL,
+    translation     VARCHAR(240) NOT NULL,
+    description     TEXT,
+    category        VARCHAR(100) NOT NULL DEFAULT 'Umum',
+    status          VARCHAR(20) NOT NULL DEFAULT 'active',
+    sign_image      VARCHAR(500),
+    sign_video      VARCHAR(500),
+    aliases         TEXT[] NOT NULL DEFAULT '{}',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS word            VARCHAR(120);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS normalized_word VARCHAR(120);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS translation     VARCHAR(240);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS description     TEXT;
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS category        VARCHAR(100) DEFAULT 'Umum';
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS status          VARCHAR(20) DEFAULT 'active';
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS sign_image      VARCHAR(500);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS sign_video      VARCHAR(500);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS aliases         TEXT[] DEFAULT '{}';
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS created_at      TIMESTAMPTZ DEFAULT NOW();
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMPTZ DEFAULT NOW();
+
 
   -- ═══ TAHAP 2 — lengkapi kolom yang hilang ═══════════════════════
   -- `ADD COLUMN IF NOT EXISTS` melewati kolom yang sudah ada, sehingga
@@ -287,6 +314,11 @@
       ALTER TABLE lesson_progress ADD CONSTRAINT chk_progress_status
         CHECK (status IN ('not_started', 'in_progress', 'completed'));
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_translations_status') THEN
+      ALTER TABLE translations ADD CONSTRAINT chk_translations_status
+        CHECK (status IN ('active', 'inactive'));
+    END IF;
   END $$;
 
   -- NOT NULL dipasang setelah Tahap 4 mengisi nilainya.
@@ -313,6 +345,10 @@
   CREATE INDEX IF NOT EXISTS idx_questions_quiz     ON quiz_questions (quiz_id, sort_order);
   CREATE INDEX IF NOT EXISTS idx_progress_user      ON lesson_progress (user_id);
   CREATE INDEX IF NOT EXISTS idx_results_user       ON quiz_results (user_id, taken_at DESC);
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_translations_normalized ON translations (normalized_word);
+  CREATE INDEX IF NOT EXISTS idx_translations_status_word ON translations (status, normalized_word);
+  CREATE INDEX IF NOT EXISTS idx_translations_category ON translations (category);
+  CREATE INDEX IF NOT EXISTS idx_translations_aliases ON translations USING GIN (aliases);
 
 
   -- ═══ TAHAP 7 — trigger updated_at ═══════════════════════════════
@@ -320,6 +356,7 @@
   DROP TRIGGER IF EXISTS trg_courses_updated_at ON courses;
   DROP TRIGGER IF EXISTS trg_lessons_updated_at ON lessons;
   DROP TRIGGER IF EXISTS trg_quizzes_updated_at ON quizzes;
+  DROP TRIGGER IF EXISTS trg_translations_updated_at ON translations;
 
   CREATE TRIGGER trg_users_updated_at   BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -328,6 +365,8 @@
   CREATE TRIGGER trg_lessons_updated_at BEFORE UPDATE ON lessons
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
   CREATE TRIGGER trg_quizzes_updated_at BEFORE UPDATE ON quizzes
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  CREATE TRIGGER trg_translations_updated_at BEFORE UPDATE ON translations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
   COMMIT;

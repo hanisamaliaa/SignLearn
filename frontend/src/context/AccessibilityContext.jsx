@@ -41,8 +41,8 @@ export function applyAccessibilityPreferences(preferences) {
   root.classList.toggle("a11y-subtitles-hidden", !preferences.subtitles);
   root.classList.toggle("a11y-focus-mode", preferences.focusMode);
   root.dataset.accessibilityTextSize = preferences.textSize;
-  if (preferences.highContrast) root.style.colorScheme = "light";
-  else root.style.colorScheme = root.dataset.theme === "dark" ? "dark" : "light";
+  root.dataset.theme = preferences.theme;
+  root.style.colorScheme = preferences.theme;
   updateTextTracks(preferences.subtitles);
 }
 
@@ -86,6 +86,7 @@ export function AccessibilityProvider({ children }) {
     setReduceMotion: (enabled) => updatePreference("reduceMotion", enabled),
     setSubtitles: (enabled) => updatePreference("subtitles", enabled),
     setFocusMode: (enabled) => updatePreference("focusMode", enabled),
+    setTheme: (theme) => updatePreference("theme", theme),
     resetAccessibility,
   }), [preferences, resetAccessibility, updatePreference]);
 

@@ -6,6 +6,7 @@ import lessonRoutes from "./lessonRoutes.js";
 import progressRoutes from "./progressRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import adminRoutes from "./adminRoutes.js";
+import translationRoutes from "./translationRoutes.js";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/lessons", lessonRoutes);
 router.use("/progress", progressRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/admin", adminRoutes);
+router.use("/translations", translationRoutes);
 
 export default router;

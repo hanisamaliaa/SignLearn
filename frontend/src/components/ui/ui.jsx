@@ -17,7 +17,7 @@ export function Button({
     secondary:
       "bg-[var(--primary-light)] hover:bg-[#D4E9FF] active:bg-[#C0DFFF] text-[var(--primary)] focus:ring-[#4F8EF7]",
     ghost:
-      "hover:bg-gray-100 active:bg-gray-200 text-[var(--text-muted)] focus:ring-gray-300",
+      "hover:bg-[var(--surface-3)] active:bg-[var(--surface-2)] text-[var(--text-muted)] focus:ring-[var(--primary)]",
     danger:
       "bg-[#E74C3C] hover:bg-[#C0392B] text-white focus:ring-[#E74C3C] shadow-sm",
     success:
@@ -156,9 +156,9 @@ export function Badge({
 }) {
   const variants = {
     primary: "bg-[var(--primary-light)] text-[var(--primary)]",
-    success: "bg-[var(--success-light)] text-[#2ECC71]",
-    warning: "bg-[var(--warning-light)] text-[#E6A800]",
-    danger: "bg-[var(--danger-light)] text-[#E74C3C]",
+    success: "bg-[var(--success-light)] text-[var(--success)]",
+    warning: "bg-[var(--warning-light)] text-[var(--warning)]",
+    danger: "bg-[var(--danger-light)] text-[var(--danger)]",
     muted: "bg-[var(--surface-3)] text-[var(--text-muted)]",
     outline:
       "border border-[var(--border)] text-[var(--text-muted)] bg-[var(--surface)]",
@@ -286,25 +286,25 @@ export function Alert({ type, message, onClose }) {
   const styles = {
     success: {
       bg: "bg-[var(--success-light)]",
-      text: "text-[#1A6B40]",
+      text: "text-[var(--success)]",
       border: "border-[#2ECC71]/30",
       icon: "✓",
     },
     warning: {
       bg: "bg-[var(--warning-light)]",
-      text: "text-[#7A5A00]",
+      text: "text-[var(--warning)]",
       border: "border-[#F4B400]/30",
       icon: "⚠",
     },
     danger: {
       bg: "bg-[var(--danger-light)]",
-      text: "text-[#8B2519]",
+      text: "text-[var(--danger)]",
       border: "border-[#E74C3C]/30",
       icon: "✕",
     },
     info: {
       bg: "bg-[var(--primary-light)]",
-      text: "text-[#1A4A8B]",
+      text: "text-[var(--primary)]",
       border: "border-[#4F8EF7]/30",
       icon: "ℹ",
     },

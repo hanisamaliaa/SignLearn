@@ -6,8 +6,9 @@ export const DEFAULT_ACCESSIBILITY_PREFERENCES = Object.freeze({
   textSize: "normal",
   highContrast: false,
   reduceMotion: false,
-  subtitles: true,
+  subtitles: false,
   focusMode: false,
+  theme: "light",
 });
 
 export function sanitizeAccessibilityPreferences(raw) {
@@ -19,7 +20,8 @@ export function sanitizeAccessibilityPreferences(raw) {
     textSize: TEXT_SIZE_OPTIONS.includes(raw.textSize) ? raw.textSize : "normal",
     highContrast: raw.highContrast === true,
     reduceMotion: raw.reduceMotion === true,
-    subtitles: raw.subtitles !== false,
+    subtitles: raw.subtitles === true,
     focusMode: raw.focusMode === true,
+    theme: raw.theme === "dark" ? "dark" : "light",
   };
 }

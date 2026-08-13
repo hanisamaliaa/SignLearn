@@ -14,8 +14,6 @@ export default function PortalSidebar({
   onToggleCollapse,
 }) {
   const isAdmin = variant === "admin";
-  const logoutClass = isAdmin ? "admin-logout-link" : "user-sidebar-logout";
-
   return (
     <aside
       data-collapsed={collapsed ? "true" : "false"}
