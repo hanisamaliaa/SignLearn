@@ -1,4 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import avatar1 from "../../assets/avatars/avatar-1.png";
+import avatar2 from "../../assets/avatars/avatar-2.png";
+import avatar3 from "../../assets/avatars/avatar-3.png";
 
 const AVATARS = {
   luna: {
@@ -7,7 +10,7 @@ const AVATARS = {
     hair: "#7A4E2D",
     shirt: "#4F8EF7",
     skin: "#F6C7A8",
-    asset: "src/assets/avatars/avatar-1.png",
+    asset: avatar1,
   },
   bimo: {
     bg: "#FFF2C7",
@@ -15,7 +18,7 @@ const AVATARS = {
     hair: "#2E2A26",
     shirt: "#F4B400",
     skin: "#B96F4A",
-    asset: "src/assets/avatars/avatar-2.png",
+    asset: avatar2,
   },
   tara: {
     bg: "#E5F8ED",
@@ -23,13 +26,17 @@ const AVATARS = {
     hair: "#1F5B4A",
     shirt: "#2E9B65",
     skin: "#E7B58D",
-    asset: "src/assets/avatars/avatar-3.png",
+    asset: avatar3,
   },
 };
 
 function FaceAvatar({ id, size = "md", label, className = "", useAsset = true }) {
   const a = AVATARS[id] || AVATARS.luna;
   const [assetFailed, setAssetFailed] = useState(false);
+
+  useEffect(() => {
+    setAssetFailed(false);
+  }, [id]);
   const sizeClass =
     size === "xl"
       ? "w-28 h-28"

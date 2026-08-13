@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { Button } from "../../components/ui/ui";
@@ -102,7 +103,15 @@ export default function QuizResult() {
   const { quizScore, quizPassed } = useApp();
   const navigate = useNavigate();
 
-  const score = quizScore ?? 75;
+  useEffect(() => {
+    if (quizScore === null || quizScore === undefined) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [quizScore, navigate]);
+
+  if (quizScore === null || quizScore === undefined) return null;
+
+  const score = quizScore;
   const passed = quizPassed ?? score >= 70;
   const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0;
 

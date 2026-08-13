@@ -33,6 +33,8 @@ export async function register({ name, email, password, profile }) {
 export async function logout() {
   try {
     await request({ method: "post", url: "/auth/logout" });
+  } catch {
+    // Logout harus tetap selesai di sisi klien meski request server gagal.
   } finally {
     clearAccessToken();
   }
