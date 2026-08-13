@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { ChevronRightIcon, LogoutIcon, XIcon } from "../ui/Icons";
+import { LogoutIcon, MenuIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
 import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
@@ -9,56 +9,35 @@ export default function PortalSidebar({
   navItems,
   sidebarOpen,
   onClose,
+  onToggleSidebar,
   onLogout,
-  collapsed = false,
-  onToggleCollapse,
 }) {
   const isAdmin = variant === "admin";
   return (
     <aside
-      data-collapsed={collapsed ? "true" : "false"}
-      className={`portal-sidebar fixed lg:relative z-30 flex h-full w-72 flex-col ${
-        collapsed ? "lg:w-[84px]" : ""
-      } ${isAdmin ? "admin-sidebar" : "user-sidebar"} transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      className={`portal-sidebar ${isAdmin ? "admin-sidebar" : "user-sidebar"} fixed lg:relative z-30 flex h-full w-72 flex-col transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        sidebarOpen
+          ? "translate-x-0 user-sidebar-desktop-open lg:w-72 lg:min-w-0 lg:overflow-visible"
+          : "-translate-x-full lg:translate-x-0 user-sidebar-desktop-closed lg:w-0 lg:min-w-0 lg:overflow-hidden"
       }`}
     >
-      {variant === "admin" && onToggleCollapse && (
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="admin-sidebar-collapse-btn hidden lg:grid"
-          aria-label={collapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
-          aria-expanded={!collapsed}
-        >
-          <ChevronRightIcon
-            size={13}
-            className={`transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`}
-          />
-        </button>
-      )}
 
       <div
-        className={`flex items-center h-16 px-5 border-b ${
-          collapsed ? "lg:justify-center lg:px-2" : "justify-between"
-        } ${
+        className={`flex items-center h-16 px-5 border-b justify-between ${
           variant === "admin" ? "admin-sidebar-border" : "border-[var(--border)]"
         } flex-shrink-0`}
       >
-        <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "lg:justify-center" : ""}`}>
+        <div className="flex min-w-0 items-center gap-2">
           <BrandLogo className="portal-brand" />
         </div>
         <button
           type="button"
-          aria-label="Tutup menu samping"
-          className={`min-w-11 min-h-11 flex items-center justify-center rounded-xl ${
-            variant === "admin"
-              ? "lg:hidden text-[var(--adm-text-muted)]"
-              : "lg:hidden text-[var(--text-muted)]"
-          } ${collapsed ? "lg:hidden" : ""}`}
-          onClick={onClose}
+          aria-label="Sembunyikan sidebar"
+          aria-expanded="true"
+          className={`${isAdmin ? "admin-sidebar-menu-button text-[var(--adm-text-muted)] hover:text-[var(--adm-text)] hover:bg-[var(--adm-surface-alt)]" : "user-sidebar-menu-button"} min-w-11 min-h-11 flex items-center justify-center rounded-xl transition-colors`}
+          onClick={onToggleSidebar}
         >
-          <XIcon size={18} />
+          <MenuIcon size={20} />
         </button>
       </div>
 
@@ -70,16 +49,17 @@ export default function PortalSidebar({
               <NavLink
                 key={item.page}
                 to={item.path}
-                onClick={onClose}
-                title={collapsed ? item.label : undefined}
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                    onClose();
+                  }
+                }}
                 className={({ isActive }) =>
-                  `user-nav-link flex w-full items-center gap-3 px-3 py-3 text-sm font-bold transition-all duration-200 ${
-                    collapsed ? "lg:justify-center lg:px-0" : ""
-                  } ${isActive ? "is-active" : ""}`
+                  `user-nav-link flex w-full items-center gap-3 px-3 py-3 text-sm font-bold transition-all duration-200 ${isActive ? "is-active" : ""}`
                 }
               >
                 <Icon size={18} className="shrink-0" />
-                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                <span>{item.label}</span>
               </NavLink>
             );
           })}
@@ -88,11 +68,15 @@ export default function PortalSidebar({
 
       <div className="user-sidebar-footer shrink-0">
         <div
-          className={`user-sidebar-profile ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+          className="user-sidebar-profile"
           aria-label="Profil pengguna"
         >
-          <SignLearnAvatar id={currentUser?.profile?.avatar} size="md" />
-          <div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
+          {isAdmin ? (
+            <span className="admin-header-avatar" aria-hidden="true">A</span>
+          ) : (
+            <SignLearnAvatar id={currentUser?.profile?.avatar} size="md" />
+          )}
+          <div className="min-w-0">
             <p className="user-sidebar-profile-name truncate">{currentUser?.name || "Pengguna"}</p>
             <p className="user-sidebar-profile-email truncate">{currentUser?.email || ""}</p>
           </div>
@@ -100,13 +84,10 @@ export default function PortalSidebar({
         <button
           type="button"
           onClick={onLogout}
-          title={collapsed ? "Keluar" : undefined}
-          className={`flex w-full items-center gap-2.5 rounded-[14px] px-3 py-3 text-sm font-extrabold transition-colors user-sidebar-logout ${
-            collapsed ? "lg:justify-center lg:px-0" : ""
-          }`}
+          className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-3 text-sm font-extrabold transition-colors user-sidebar-logout"
         >
           <LogoutIcon size={17} className="shrink-0" />
-          <span className={collapsed ? "lg:hidden" : ""}>Keluar</span>
+          <span>Keluar</span>
         </button>
       </div>
     </aside>

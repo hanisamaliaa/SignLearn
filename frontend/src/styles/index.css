@@ -4906,37 +4906,52 @@ textarea,
   }
 }
 
-.admin-sidebar-collapse-btn {
-  position: absolute;
-  top: 68px;
-  right: -13px;
-  z-index: 5;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border: 1px solid var(--adm-border);
-  border-radius: 50%;
+.admin-sidebar-menu-button {
+  flex-shrink: 0;
+}
+
+.admin-sidebar-reopen {
+  border-color: var(--adm-border);
   background: var(--adm-surface);
   color: var(--adm-text-muted);
-  box-shadow: var(--adm-shadow-sm);
+}
+
+.admin-sidebar-reopen:hover {
+  color: var(--adm-text);
+  background: var(--adm-surface-alt);
+}
+
+.user-sidebar-reopen {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.user-sidebar-reopen:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.user-sidebar-menu-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e1ebf8;
+  border-radius: 12px;
+  background: #fff;
+  color: #667a91;
   cursor: pointer;
-  transition: box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
+  box-shadow: 0 6px 16px rgba(23,55,97,.06);
+  visibility: visible;
+  opacity: 1;
 }
-
-.admin-sidebar-collapse-btn:hover {
-  color: var(--adm-blue);
-  box-shadow: var(--adm-shadow-md);
-  transform: scale(1.08);
-}
-
-.admin-sidebar[data-collapsed="true"] .admin-nav-link {
-  position: relative;
-}
-
-@media (min-width: 1024px) {
-  .admin-sidebar[data-collapsed="true"] .kids-brand-wordmark {
-    display: none;
-  }
+.user-sidebar-menu-button:hover {
+  color: #3d7fe0;
+  background: #f7fbff;
+  box-shadow: 0 10px 22px rgba(23,55,97,.10);
 }
 
 .admin-sidebar-border {
@@ -5846,10 +5861,6 @@ textarea,
   flex: 0 0 auto;
 }
 
-.portal-sidebar[data-collapsed="true"] .portal-brand {
-  justify-content: center;
-}
-
 [data-high-contrast] .portal-shell {
   --border: #64748b;
   --border-light: #94a3b8;
@@ -6612,6 +6623,8 @@ textarea,
 }
 [data-theme="dark"] .user-sidebar-brand { border-bottom-color: #29384d; }
 [data-theme="dark"] .user-sidebar-collapse { border-color: #33455f; background: #17243a; color: #aebbd0; }
+[data-theme="dark"] .user-sidebar-menu-button { border-color: #33455f; background: #17243a; color: #aebbd0; }
+[data-theme="dark"] .user-sidebar-menu-button:hover { background: #1d2d46; color: #7eb0ff; }
 [data-theme="dark"] .user-sidebar-collapse:hover { background: #1d2d46; color: #7eb0ff; }
 [data-theme="dark"] .user-nav-link { color: #a9b7ca; }
 [data-theme="dark"] .user-nav-link:hover { background: #1a2a40; color: #e6efff; }
@@ -6765,29 +6778,123 @@ textarea,
   .courses-section-heading { align-items: flex-start; }
 }
 
-/* Auth overrides intentionally live at EOF so they outrank legacy page CSS. */
-[data-theme="dark"] .login-page {
-  --login-navy: #edf5ff;
-  --login-muted: #aebdce;
-  --login-border: #40536a;
-  background: #0f1928;
+
+/* User sidebar desktop hide/show: force a real flex collapse. */
+@media (min-width: 1024px) {
+  .portal-shell > .user-sidebar.user-sidebar-desktop-open {
+    flex: 0 0 18rem !important;
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+  }
+
+  .portal-shell > .user-sidebar.user-sidebar-desktop-closed {
+    flex: 0 0 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-right-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .portal-shell > .user-sidebar.user-sidebar-desktop-closed > * {
+    width: 18rem;
+    min-width: 18rem;
+  }
+
+  .portal-main-shell {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .portal-main-shell-sidebar-closed {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  /* The user portal must become a true full-viewport canvas when the sidebar
+     is hidden. Absolute positioning removes any residual flex/sidebar offset
+     from legacy sidebar rules. */
+  .portal-main-shell-user.portal-main-shell-sidebar-closed {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  .portal-main-shell-sidebar-closed > .user-header,
+  .portal-main-shell-sidebar-closed > main {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
 }
-[data-theme="dark"] :is(.login-brand-panel, .login-form-panel) { background: #0f1928; }
-[data-theme="dark"] .login-form-card { border-color: #40536a; background: #18263a; box-shadow: 0 22px 52px rgb(0 0 0 / .32); }
-[data-theme="dark"] .login-welcome-copy > p:last-child { color: #bdccdc; }
-[data-theme="dark"] .login-benefits li { border-color: #456077; background: rgb(24 43 63 / .78); color: #d9e7f4; }
-[data-theme="dark"] .login-benefits li > span { background: #213650; }
-[data-theme="dark"] .login-input-wrap input { border-color: #52677f; background: #111d2e; color: #edf5ff; }
-[data-theme="dark"] .login-input-wrap input::placeholder { color: #91a2b7; }
-[data-theme="dark"] .login-input-wrap input:is(:hover, :focus) { background: #15243a; }
-[data-theme="dark"] .login-remember { color: #c0cfdf; }
-[data-theme="dark"] .login-checkbox { border-color: #657990; background: #15243a; }
-[data-theme="dark"] .login-security-note { color: #9daec1; }
-[data-theme="dark"] .auth-step-progress { background: #31445b; }
-[data-theme="dark"] .auth-password-feedback { color: #aebdce; }
-[data-theme="dark"] .auth-password-feedback > span { background: #24364d; color: #b8c8d8; }
-[data-theme="dark"] .auth-profile-option { border-color: #52677f; background: #111d2e; color: #edf5ff; }
-[data-theme="dark"] .auth-profile-option:hover { border-color: #6996bb; background: #15243a; }
-[data-theme="dark"] .auth-profile-option.is-selected { background: #19334e; }
-[data-theme="dark"] .auth-profile-option small { color: #aebdce; }
-[data-theme="dark"] .auth-profile-check { border-color: #71869d; }
+
+
+/* Reserve space for the reopen control so page titles never sit underneath it. */
+@media (min-width: 1024px) {
+  .portal-header-sidebar-closed {
+    padding-left: 5.5rem !important;
+  }
+}
+
+/* FINAL USER PORTAL DESKTOP LAYOUT
+   Keep the user sidebar out of the desktop flex flow. The main canvas owns
+   the viewport width and only reserves sidebar space while it is open. */
+@media (min-width: 1024px) {
+  .portal-shell:not(.admin-portal) > .user-sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 30;
+    height: 100vh !important;
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+    flex: none !important;
+    transform: translateX(0) !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .user-sidebar.user-sidebar-desktop-closed {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    transform: translateX(-100%) !important;
+    overflow: hidden !important;
+    border-right: 0 !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user {
+    position: relative !important;
+    flex: none !important;
+    width: calc(100% - 18rem) !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin-left: 18rem !important;
+    height: 100vh !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-closed {
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    height: 100vh !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user > .user-header,
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user > main {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}

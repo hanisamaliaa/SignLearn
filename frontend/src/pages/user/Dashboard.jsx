@@ -116,10 +116,10 @@ export default function UserDashboard() {
   /**
    * Fungsi untuk melanjutkan pelajaran dari data server.
    */
-  const continueLearning = () => {
+  const continueLearning = async () => {
     if (!resume) return;
 
-    setSelectedCourse(resume.courseId);
+    await setSelectedCourse(resume.courseId);
     setSelectedLesson(resume.lessonId);
     navigate("/lesson");
   };
@@ -516,8 +516,8 @@ export default function UserDashboard() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedCourse(currentCourse.id);
+                  onClick={async () => {
+                    await setSelectedCourse(currentCourse.id);
                     navigate("/course-detail");
                   }}
                   className="user-text-button"
@@ -758,9 +758,9 @@ export default function UserDashboard() {
               key={course.id}
               type="button"
               disabled={course.isLocked}
-              onClick={() => {
+              onClick={async () => {
                 if (!course.isLocked) {
-                  setSelectedCourse(course.id);
+                  await setSelectedCourse(course.id);
                   navigate("/course-detail");
                 }
               }}

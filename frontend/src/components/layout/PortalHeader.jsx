@@ -4,13 +4,10 @@ import {
   BellIcon,
   ChevronDownIcon,
   LogoutIcon,
-  MenuIcon,
-  MoonIcon,
   SettingsIcon,
-  SunIcon,
   UserIcon,
 } from "../ui/Icons";
-import { useTheme } from "../../context/ThemeContext";
+import { SignLearnAvatar, resolveAvatarId } from "../common/SignLearnAvatar";
 
 const NOTIFICATIONS = [
   {
@@ -35,42 +32,30 @@ const NOTIFICATIONS = [
 
 export default function PortalHeader({
   variant,
+  sidebarOpen,
   title,
   subtitle,
   currentUser,
-  onOpenSidebar,
   onAccessibility,
   onLogout,
 }) {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-
-  const userInitial =
-    currentUser?.profile?.avatar ||
-    currentUser?.name?.slice(0, 2).toUpperCase() ||
-    (variant === "admin" ? "A" : "U");
+  const userAvatar = resolveAvatarId(currentUser?.profile?.avatar);
   const firstName = currentUser?.name?.split(" ")[0] || "User";
 
   return (
     <header
       className={`h-20 ${
+        !sidebarOpen ? "portal-header-sidebar-closed" : ""
+      } ${
         variant === "admin"
           ? "admin-header"
           : "user-header"
       } flex items-center justify-between px-5 sm:px-6 xl:px-8 flex-shrink-0`}
     >
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label="Buka menu samping"
-          className={`lg:hidden w-11 h-11 flex items-center justify-center rounded-xl ${variant === "admin" ? "text-[var(--adm-text-muted)] hover:text-[var(--adm-text)] hover:bg-[var(--adm-surface-alt)]" : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-3)]"}`}
-          onClick={onOpenSidebar}
-        >
-          <MenuIcon size={20} />
-        </button>
         <div>
           <h1 className={`text-base font-extrabold ${variant === "admin" ? "admin-header-title" : "text-[var(--text)]"}`}>
             {title}
@@ -95,19 +80,6 @@ export default function PortalHeader({
             <SettingsIcon size={18} />
           </button>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isDark}
-            aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="admin-theme-toggle"
-          >
-            <span className="admin-theme-toggle-thumb">
-              {isDark ? <MoonIcon size={14} /> : <SunIcon size={14} />}
-            </span>
-          </button>
-
           <div className="relative">
             <button
               onClick={() => {
@@ -117,7 +89,7 @@ export default function PortalHeader({
               className="admin-profile-pill"
               aria-label="Menu profil admin"
             >
-              <span className="admin-header-avatar">{userInitial}</span>
+              <span className="admin-header-avatar" aria-hidden="true">A</span>
               <span className="admin-profile-name text-sm font-extrabold hidden sm:block">
                 {firstName}
               </span>
@@ -196,9 +168,7 @@ export default function PortalHeader({
               className="min-h-11 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
               aria-label="Menu profil"
             >
-              <div className="w-7 h-7 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                {userInitial}
-              </div>
+              <SignLearnAvatar id={userAvatar} size="sm" className="border border-white" />
               <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
                 {firstName}
               </span>
