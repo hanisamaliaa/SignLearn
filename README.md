@@ -103,7 +103,7 @@ Perintah tersebut menghentikan kedua proses bersama saat `Ctrl+C` ditekan.
 Untuk menjalankannya secara terpisah tetap tersedia `npm run dev:frontend` dan
 `npm run dev:ai`.
 
-Open `http://localhost:5173`, choose **Kamera → Teks**, and grant camera
+Open `http://localhost:4789`, choose **Kamera → Teks**, and grant camera
 permission. Hold a sign briefly until it is stable. Different letters can be
 signed directly; repeating the same letter needs a brief release/change signal.
 Spaces are added explicitly with the **Tambah spasi** button.

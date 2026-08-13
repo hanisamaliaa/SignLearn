@@ -37,6 +37,21 @@ export const API_TIMEOUT_MS = Number(env.VITE_API_TIMEOUT_MS || 10000);
  */
 export const API_MOCK_MODE = env.VITE_API_MOCK_MODE === "true";
 
+/**
+ * Peringatan sekali di konsol saat mode mock menyala.
+ *
+ * Tanpa ini, satu-satunya gejalanya adalah kegagalan yang tampak seperti
+ * masalah jaringan — dan orang yang mengalaminya akan menghabiskan waktu
+ * memeriksa kabel, firewall, dan backend yang sebenarnya sehat.
+ */
+if (API_MOCK_MODE && typeof console !== "undefined") {
+  console.warn(
+    "[SignLearn] VITE_API_MOCK_MODE=true — seluruh permintaan API memakai data palsu " +
+      "dan TIDAK menyentuh backend. Login serta register akan gagal. " +
+      "Setel VITE_API_MOCK_MODE=false di frontend/.env untuk memakai server sungguhan.",
+  );
+}
+
 // ─── Token di memori ─────────────────────────────────────────────────────
 
 let accessToken = null;
@@ -196,7 +211,33 @@ export async function request({
 }) {
   if (API_MOCK_MODE) {
     await new Promise((resolve) => window.setTimeout(resolve, 120));
-    return mockData ?? null;
+
+    /**
+     * Tanpa `mockData`, mode mock TIDAK dapat menjawab apa pun.
+     *
+     * Versi sebelumnya mengembalikan `null` di sini. Karena tidak ada satu pun
+     * pemanggil di seluruh aplikasi yang mengirim `mockData`, itu berarti
+     * SETIAP panggilan API mengembalikan null — dan `authService.login()` lalu
+     * menjalankan `payload.accessToken` pada null, melempar TypeError.
+     *
+     * TypeError tidak punya `.code`, `.status`, maupun `.response`, sehingga
+     * `normalizeError` menjatuhkannya ke cabang terakhir dan pengguna membaca
+     * "Tidak dapat terhubung ke server. Periksa koneksi Anda." Orang lalu
+     * memeriksa jaringan, firewall, dan backend yang sebenarnya sehat.
+     *
+     * Melempar galat yang menyebut penyebabnya mengubah kebingungan setengah
+     * jam menjadi satu kalimat.
+     */
+    if (mockData === null || mockData === undefined) {
+      throw {
+        status: 0,
+        code: "MOCK_MODE_NO_FIXTURE",
+        message:
+          `Mode mock aktif (VITE_API_MOCK_MODE=true) dan tidak ada data palsu untuk ${method.toUpperCase()} ${url}. ` +
+          "Setel VITE_API_MOCK_MODE=false di frontend/.env lalu jalankan ulang dev server.",
+      };
+    }
+    return mockData;
   }
 
   const response = await apiClient.request({ method, url, data, params, headers });

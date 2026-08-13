@@ -1,135 +1,219 @@
-import { useState } from "react";
-import { Card, Button, Badge, Modal, Alert } from "../../components/ui/ui";
-import { COURSES, QUIZ_QUESTIONS } from "../../data/mock";
+import { useCallback, useState } from "react";
+import { Card, Button, Badge, Modal, Alert, Input } from "../../components/ui/ui";
+import { PlusIcon, EditIcon, TrashIcon, GridIcon } from "../../components/ui/Icons";
+import { courseService, lessonService, quizService } from "../../services";
 import {
-  PlusIcon,
-  EditIcon,
-  TrashIcon,
-  GridIcon,
-} from "../../components/ui/Icons";
+  useAdminResource,
+  useFlash,
+  runMutation,
+  fieldErrors,
+} from "../../hooks/useAdminResource";
+import QuestionEditor from "../../components/admin/QuestionEditor";
+
+/**
+ * Manajemen kuis — API Contract §8.10-8.13.
+ *
+ * ── Yang berubah dari versi mock ──────────────────────────────────────
+ *
+ * · Toggle "Publikasikan" DIHAPUS. Tabel `quizzes` tidak punya kolom untuk itu,
+ *   jadi tombolnya hanya mengubah state di memori dan hilang saat halaman
+ *   dimuat ulang — sambil memberi kesan kuis draft tersembunyi dari pengguna,
+ *   padahal tidak. Yang benar-benar menghalangi pengerjaan adalah kuis tanpa
+ *   soal: server menolaknya 409.
+ *
+ * · "Terkait Pelajaran" dulu menyimpan JUDUL pelajaran sebagai teks. Skema
+ *   memakai `lesson_id` (FK). Sekarang pemilihnya mengirim id, dan server
+ *   memverifikasi pelajaran itu memang milik kursus yang sama.
+ *
+ * · `totalQuestions` tidak pernah dikirim — server menghitungnya dari baris
+ *   `quiz_questions` dan validator menolaknya terang-terangan.
+ *
+ * · BARU: penyunting soal. Sebelumnya tidak ada satu pun cara menulis soal
+ *   lewat panel admin.
+ */
+
+const EMPTY_FORM = {
+  title: "",
+  lessonId: "",
+  minPassingScore: 70,
+  durationSeconds: 300,
+};
+
+/** Detik → "5 mnt 30 dtk", untuk dibaca sekilas di daftar. */
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s} dtk`;
+  return s === 0 ? `${m} mnt` : `${m} mnt ${s} dtk`;
+}
 
 export default function AdminQuizzes() {
-  const [selectedCourse, setSelectedCourse] = useState(COURSES[0].id);
-  const [quizzes, setQuizzes] = useState([
-    {
-      id: "q1",
-      courseId: COURSES[0].id,
-      title: "Kuis Huruf Dasar",
-      lesson: COURSES[0].lessons[0]?.title || "Pelajaran 1",
-      totalQuestions: QUIZ_QUESTIONS.length,
-      passingScore: 70,
-      published: true,
-    },
-  ]);
-  const [showModal, setShowModal] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const { flash, show, clear } = useFlash();
+
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
   const [editQuiz, setEditQuiz] = useState(null);
-  const [alert, setAlert] = useState(null);
-  const [form, setForm] = useState({
-    title: "",
-    lesson: "",
-    passingScore: 70,
-    published: true,
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [managingQuiz, setManagingQuiz] = useState(null);
 
-  const course = COURSES.find((c) => c.id === selectedCourse) || COURSES[0];
-  const courseQuizzes = quizzes.filter((q) => q.courseId === selectedCourse);
+  // ─── Kursus ────────────────────────────────────────────────────────────
+  const loadCourses = useCallback(
+    () => courseService.getCourses({ limit: 100, sortBy: "sortOrder", sortDir: "asc" }),
+    [],
+  );
+  const { data: courseData, loading: coursesLoading } = useAdminResource(loadCourses, []);
+  const courses = courseData?.items ?? [];
 
-  function showAlert(type, msg) {
-    setAlert({ type, msg });
-    setTimeout(() => setAlert(null), 3000);
-  }
+  const activeCourseId = selectedCourse || courses[0]?.id || "";
+
+  // ─── Kuis + pelajaran kursus terpilih ──────────────────────────────────
+  //
+  // Pelajaran ikut dimuat karena pemilih "Terkait Pelajaran" membutuhkannya,
+  // dan server menolak lessonId yang berasal dari kursus lain.
+  const loadQuizzes = useCallback(async () => {
+    const [quizzes, lessons] = await Promise.all([
+      quizService.getQuizzes(activeCourseId, { limit: 100 }),
+      lessonService.getLessons(activeCourseId, { limit: 100 }).catch(() => ({ items: [] })),
+    ]);
+    return { quizzes, lessons };
+  }, [activeCourseId]);
+
+  const { data, loading, error, reload } = useAdminResource(
+    loadQuizzes,
+    [activeCourseId],
+    { enabled: Boolean(activeCourseId) },
+  );
+
+  const quizzes = data?.quizzes?.items ?? [];
+  const lessons = data?.lessons?.items ?? [];
+
+  const lessonTitle = (lessonId) => lessons.find((l) => l.id === lessonId)?.title ?? null;
 
   function openAdd() {
     setEditQuiz(null);
-    setForm({
-      title: "",
-      lesson: course.lessons[0]?.title || "",
-      passingScore: 70,
-      published: true,
-    });
-    setShowModal(true);
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setModalOpen(true);
   }
 
   function openEdit(quiz) {
     setEditQuiz(quiz);
     setForm({
-      title: quiz.title,
-      lesson: quiz.lesson,
-      passingScore: quiz.passingScore,
-      published: quiz.published,
+      title: quiz.title ?? "",
+      lessonId: quiz.lessonId ?? "",
+      minPassingScore: quiz.minPassingScore ?? 70,
+      durationSeconds: quiz.durationSeconds ?? 300,
     });
-    setShowModal(true);
+    setFormErrors({});
+    setModalOpen(true);
   }
 
-  function handleSave() {
-    if (editQuiz) {
-      setQuizzes((prev) =>
-        prev.map((q) => (q.id === editQuiz.id ? { ...q, ...form } : q)),
-      );
-      showAlert("success", "Kuis berhasil diperbarui.");
-    } else {
-      const newQuiz = {
-        id: `q${Date.now()}`,
-        courseId: selectedCourse,
-        totalQuestions: 0,
-        ...form,
-        published: form.published,
-      };
-      setQuizzes((prev) => [...prev, newQuiz]);
-      showAlert("success", "Kuis baru berhasil ditambahkan.");
-    }
-    setShowModal(false);
+  function closeModal() {
+    setModalOpen(false);
     setEditQuiz(null);
+    setFormErrors({});
   }
 
-  function handleDelete(id) {
-    setQuizzes((prev) => prev.filter((q) => q.id !== id));
-    setDeleteId(null);
-    showAlert("success", "Kuis berhasil dihapus.");
-  }
+  async function handleSave() {
+    if (!activeCourseId) return;
+    setSaving(true);
+    setFormErrors({});
 
-  function handleTogglePublish(id) {
-    setQuizzes((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, published: !q.published } : q)),
+    const payload = {
+      title: form.title.trim(),
+      // "" berarti "tidak terikat pelajaran". Validator menerima null eksplisit
+      // tetapi menolak string kosong sebagai id.
+      lessonId: form.lessonId || null,
+      minPassingScore: Number(form.minPassingScore),
+      durationSeconds: Number(form.durationSeconds),
+    };
+
+    const outcome = await runMutation(() =>
+      editQuiz
+        ? quizService.updateQuiz(activeCourseId, editQuiz.id, payload)
+        : quizService.createQuiz(activeCourseId, payload),
     );
-    showAlert("success", "Status kuis berhasil diperbarui.");
+
+    setSaving(false);
+
+    if (!outcome.ok) {
+      setFormErrors(fieldErrors(outcome.errors));
+      show("danger", outcome.message);
+      return;
+    }
+
+    closeModal();
+    await reload();
+
+    // Kuis baru langsung dibuka penyuntingnya: kuis tanpa soal tidak dapat
+    // dikerjakan siapa pun, jadi langkah berikutnya selalu "isi soal".
+    if (!editQuiz && outcome.result) {
+      setManagingQuiz(outcome.result);
+      show("success", "Kuis dibuat. Sekarang tambahkan soalnya.");
+    } else {
+      show("success", "Kuis berhasil diperbarui.");
+    }
   }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+
+    const outcome = await runMutation(() =>
+      quizService.deleteQuiz(activeCourseId, deleteTarget.id),
+    );
+    setDeleteTarget(null);
+
+    if (!outcome.ok) {
+      // 409 = sudah ada yang mengerjakan. Pesannya sudah menjelaskan alasannya.
+      show("danger", outcome.message);
+      return;
+    }
+    await reload();
+    show("success", "Kuis berhasil dihapus.");
+  }
+
+  const withoutQuestions = quizzes.filter((q) => q.totalQuestions === 0).length;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-[var(--text)]">
-            Manajemen Kuis
-          </h1>
+          <h1 className="text-2xl font-extrabold text-[var(--text)]">Manajemen Kuis</h1>
           <p className="text-[var(--text-muted)] mt-0.5">
-            Kelola kuis untuk setiap kursus
+            {loading ? "Memuat…" : `${quizzes.length} kuis pada kursus ini`}
           </p>
         </div>
-        <Button onClick={openAdd}>
+        <Button onClick={openAdd} disabled={!activeCourseId}>
           <PlusIcon size={16} /> Tambah Kuis
         </Button>
       </div>
 
-      {alert && (
-        <Alert
-          type={alert.type}
-          message={alert.msg}
-          onClose={() => setAlert(null)}
-        />
-      )}
+      {flash && <Alert type={flash.type} message={flash.message} onClose={clear} />}
+      {error && <Alert type="danger" message={error.message} onClose={() => reload()} />}
 
       <Card padding="sm">
-        <label className="text-sm font-medium text-[var(--text)] mb-2 block">
+        <label
+          htmlFor="quiz-course-picker"
+          className="text-sm font-medium text-[var(--text)] mb-2 block"
+        >
           Pilih Kursus
         </label>
         <select
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
-          className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[#4F8EF7]"
+          id="quiz-course-picker"
+          value={activeCourseId}
+          disabled={coursesLoading || courses.length === 0}
+          onChange={(e) => {
+            setSelectedCourse(e.target.value);
+            setManagingQuiz(null);
+          }}
+          className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[#4F8EF7] disabled:bg-[var(--surface-2)]"
         >
-          {COURSES.map((c) => (
+          {coursesLoading && <option>Memuat kursus…</option>}
+          {!coursesLoading && courses.length === 0 && <option>Belum ada kursus</option>}
+          {courses.map((c) => (
             <option key={c.id} value={c.id}>
               {c.title}
             </option>
@@ -139,21 +223,13 @@ export default function AdminQuizzes() {
 
       <div className="grid grid-cols-3 gap-4">
         {[
+          { label: "Total Kuis", value: quizzes.length, color: "#4F8EF7" },
           {
-            label: "Total Kuis",
-            value: courseQuizzes.length,
-            color: "#4F8EF7",
-          },
-          {
-            label: "Dipublikasikan",
-            value: courseQuizzes.filter((q) => q.published).length,
+            label: "Siap Dikerjakan",
+            value: quizzes.length - withoutQuestions,
             color: "#2ECC71",
           },
-          {
-            label: "Draft",
-            value: courseQuizzes.filter((q) => !q.published).length,
-            color: "#F4B400",
-          },
+          { label: "Belum Ada Soal", value: withoutQuestions, color: "#F4B400" },
         ].map((s) => (
           <div
             key={s.label}
@@ -167,172 +243,199 @@ export default function AdminQuizzes() {
         ))}
       </div>
 
-      {courseQuizzes.length === 0 ? (
+      {loading ? (
+        <Card>
+          <div className="text-center py-12 text-[var(--text-subtle)]">Memuat kuis…</div>
+        </Card>
+      ) : quizzes.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <GridIcon size={32} className="mx-auto mb-3 text-[#CBD5E1]" />
-            <p className="text-[var(--text-muted)]">Belum ada kuis untuk kursus ini</p>
-            <Button variant="secondary" className="mt-4" onClick={openAdd}>
-              <PlusIcon size={14} /> Buat Kuis Pertama
-            </Button>
+            <p className="text-[var(--text-muted)]">
+              {activeCourseId
+                ? "Belum ada kuis untuk kursus ini"
+                : "Belum ada kursus. Buat kursus lebih dulu."}
+            </p>
+            {activeCourseId && (
+              <Button variant="secondary" className="mt-4" onClick={openAdd}>
+                <PlusIcon size={14} /> Buat Kuis Pertama
+              </Button>
+            )}
           </div>
         </Card>
       ) : (
         <Card padding="none">
-          <div className="divide-y divide-[#F1F5F9]">
-            {courseQuizzes.map((quiz) => (
-              <div
-                key={quiz.id}
-                className="flex items-center gap-4 p-4 hover:bg-[var(--surface-2)] transition-colors"
-              >
-                <div className="w-10 h-10 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)] flex-shrink-0">
-                  <GridIcon size={17} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-semibold text-[var(--text)] text-sm truncate">
-                      {quiz.title}
-                    </p>
-                    <Badge variant={quiz.published ? "success" : "warning"}>
-                      {quiz.published ? "Dipublikasikan" : "Draft"}
-                    </Badge>
+          <div className="divide-y divide-[var(--border-light)]">
+            {quizzes.map((quiz) => {
+              const isManaging = managingQuiz?.id === quiz.id;
+              const empty = quiz.totalQuestions === 0;
+
+              return (
+                <div key={quiz.id}>
+                  <div className="flex items-center gap-4 p-4 hover:bg-[var(--surface-2)] transition-colors">
+                    <div className="w-10 h-10 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)] flex-shrink-0">
+                      <GridIcon size={17} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <p className="font-semibold text-[var(--text)] text-sm truncate">
+                          {quiz.title}
+                        </p>
+                        {empty ? (
+                          <Badge variant="warning">Belum ada soal</Badge>
+                        ) : (
+                          <Badge variant="success">{quiz.totalQuestions} soal</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--text-subtle)]">
+                        {lessonTitle(quiz.lessonId) ?? "Tidak terikat pelajaran"} · KKM{" "}
+                        {quiz.minPassingScore} · {formatDuration(quiz.durationSeconds)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant={isManaging ? "primary" : "secondary"}
+                        onClick={() => setManagingQuiz(isManaging ? null : quiz)}
+                      >
+                        {isManaging ? "Tutup Soal" : "Kelola Soal"}
+                      </Button>
+                      <button
+                        onClick={() => openEdit(quiz)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-colors"
+                        title="Edit kuis"
+                      >
+                        <EditIcon size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(quiz)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--danger-light)] hover:text-[#E74C3C] transition-colors"
+                        title="Hapus kuis"
+                      >
+                        <TrashIcon size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-xs text-[var(--text-subtle)]">
-                    {quiz.lesson} · {quiz.totalQuestions} soal · KKM{" "}
-                    {quiz.passingScore}
-                  </p>
+
+                  {isManaging && (
+                    <div className="bg-[var(--surface-2)] border-t border-[var(--border)] p-4">
+                      <QuestionEditor
+                        courseId={activeCourseId}
+                        quizId={quiz.id}
+                        quizTitle={quiz.title}
+                        // Jumlah soal tampil di baris kuis di atas, jadi daftar
+                        // kuis harus ikut segar setiap soal ditambah/dihapus.
+                        onChanged={reload}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleTogglePublish(quiz.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--success-light)] hover:text-[#2ECC71] transition-colors"
-                    title="Publish/Draft"
-                  >
-                    {quiz.published ? "👁" : "🚫"}
-                  </button>
-                  <button
-                    onClick={() => openEdit(quiz)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-colors"
-                    title="Edit"
-                  >
-                    <EditIcon size={14} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(quiz.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--danger-light)] hover:text-[#E74C3C] transition-colors"
-                    title="Hapus"
-                  >
-                    <TrashIcon size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
 
       {/* Add/Edit modal */}
       <Modal
-        open={showModal}
-        onClose={() => setShowModal(false)}
+        open={modalOpen}
+        onClose={closeModal}
         title={editQuiz ? "Edit Kuis" : "Tambah Kuis Baru"}
       >
         <div className="space-y-4">
+          <Input
+            label="Judul Kuis"
+            value={form.title}
+            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+            placeholder="Kuis Huruf Dasar"
+            error={formErrors.title}
+          />
+
           <div>
-            <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
-              Judul Kuis
-            </label>
-            <input
-              value={form.title}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, title: e.target.value }))
-              }
-              placeholder="Judul kuis"
-              className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[#4F8EF7]"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
+            <label
+              htmlFor="quiz-lesson"
+              className="text-sm font-medium text-[var(--text)] mb-1.5 block"
+            >
               Terkait Pelajaran
             </label>
             <select
-              value={form.lesson}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, lesson: e.target.value }))
-              }
+              id="quiz-lesson"
+              value={form.lessonId}
+              onChange={(e) => setForm((p) => ({ ...p, lessonId: e.target.value }))}
               className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[#4F8EF7]"
             >
-              {course.lessons.map((l) => (
-                <option key={l.id} value={l.title}>
+              <option value="">— Tidak terikat pelajaran —</option>
+              {lessons.map((l) => (
+                <option key={l.id} value={l.id}>
                   {l.title}
                 </option>
               ))}
             </select>
+            {formErrors.lessonId && (
+              <p className="text-xs text-[#E74C3C] mt-1">{formErrors.lessonId}</p>
+            )}
           </div>
-          <div>
-            <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
-              Nilai Kelulusan (KKM)
-            </label>
-            <input
-              type="number"
-              value={form.passingScore}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, passingScore: +e.target.value }))
-              }
-              className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[#4F8EF7]"
-            />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Input
+                label="Nilai Kelulusan (KKM)"
+                type="number"
+                min="0"
+                max="100"
+                value={form.minPassingScore}
+                onChange={(e) => setForm((p) => ({ ...p, minPassingScore: e.target.value }))}
+                error={formErrors.minPassingScore}
+              />
+              <p className="text-xs text-[var(--text-subtle)] mt-1">0–100</p>
+            </div>
+            <div>
+              <Input
+                label="Durasi (detik)"
+                type="number"
+                min="30"
+                max="7200"
+                step="30"
+                value={form.durationSeconds}
+                onChange={(e) => setForm((p) => ({ ...p, durationSeconds: e.target.value }))}
+                error={formErrors.durationSeconds}
+              />
+              <p className="text-xs text-[var(--text-subtle)] mt-1">
+                30–7200 ({formatDuration(Number(form.durationSeconds) || 0)})
+              </p>
+            </div>
           </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.published}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, published: e.target.checked }))
-              }
-              className="w-4 h-4 accent-[#4F8EF7]"
-            />
-            <span className="text-sm text-[var(--text)]">
-              Publikasikan kuis ini
-            </span>
-          </label>
+
           <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              fullWidth
-              onClick={() => setShowModal(false)}
-            >
+            <Button variant="outline" fullWidth onClick={closeModal} disabled={saving}>
               Batal
             </Button>
-            <Button fullWidth onClick={handleSave}>
-              {editQuiz ? "Simpan Perubahan" : "Tambah Kuis"}
+            <Button fullWidth onClick={handleSave} disabled={saving}>
+              {saving ? "Menyimpan…" : editQuiz ? "Simpan Perubahan" : "Tambah Kuis"}
             </Button>
           </div>
         </div>
       </Modal>
 
       {/* Delete modal */}
-      <Modal open={!!deleteId} onClose={() => setDeleteId(null)} size="sm">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm">
         <div className="text-center">
           <div className="w-14 h-14 bg-[var(--danger-light)] rounded-full flex items-center justify-center mx-auto mb-4">
             <TrashIcon size={24} className="text-[#E74C3C]" />
           </div>
           <h3 className="font-bold text-[var(--text)] mb-2">Hapus Kuis?</h3>
           <p className="text-sm text-[var(--text-muted)] mb-5">
-            Semua soal dan hasil yang terkait akan ikut terhapus.
+            <strong>{deleteTarget?.title}</strong> beserta seluruh soalnya akan dihapus.
+            Kuis yang sudah pernah dikerjakan tidak dapat dihapus — server menolaknya agar
+            nilai pengguna tidak ikut hilang.
           </p>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              fullWidth
-              onClick={() => setDeleteId(null)}
-            >
+            <Button variant="outline" fullWidth onClick={() => setDeleteTarget(null)}>
               Batal
             </Button>
-            <Button
-              variant="danger"
-              fullWidth
-              onClick={() => handleDelete(deleteId)}
-            >
+            <Button variant="danger" fullWidth onClick={handleDelete}>
               Hapus
             </Button>
           </div>
