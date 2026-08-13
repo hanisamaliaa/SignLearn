@@ -11,7 +11,7 @@
  * bekerja sebagai satu kesatuan.
  */
 
-const BASE = (process.env.API_URL || "http://localhost:4000").replace(/\/$/, "");
+const BASE = (process.env.API_URL || "http://localhost:4788").replace(/\/$/, "");
 export const API = `${BASE}${process.env.API_PREFIX || "/api/v1"}`;
 export const HEALTH_URL = `${BASE}/api/health`;
 

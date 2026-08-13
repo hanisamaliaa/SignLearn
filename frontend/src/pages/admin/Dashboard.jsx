@@ -106,19 +106,50 @@ function relativeTime(iso) {
   });
 }
 
+/**
+ * Angka yang menghitung naik saat muncul.
+ *
+ * ── Kenapa ada jaring pengaman timeout ────────────────────────────────
+ *
+ * Animasi ini digerakkan `requestAnimationFrame`, dan rAF TIDAK BERJALAN pada
+ * dokumen yang tersembunyi — tab latar, jendela terminimalkan, sebagian mode
+ * hemat daya, dan panel browser headless. Versi sebelumnya memulai `display`
+ * dari 0 dan hanya menaikkannya di dalam callback rAF, sehingga pada kondisi
+ * itu angkanya BERTAHAN DI NOL selamanya.
+ *
+ * Akibatnya bukan sekadar animasi yang tidak jalan: dasbor melaporkan
+ * "0 Total Pengguna" padahal ada 16. Angka nol yang percaya diri lebih
+ * berbahaya daripada kotak kosong — ia terbaca sebagai hasil pengukuran.
+ *
+ * Karena itu nilai sebenarnya dijamin muncul lewat dua jalur:
+ *   1. dokumen tersembunyi atau pengguna meminta gerak minimal → langsung set
+ *   2. animasi berjalan tetapi tidak selesai tepat waktu → timeout memaksanya
+ *
+ * Animasi tetap ada, tetapi statusnya turun menjadi hiasan: kebenaran angka
+ * tidak lagi bergantung padanya.
+ */
 function useCountUp(target, duration = 900) {
-  const [display, setDisplay] = useState(0);
   const numericTarget = typeof target === "number" ? target : parseInt(target, 10);
   const isNumeric = !Number.isNaN(numericTarget);
+
+  const [display, setDisplay] = useState(isNumeric ? numericTarget : 0);
   const startRef = useRef(null);
 
   useEffect(() => {
     if (!isNumeric) return undefined;
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+
+    const prefersReducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (prefersReducedMotion || document.hidden) {
       setDisplay(numericTarget);
       return undefined;
     }
+
+    setDisplay(0);
     startRef.current = null;
+
     let frame;
     const step = (timestamp) => {
       if (startRef.current === null) startRef.current = timestamp;
@@ -128,7 +159,14 @@ function useCountUp(target, duration = 900) {
       if (progress < 1) frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
+
+    // Jaring pengaman: apa pun yang terjadi pada rAF, nilai benar tampil.
+    const settle = setTimeout(() => setDisplay(numericTarget), duration + 150);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+    };
   }, [numericTarget, isNumeric, duration]);
 
   if (!isNumeric) return target;

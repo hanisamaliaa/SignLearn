@@ -41,14 +41,24 @@ npm install
 
 # 2. Configure environment
 cp .env.example .env
-# edit .env and set DB_* and a strong JWT_SECRET
+# edit .env: set DATABASE_URL and a JWT_ACCESS_SECRET of at least 32 chars
+#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 # 3. Run the dev server (nodemon)
 npm run dev
 ```
 
-The server starts on `http://localhost:5000` (or `PORT` from `.env`). It will
+The server starts on `http://localhost:4788` (or `PORT` from `.env`). It will
 report a warning if the database is unreachable but will **not** crash.
+
+> **Ports.** Backend `4788`, frontend `4789`. Deliberately outside the usual
+> 3000/4000/5000/8080 range. Port 5000 in particular is taken by AirPlay
+> Receiver on macOS, which answers with an unrelated 403 instead of refusing
+> the connection.
+>
+> Change `PORT` here and you must also change `VITE_API_BASE_URL` in
+> `frontend/.env` and `CORS_ORIGINS` here — all three have to agree, or login
+> fails with an error that looks like a network or credential problem.
 
 ## Project Structure
 
