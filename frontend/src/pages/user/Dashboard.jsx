@@ -4,7 +4,6 @@ import { useApp } from "../../context/app";
 import { SignLearnAvatar } from "../../components/common/SignLearnAvatar";
 import {
   Card,
-  Button,
   StatCard,
 } from "../../components/ui/ui";
 import {
@@ -113,26 +112,6 @@ export default function UserDashboard() {
         ) / passedQuizzes.length
       )
     : 0;
-
-  /**
-   * Aktivitas terbaru pengguna.
-   */
-  const recentActivities = QUIZ_HISTORY.slice(0, 4).map((quiz) => ({
-    id: quiz.quizId ?? quiz.id,
-    user: currentUser?.name ?? "Anda",
-    action: `${
-      quiz.passed ? "Lulus" : "Mengerjakan"
-    } kuis "${quiz.quizTitle ?? quiz.lesson ?? "Kuis"}" dengan skor ${
-      quiz.score ?? 0
-    }`,
-    time: quiz.takenAt
-      ? new Date(quiz.takenAt).toLocaleDateString("id-ID", {
-          day: "numeric",
-          month: "short",
-        })
-      : quiz.date ?? "",
-    type: "quiz",
-  }));
 
   /**
    * Fungsi untuk melanjutkan pelajaran dari data server.

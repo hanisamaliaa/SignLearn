@@ -12,7 +12,6 @@ import { useSettings } from "../../context/SettingsContext";
 const THEMES = [
   { id: "light", label: "Terang", icon: "☀️" },
   { id: "dark", label: "Gelap", icon: "🌙" },
-  { id: "system", label: "Sistem", icon: "💻" },
 ];
 
 const NOTIFICATION_ITEMS = [

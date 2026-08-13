@@ -1,149 +1,49 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { useApp } from "./app";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { useAccessibility } from "./AccessibilityContext";
 
 const DEFAULT_FONT_SIZE = 16;
-const MIN_FONT_SIZE = 12;
+const MIN_FONT_SIZE = 16;
 const MAX_FONT_SIZE = 22;
-
 const ThemeContext = createContext(null);
 
-function getSystemPrefersDark() {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-function resolveTheme(theme) {
-  if (theme === "system") return getSystemPrefersDark() ? "dark" : "light";
-  return theme === "dark" ? "dark" : "light";
-}
-
+/**
+ * Compatibility facade for portal pages.
+ *
+ * Theme and accessibility used to be stored in two unrelated contexts. That
+ * made the landing drawer and signed-in Settings page overwrite each other.
+ * AccessibilityContext is now the sole persistent source of truth; this
+ * facade preserves the existing Settings API without duplicating state.
+ */
 export function ThemeProvider({ children }) {
-  const { currentUser, updateUserSettings } = useApp();
+  const accessibility = useAccessibility();
+  const fontSize = accessibility.textSize === "extra-large"
+    ? 22
+    : accessibility.textSize === "large" ? 19 : DEFAULT_FONT_SIZE;
 
-  // Per-user theme + fontSize from the user's settings object.
-  const userSettings = currentUser?.settings || {};
-  const theme = userSettings.theme || "system";
-  const fontSize = userSettings.fontSize ?? DEFAULT_FONT_SIZE;
-  const accessibility = userSettings.accessibility || {};
-  const highContrast = Boolean(accessibility.highContrast);
-  const reducedMotion = Boolean(accessibility.reducedMotion);
+  const setFontSize = useCallback((value) => {
+    const size = Number(value);
+    accessibility.setTextSize(size >= 21 ? "extra-large" : size >= 18 ? "large" : "normal");
+  }, [accessibility]);
 
-  // Synced local state so the OS "system" listener can reflect live changes.
-  const [resolvedTheme, setResolvedTheme] = useState(() => resolveTheme(theme));
+  const value = useMemo(() => ({
+    theme: accessibility.theme,
+    resolvedTheme: accessibility.theme,
+    setTheme: accessibility.setTheme,
+    fontSize,
+    setFontSize,
+    minFontSize: MIN_FONT_SIZE,
+    maxFontSize: MAX_FONT_SIZE,
+    highContrast: accessibility.highContrast,
+    reducedMotion: accessibility.reduceMotion,
+    setHighContrast: accessibility.setHighContrast,
+    setReducedMotion: accessibility.setReduceMotion,
+  }), [accessibility, fontSize, setFontSize]);
 
-  // Update resolved theme when the selected mode changes.
-  useEffect(() => {
-    setResolvedTheme(resolveTheme(theme));
-  }, [theme]);
-
-  // Live-update when the OS preference changes (only relevant for "system").
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const listener = (e) => {
-      if (theme === "system") {
-        setResolvedTheme(e.matches ? "dark" : "light");
-      }
-    };
-    mql.addEventListener?.("change", listener);
-    return () => mql.removeEventListener?.("change", listener);
-  }, [theme]);
-
-  // Apply the resolved theme as a data attribute on <html>.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute("data-theme", resolvedTheme);
-    if (!root.classList.contains("a11y-high-contrast")) {
-      root.style.colorScheme = resolvedTheme;
-    }
-  }, [resolvedTheme]);
-
-  // Apply the global font size to the root element.
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--app-font-size",
-      `${fontSize}px`,
-    );
-  }, [fontSize]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.toggleAttribute("data-high-contrast", highContrast);
-    root.toggleAttribute("data-reduced-motion", reducedMotion);
-  }, [highContrast, reducedMotion]);
-
-  const setThemeValue = useCallback(
-    (value) => {
-      if (value === "light" || value === "dark" || value === "system") {
-        updateUserSettings({ ...currentUser?.settings, theme: value });
-      }
-    },
-    [currentUser, updateUserSettings],
-  );
-
-  const setFontSizeValue = useCallback(
-    (value) => {
-      const num = parseInt(value, 10);
-      if (Number.isNaN(num)) return;
-      const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, num));
-      updateUserSettings({ ...currentUser?.settings, fontSize: clamped });
-    },
-    [currentUser, updateUserSettings],
-  );
-
-  const setAccessibilityValue = useCallback(
-    (key, value) => {
-      updateUserSettings({
-        ...currentUser?.settings,
-        accessibility: {
-          ...currentUser?.settings?.accessibility,
-          [key]: Boolean(value),
-        },
-      });
-    },
-    [currentUser, updateUserSettings],
-  );
-
-  const value = useMemo(
-    () => ({
-      theme,
-      setTheme: setThemeValue,
-      resolvedTheme,
-      fontSize,
-      setFontSize: setFontSizeValue,
-      minFontSize: MIN_FONT_SIZE,
-      maxFontSize: MAX_FONT_SIZE,
-      highContrast,
-      reducedMotion,
-      setHighContrast: (value) => setAccessibilityValue("highContrast", value),
-      setReducedMotion: (value) => setAccessibilityValue("reducedMotion", value),
-    }),
-    [
-      theme,
-      setThemeValue,
-      resolvedTheme,
-      fontSize,
-      setFontSizeValue,
-      highContrast,
-      reducedMotion,
-      setAccessibilityValue,
-    ],
-  );
-
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
-  return ctx;
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error("useTheme must be used within ThemeProvider");
+  return context;
 }
