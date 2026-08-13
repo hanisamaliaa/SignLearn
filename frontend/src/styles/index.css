@@ -63,22 +63,6 @@
   --danger-light: #feeceb;
   --header-bg: #ffffff;
   --sidebar-bg: #ffffff;
-
-  /* Semantic theme layer used by shared components and page compositions. */
-  --bg-primary: var(--bg);
-  --bg-secondary: var(--surface-2);
-  --bg-surface: var(--surface);
-  --bg-elevated: var(--surface-3);
-  --text-primary: var(--text);
-  --text-secondary: var(--text-muted);
-  --text-tertiary: var(--text-subtle);
-  --border-primary: var(--border);
-  --border-secondary: var(--border-light);
-  --accent-primary: var(--primary);
-  --accent-hover: var(--primary-dark);
-  --accent-muted: var(--primary-light);
-  --focus-ring: #f59e0b;
-  --chart-empty: #eaf3ff;
 }
 
 /* ─── Dark theme variables ─────────────────────────────────────────── */
@@ -92,7 +76,7 @@
   --border-light: #273244;
   --text: #f1f5f9;
   --text-muted: #94a3b8;
-  --text-subtle: #8494aa;
+  --text-subtle: #64748b;
   --primary: #60a5fa;
   --primary-dark: #3a7de0;
   --primary-light: #1e3a5f;
@@ -104,7 +88,6 @@
   --danger-light: #3b1a1a;
   --header-bg: #1e293b;
   --sidebar-bg: #1e293b;
-  --chart-empty: #2a3b52;
 }
 
 *,
@@ -1191,6 +1174,11 @@ textarea,
   --kids-green: #79c982;
   background: var(--kids-bg);
 }
+[data-theme="dark"] :is(.kids-header, .kids-mobile-menu) { border-color: #34485f; background: rgb(15 25 40 / .94); }
+[data-theme="dark"] :is(.kids-button-secondary, .kids-icon-button, .kids-translator-card, .kids-topic-card, .kids-benefit-card, .kids-progress-card, .kids-trust-panel) { border-color: #40536a; background: #18263a; color: #edf5ff; }
+[data-theme="dark"] :is(.kids-translator-field textarea, .kids-speed-control select, .kids-control-button, .kids-suggestions button) { border-color: #40536a; background: #111d2e; color: #edf5ff; }
+[data-theme="dark"] :is(.kids-hero, .kids-topics-section, .kids-benefits-section, .kids-progress-section, .kids-parent-section, .kids-demo-section) { background-color: #0f1928; }
+[data-theme="dark"] .kids-sign-viewport { border-color: #40536a; background: #111d2e; }
 
 .kids-page button,
 .kids-page a,
@@ -3606,56 +3594,6 @@ textarea,
 .admin-word-preview > div strong { color: var(--primary); font-size: 2rem; }
 @media (max-width: 520px) { .admin-word-pagination { align-items: stretch; flex-direction: column; } .admin-word-pagination > div > * { flex: 1; } }
 
-/* ─── Final semantic theme compositions ────────────────────────────────────
-   Kept after legacy page rules so semantic tokens win without !important. */
-[data-theme="dark"] :is(.kids-header, .kids-mobile-menu) { border-color: #34485f; background: rgb(15 25 40 / .96); }
-[data-theme="dark"] :is(.kids-button-secondary, .kids-icon-button, .kids-translator-card, .kids-topic-card, .kids-benefit-card, .kids-progress-card, .kids-trust-panel) { border-color: #40536a; background: #18263a; color: #edf5ff; }
-[data-theme="dark"] :is(.kids-translator-field textarea, .kids-speed-control select, .kids-control-button, .kids-suggestions button) { border-color: #40536a; background: #111d2e; color: #edf5ff; }
-[data-theme="dark"] .kids-sign-viewport { border-color: #40536a; background: #111d2e; }
-[data-theme="dark"] .kids-hero {
-  background:
-    radial-gradient(circle at 73% 24%, rgb(75 137 190 / .22), transparent 31%),
-    radial-gradient(circle at 14% 46%, rgb(50 115 145 / .16), transparent 29%),
-    linear-gradient(180deg, #13253d 0%, #142b43 62%, #183a39 100%);
-}
-[data-theme="dark"] .kids-hero-line-accent { background-image: linear-gradient(100deg, #7cc8ff 10%, #8bd7ff 48%, #65bce8 86%); }
-[data-theme="dark"] .kids-hero-subtitle { color: #c2d2e3; }
-[data-theme="dark"] .kids-hero-eyebrow { border-color: #3d776f; background: rgb(20 40 58 / .82); color: #8fe2d8; }
-[data-theme="dark"] .kids-hero-secondary { border-color: #5d7692; background: #182b43; color: #f1f6fc; }
-[data-theme="dark"] .kids-hero-image-shell { border-color: rgb(210 232 247 / .78); background: #1c3551; }
-[data-theme="dark"] .kids-hero-visual-caption { color: #d6e6f4; }
-[data-theme="dark"] .kids-hero-shortcut { border-color: #48627a; color: #edf5ff; box-shadow: 0 12px 28px rgb(0 0 0 / .18); }
-[data-theme="dark"] .kids-shortcut-game { background: linear-gradient(125deg, #183a35, #1d4c42 54%, #244d3b); }
-[data-theme="dark"] .kids-shortcut-progress { background: linear-gradient(125deg, #3c3217, #4d3d16 54%, #3e341b); }
-[data-theme="dark"] .kids-gesture-note { border-color: #54708a; background: #182b43; color: #edf5ff; }
-[data-theme="dark"] .kids-gesture-note:is(:hover, :focus-visible, .is-active) { background: #203850; }
-[data-theme="dark"] .kids-gesture-tooltip { border-color: #54708a; background: #111d2e; color: #d7e5f3; }
-[data-theme="dark"] .kids-scroll-cue { border-color: #54708a; background: rgb(24 43 67 / .94); color: #edf5ff; }
-[data-theme="dark"] .kids-scroll-cue:is(:hover, :focus-visible) { background: #203850; }
-
-.progress-hero { border-color: #c9dceb; background: linear-gradient(135deg, #fffdf3, #f2f9ff); }
-.progress-hero-orb { position: absolute; width: 128px; height: 128px; border-radius: 999px; pointer-events: none; }
-.progress-hero-orb.is-yellow { top: -40px; right: -40px; background: rgb(255 232 166 / .7); }
-.progress-hero-orb.is-blue { bottom: -64px; left: 32px; background: #dff3ff; }
-.progress-hero-kicker { color: #246d9e; }
-.progress-hero-title { color: #123e63; }
-.progress-hero-copy { color: #536777; }
-.progress-hero-label { color: #214e72; }
-.progress-hero-track { background: #fff; }
-.progress-hero-fill { background: #2e86bf; }
-.progress-hero-scale { color: #61798d; }
-.progress-tabs { border: 1px solid var(--border-light); background: var(--surface-3); }
-[data-theme="dark"] .progress-hero { border-color: #405a78; background: linear-gradient(135deg, #182942, #15243a); }
-[data-theme="dark"] .progress-hero-orb.is-yellow { background: rgb(230 171 45 / .18); }
-[data-theme="dark"] .progress-hero-orb.is-blue { background: rgb(70 151 213 / .17); }
-[data-theme="dark"] .progress-hero-kicker { color: #8bcfff; }
-[data-theme="dark"] .progress-hero-title { color: #f2f7ff; }
-[data-theme="dark"] .progress-hero-copy { color: #b8c8dc; }
-[data-theme="dark"] .progress-hero-label { color: #d9e8f7; }
-[data-theme="dark"] .progress-hero-track { background: #293d58; box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
-[data-theme="dark"] .progress-hero-fill { background: linear-gradient(90deg, #5ba9ea, #69c6ba); }
-[data-theme="dark"] .progress-hero-scale { color: #9eb0c7; }
-
 /* ─── Register Page (SignLearn) ────────────────────────────────────────────── */
 :root {
   --register-primary: #285F9D;
@@ -4534,12 +4472,6 @@ textarea,
 .auth-register-header h2 {
   font-size: clamp(2rem, 3vw, 2.35rem);
 }
-.auth-register-header > p:not(.login-eyebrow) {
-  margin-top: 7px;
-  color: var(--login-muted);
-  font-size: 0.95rem;
-  line-height: 1.55;
-}
 .auth-step-progress {
   width: 100%;
   height: 5px;
@@ -4586,26 +4518,6 @@ textarea,
 .auth-password-feedback.is-valid > span {
   background: #e5f6e8;
   color: #2f7040;
-}
-/*
- * Daftar syarat kata sandi pada halaman daftar.
- *
- * Dua kolom supaya lima syarat tidak mendorong tombol "Lanjutkan" keluar
- * layar pada ponsel; `list-style: none` karena penanda ceklis/lingkaran
- * sudah menjadi penanda butirnya sendiri.
- */
-.auth-password-checklist {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-@media (max-width: 380px) {
-  .auth-password-checklist {
-    grid-template-columns: 1fr;
-  }
 }
 .auth-password-feedback.is-mismatch {
   color: #a4484d;
@@ -6918,5 +6830,91 @@ textarea,
   .portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-closed {
     width: 100% !important;
     margin-left: 0 !important;
+  }
+}
+
+/* PORTAL SIDEBAR FINAL SHARED LAYOUT
+   User and admin use the same hide/show geometry. The sidebar is removed from
+   the desktop flex flow so collapsing it can never leave a reserved column. */
+@media (min-width: 1024px) {
+  .portal-shell > .portal-sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 30 !important;
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+    height: 100vh !important;
+    flex: none !important;
+    transform: translateX(0) !important;
+    overflow: visible !important;
+  }
+
+  .portal-shell > .portal-sidebar.user-sidebar-desktop-closed,
+  .portal-shell > .portal-sidebar:not(.user-sidebar-desktop-open) {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    transform: translateX(-100%) !important;
+    overflow: hidden !important;
+    border-right-width: 0 !important;
+  }
+
+  .portal-shell > .portal-main-shell {
+    position: relative !important;
+    flex: none !important;
+    width: calc(100% - 18rem) !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-left: 18rem !important;
+    height: 100vh !important;
+  }
+
+  .portal-shell > .portal-main-shell.portal-main-shell-sidebar-closed {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+  }
+
+  .portal-shell > .portal-main-shell > .user-header,
+  .portal-shell > .portal-main-shell > .admin-header,
+  .portal-shell > .portal-main-shell > main {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .portal-shell > .portal-sidebar {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 30 !important;
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+    height: 100vh !important;
+    flex: none !important;
+    transform: translateX(0) !important;
+  }
+
+  .portal-shell > .portal-sidebar.user-sidebar-desktop-closed,
+  .portal-shell > .portal-sidebar:not(.user-sidebar-desktop-open) {
+    width: 18rem !important;
+    min-width: 18rem !important;
+    max-width: 18rem !important;
+    transform: translateX(-100%) !important;
+    overflow: hidden !important;
+  }
+
+  .portal-shell > .portal-main-shell,
+  .portal-shell > .portal-main-shell.portal-main-shell-sidebar-open,
+  .portal-shell > .portal-main-shell.portal-main-shell-sidebar-closed {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    height: 100vh !important;
   }
 }
