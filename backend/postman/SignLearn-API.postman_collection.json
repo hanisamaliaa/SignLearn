@@ -160,6 +160,16 @@
       "value": "false",
       "type": "string",
       "description": "Gerbang operasi destruktif. Selama 'false', request yang menghapus data atau mengubah kata sandi DILEWATI — sehingga koleksi ini aman dijalankan berulang kali dari atas ke bawah. Setel 'true' hanya ketika memang ingin mengujinya."
+    },
+    {
+      "key": "translationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "translationWord",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -3179,6 +3189,125 @@
           ]
         },
         {
+          "name": "Quiz results (admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Rentang 30 hari terakhir, dihitung saat dijalankan supaya koleksi",
+                  "// ini tidak basi sebulan kemudian.",
+                  "const toIso = function (d) { return d.toISOString().slice(0, 10); };",
+                  "const now = new Date();",
+                  "",
+                  "pm.variables.set('qrTo', toIso(now));",
+                  "pm.variables.set('qrFrom', toIso(new Date(now.getTime() - 29 * 86400000)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Membawa items, summary, dan pagination', function () {",
+                  "    pm.expect(payload).to.have.property('items');",
+                  "    pm.expect(payload).to.have.property('summary');",
+                  "    pm.expect(payload).to.have.property('pagination');",
+                  "});",
+                  "",
+                  "// Inilah alasan endpoint ini ada dan tidak digantikan feed aktivitas:",
+                  "// feed hanya memuat yang LULUS, sedangkan laporan butuh keduanya.",
+                  "pm.test('summary.passedCount tidak melebihi total', function () {",
+                  "    pm.expect(payload.summary.passedCount).to.be.at.most(payload.summary.total);",
+                  "});",
+                  "",
+                  "pm.test('Tiga pita nilai berjumlah sama dengan total', function () {",
+                  "    const b = payload.summary.bands;",
+                  "    pm.expect(b.high + b.mid + b.low).to.eql(payload.summary.total);",
+                  "});",
+                  "",
+                  "pm.test('Kunci jawaban TIDAK ikut terkirim', function () {",
+                  "    payload.items.forEach(function (r) {",
+                  "        pm.expect(r).to.not.have.property('answers');",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Setiap baris membawa user, quiz, dan course', function () {",
+                  "    payload.items.forEach(function (r) {",
+                  "        pm.expect(r.user).to.have.property('id');",
+                  "        pm.expect(r.quiz).to.have.property('title');",
+                  "        pm.expect(r.course).to.have.property('title');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/admin/quiz-results?from={{qrFrom}}&to={{qrTo}}&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "admin",
+                "quiz-results"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{qrFrom}}",
+                  "description": "Opsional. YYYY-MM-DD, inklusif."
+                },
+                {
+                  "key": "to",
+                  "value": "{{qrTo}}",
+                  "description": "Opsional. YYYY-MM-DD, inklusif (dibandingkan < to+1)."
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Maksimal 100."
+                },
+                {
+                  "key": "courseId",
+                  "value": "",
+                  "description": "Opsional. Saring per kursus.",
+                  "disabled": true
+                },
+                {
+                  "key": "passed",
+                  "value": "false",
+                  "description": "Opsional. 'true' | 'false'.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Hasil kuis SELURUH pengguna — lulus maupun gagal.\n\n### Kenapa ini bukan duplikat `/admin/activities?type=quiz_passed`\n\nFeed aktivitas hanya memuat baris `WHERE qr.passed`. Laporan yang dibangun\ndarinya akan melaporkan nol kegagalan selamanya, dan grafik distribusi nilai\ntidak akan pernah menampilkan satu pun batang merah — laporan yang selalu\nmengabarkan kabar baik. Endpoint ini membaca `quiz_results` apa adanya.\n\n### `summary` dihitung atas seluruh baris yang cocok filter\n\nBukan atas halaman yang sedang tampil. Rata-rata dan distribusi yang ikut\nberpindah setiap kali admin menekan \"halaman berikutnya\" bukan laporan.\n\n### Pita 90/70 adalah pengelompokan TAMPILAN\n\nKelulusan sendiri ditentukan `quizzes.min_passing_score` milik tiap kuis dan\nsudah tersimpan di kolom `passed`. Menyamakan keduanya akan membuat kuis\nber-KKM 60 terlihat gagal padahal pesertanya lulus.\n\n**200** → `{ items, summary, pagination }` · **401** · **403** · **422** rentang terbalik / courseId non-numerik"
+          },
+          "response": []
+        },
+        {
           "name": "AI · Generate subtitles (501)",
           "event": [
             {
@@ -3288,7 +3417,382 @@
       ]
     },
     {
-      "name": "09 · Skenario Error",
+      "name": "09 · Translations",
+      "description": "Bank kata BISINDO — sumber data fitur Kamus dan Terjemahan.\n\nBaca bersifat publik; tulis khusus admin. Urutan di folder ini disengaja:\n`Create` berjalan lebih dulu supaya `translationId` dan `translationWord`\ntersedia bagi request sesudahnya.",
+      "item": [
+        {
+          "name": "Create translation (admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Kata dibuat unik per run. `normalized_word` punya index unik, jadi",
+                  "// kata tetap akan ditolak 409 pada eksekusi kedua koleksi ini.",
+                  "pm.variables.set('translationWord', 'uji-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const t = pm.response.json().data.translation;",
+                  "",
+                  "pm.test('normalizedWord diturunkan server, bukan dikirim klien', function () {",
+                  "    pm.expect(t).to.have.property('normalizedWord');",
+                  "    pm.expect(t.normalizedWord).to.eql(t.word.toLowerCase());",
+                  "});",
+                  "",
+                  "pm.test('Entri baru berstatus active', function () {",
+                  "    pm.expect(t.status).to.eql('active');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('translationId', t.id);",
+                  "pm.collectionVariables.set('translationWord', t.word);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"word\": \"{{translationWord}}\",\n    \"translation\": \"Dua tangan membentuk huruf, telapak menghadap depan.\",\n    \"description\": \"Contoh entri bank kata untuk pengujian koleksi.\",\n    \"category\": \"Umum\",\n    \"aliases\": [\n        \"halo\",\n        \"hai\"\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations"
+              ]
+            },
+            "description": "Menambah kata ke bank kata BISINDO. Menyimpan `translationId`.\n\n| Field | Wajib | Keterangan |\n|---|---|---|\n| `word` | ✅ | 2-120 karakter |\n| `translation` | ✅ | 1-240 karakter, uraian gerakannya |\n| `description` | — | maks 2000 |\n| `category` | — | maks 100 |\n| `signImage`, `signVideo` | — | **wajib http/https**, maks 500 |\n| `aliases` | — | daftar teks tidak kosong, maks 20 |\n| `status` | — | `active` \\| `inactive` |\n\n**201** · **401** · **403** · **409** kata sudah ada · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "List translations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "",
+                  "const payload = pm.response.json().data;",
+                  "",
+                  "pm.test('Membawa items dan pagination', function () {",
+                  "    pm.expect(payload.items).to.be.an('array');",
+                  "    pm.expect(payload.pagination).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Maksimal 100."
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Opsional, minimal 2 karakter.",
+                  "disabled": true
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Opsional.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "description": "active | inactive. Hanya admin yang melihat inactive.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Bank kata BISINDO. Publik — identitas dibaca bila ada.\n\nPeran non-admin hanya menerima entri `active`. Entri `inactive` adalah\ndraft kurator; menampilkannya ke pembelajar berarti mengajarkan gerakan\nyang belum diverifikasi.\n\n**200** → `{ items, pagination }` · **422** `q` sepanjang 1 karakter"
+          },
+          "response": []
+        },
+        {
+          "name": "List categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('items berupa array', function () {",
+                  "    pm.expect(pm.response.json().data.items).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations/categories",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations",
+                "categories"
+              ]
+            },
+            "description": "Daftar kategori yang benar-benar terpakai, untuk mengisi filter di UI.\n\n**200** → `{ items }`"
+          },
+          "response": []
+        },
+        {
+          "name": "Lookup by word",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 200 bila kata ada, 404 bila tidak. Keduanya sah — yang diuji di sini",
+                  "// adalah bentuk responsnya, bukan isi bank kata yang bisa berubah.",
+                  "pm.test('Status 200 atau 404', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Membawa objek translation', function () {",
+                  "        pm.expect(pm.response.json().data.translation).to.have.property('word');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations/lookup?word={{translationWord}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations",
+                "lookup"
+              ],
+              "query": [
+                {
+                  "key": "word",
+                  "value": "{{translationWord}}",
+                  "description": "WAJIB. 1-140 karakter."
+                }
+              ]
+            },
+            "description": "Pencarian tepat satu kata — dipakai fitur Terjemahan.\n\nPencocokan lewat `normalized_word` dan `aliases`, sehingga \"Halo\", \"halo\",\ndan \"hai\" menemukan entri yang sama.\n\n`/lookup` didaftarkan SEBELUM `/:id`. Bila terbalik, permintaan ke\n`/lookup` tertangkap sebagai id = \"lookup\" lalu berakhir 404 yang\nmenyesatkan.\n\n**200** · **404** kata belum ada · **422** `word` kosong"
+          },
+          "response": []
+        },
+        {
+          "name": "Get translation by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('id cocok dengan yang diminta', function () {",
+                  "    pm.expect(pm.response.json().data.translation.id).to.eql(pm.collectionVariables.get('translationId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations/{{translationId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations",
+                "{{translationId}}"
+              ]
+            },
+            "description": "Detail satu entri bank kata.\n\n**200** · **404**"
+          },
+          "response": []
+        },
+        {
+          "name": "Update translation (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Deskripsi ikut berubah', function () {",
+                  "    pm.expect(pm.response.json().data.translation.description).to.include('diperbarui');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"description\": \"Deskripsi diperbarui lewat koleksi Postman.\",\n    \"category\": \"Sapaan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations/{{translationId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations",
+                "{{translationId}}"
+              ]
+            },
+            "description": "Pembaruan parsial — yang tidak dikirim tidak diubah.\n\nBody tanpa satu pun field yang dapat diperbarui ditolak 422, bukan\ndianggap berhasil tanpa melakukan apa-apa.\n\n**200** · **401** · **403** · **404** · **409** kata bentrok · **422**"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete translation (admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Request ini MENGHAPUS data yang dipakai request lain.",
+                  "// Dilewati kecuali runDestructive bernilai true.",
+                  "if (String(pm.variables.get('runDestructive')).toLowerCase() !== 'true') {",
+                  "    console.log('Dilewati (runDestructive=false): ' + pm.info.requestName);",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/translations/{{translationId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}"
+              ],
+              "path": [
+                "translations",
+                "{{translationId}}"
+              ]
+            },
+            "description": "Menghapus entri bank kata.\n\nDilewati kecuali `runDestructive=true`, supaya koleksi ini aman dijalankan\nberulang tanpa menghapus data yang dipakai request lain.\n\n**200** · **401** · **403** · **404**"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 · Skenario Error",
       "description": "Jalur negatif yang membuktikan kontrak error (§2.3, §3, §4) benar-benar ditegakkan.\n\nFolder ini **wajib hijau**. Setiap kegagalan di sini berarti ada penjaga yang bocor — dan penjaga yang bocor jauh lebih berbahaya daripada fitur yang belum ada.",
       "item": [
         {

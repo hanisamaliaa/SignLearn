@@ -210,8 +210,29 @@ export function AppProvider({ children }) {
     [loadFor],
   );
 
+  /**
+   * Keluar.
+   *
+   * Pembersihan sesi di klien BERJALAN APA PUN hasil panggilan jaringannya.
+   *
+   * Versi sebelumnya menulis `await authService.logout()` tanpa penjagaan, jadi
+   * kegagalan apa pun — server mati, jaringan putus, atau 400 dari body request
+   * yang cacat — melempar galat sebelum baris-baris di bawahnya sempat jalan.
+   * Akibatnya pengguna menekan "Keluar" dan TIDAK TERJADI APA-APA: ia tetap
+   * masuk, tetap di halaman yang sama, tanpa satu pun pesan.
+   *
+   * Menekan keluar adalah pernyataan kehendak pengguna, bukan permintaan izin
+   * ke server. Pencabutan token di server penting, tetapi statusnya
+   * best-effort; yang tidak boleh gagal adalah keluarnya itu sendiri.
+   */
   const logout = useCallback(async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch {
+      // Token di memori sudah dibersihkan `authService.logout` lewat `finally`.
+      // Sesi di server akan tetap kedaluwarsa sendiri sesuai TTL-nya.
+    }
+
     setCurrentUser(null);
     setCourses([]);
     setUsers([]);

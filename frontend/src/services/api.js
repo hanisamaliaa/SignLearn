@@ -57,6 +57,15 @@ if (API_MOCK_MODE && typeof console !== "undefined") {
 let accessToken = null;
 let onSessionExpired = () => {};
 
+/**
+ * Hasil pemulihan sesi, di-memo per pemuatan halaman.
+ *
+ * Dideklarasikan bersama state modul lainnya — bukan di dekat
+ * `bootstrapSession()` — supaya `clearAccessToken()` di bawah tidak
+ * mereferensikan pengikatan yang letaknya jauh di bawahnya.
+ */
+let bootstrapPromise = null;
+
 export function setAccessToken(token) {
   accessToken = token ?? null;
 }
@@ -67,6 +76,9 @@ export function getAccessToken() {
 
 export function clearAccessToken() {
   accessToken = null;
+  // Pemulihan sesi berikutnya harus benar-benar bertanya ke server, bukan
+  // memakai ulang hasil yang di-cache dari sesi yang baru saja berakhir.
+  bootstrapPromise = null;
 }
 
 export function onAuthFailure(handler) {
@@ -107,14 +119,21 @@ apiClient.interceptors.request.use((config) => {
  */
 let refreshPromise = null;
 
+/**
+ * @returns {Promise<{accessToken: string, user: object}|null>} isi envelope
+ *
+ * Mengembalikan SELURUH payload, bukan hanya token, karena `bootstrapSession`
+ * membutuhkan `user` dari respons yang sama. Bila ia memanggil endpointnya
+ * sendiri untuk mendapatkan user, kunci di bawah kehilangan artinya.
+ */
 function refreshSession() {
   if (!refreshPromise) {
     refreshPromise = apiClient
       .post("/auth/refresh")
       .then((response) => {
-        const token = response.data?.data?.accessToken ?? null;
-        setAccessToken(token);
-        return token;
+        const payload = response.data?.data ?? null;
+        setAccessToken(payload?.accessToken ?? null);
+        return payload;
       })
       .finally(() => {
         refreshPromise = null;
@@ -149,7 +168,7 @@ apiClient.interceptors.response.use(
     if (canRetry && (code === "TOKEN_EXPIRED" || code === "TOKEN_MISSING")) {
       original._retried = true;
       try {
-        const token = await refreshSession();
+        const token = (await refreshSession())?.accessToken ?? null;
         if (token) {
           original.headers = { ...original.headers, Authorization: `Bearer ${token}` };
           return apiClient.request(original);
@@ -240,32 +259,80 @@ export async function request({
     return mockData;
   }
 
-  const response = await apiClient.request({ method, url, data, params, headers });
+  /**
+   * `data` dan `params` hanya disertakan bila benar-benar ada.
+   *
+   * ── Kenapa ini penting, bukan sekadar kerapian ────────────────────────
+   *
+   * Meneruskan `data: null` membuat axios MENGIRIM body berisi teks literal
+   * `null` (empat karakter) beserta header `Content-Type: application/json`.
+   * Itu memang JSON yang sah — tetapi `express.json()` berjalan dengan
+   * `strict: true` secara bawaan, yang HANYA menerima objek atau array di
+   * tingkat atas. Body `null` ditolak sebagai SyntaxError, dan pemanggil
+   * menerima 400 "Body request bukan JSON yang valid".
+   *
+   * Yang terkena adalah SETIAP permintaan tanpa payload:
+   *
+   *     POST   /auth/logout
+   *     DELETE /courses/:id          DELETE /users/:id
+   *     DELETE /courses/../lessons/:id
+   *     DELETE /courses/../quizzes/:id
+   *     DELETE /courses/../questions/:id
+   *
+   * Gejalanya paling membingungkan pada logout: tombolnya "tidak melakukan
+   * apa-apa" karena galat 400 membatalkan sisa fungsi keluar sebelum sempat
+   * membersihkan sesi dan berpindah halaman.
+   */
+  const config = { method, url, headers };
+  if (data !== null && data !== undefined) config.data = data;
+  if (params !== null && params !== undefined) config.params = params;
+
+  const response = await apiClient.request(config);
   return response.data?.data ?? null;
 }
 
 /**
  * Memulihkan sesi saat aplikasi dimuat.
  *
- * Token di memori hilang setiap reload; cookie refresh tidak. Fungsi ini
- * menukarnya menjadi access token baru sebelum UI dirender, sehingga pengguna
- * tidak terlempar ke halaman masuk hanya karena menekan F5.
+ * ── Kenapa ini WAJIB lewat `refreshSession()`, bukan apiClient langsung ──
  *
- * @returns {Promise<object|null>} user bila sesi pulih, `null` bila tidak
+ * Versi sebelumnya memanggil `apiClient.post("/auth/refresh")` sendiri,
+ * melewati kunci single-flight di atas. Akibatnya fatal dan sulit dilacak:
+ *
+ *   1. `React.StrictMode` menjalankan efek DUA KALI di mode pengembangan
+ *      (main.jsx). `AppProvider` memanggil fungsi ini di dalam useEffect.
+ *   2. Dua permintaan `/auth/refresh` berangkat hampir bersamaan.
+ *   3. Backend MEROTASI refresh token pada permintaan pertama.
+ *   4. Permintaan kedua membawa token yang sudah dirotasi. Backend
+ *      memperlakukannya sebagai PENCURIAN TOKEN dan mencabut SELURUH rantai
+ *      sesi — perilaku keamanan yang memang disengaja.
+ *   5. Pengguna yang sudah masuk terlempar ke halaman login setiap menekan F5,
+ *      dan kelihatannya seperti "perubahan tidak tersimpan" karena halaman
+ *      berpindah tepat setelah menyimpan.
+ *
+ * Ironisnya kunci single-flight sudah ada beserta komentar yang menjelaskan
+ * bahaya ini persis; fungsi inilah satu-satunya yang tidak memakainya.
+ *
+ * Hasilnya juga di-memo per pemuatan halaman: pemulihan sesi adalah peristiwa
+ * sekali-jalan, dan `refreshPromise` sendiri dibersihkan segera setelah selesai
+ * sehingga tidak cukup untuk menahan pemanggilan kedua dari StrictMode yang
+ * datang setelah yang pertama tuntas.
+ *
+ * @returns {Promise<object|null>} user bila sesi pulih, `null` bila tamu
  */
-export async function bootstrapSession() {
-  if (API_MOCK_MODE) return null;
+export function bootstrapSession() {
+  if (API_MOCK_MODE) return Promise.resolve(null);
 
-  try {
-    const response = await apiClient.post("/auth/refresh");
-    const payload = response.data?.data;
-    setAccessToken(payload?.accessToken ?? null);
-    return payload?.user ?? null;
-  } catch {
-    // Tidak ada cookie, atau sudah kedaluwarsa. Tamu — bukan error.
-    clearAccessToken();
-    return null;
+  if (!bootstrapPromise) {
+    bootstrapPromise = refreshSession()
+      .then((payload) => payload?.user ?? null)
+      .catch(() => {
+        // Tidak ada cookie, atau sudah kedaluwarsa. Tamu — bukan error.
+        accessToken = null;
+        return null;
+      });
   }
+  return bootstrapPromise;
 }
 
 export { apiClient };
