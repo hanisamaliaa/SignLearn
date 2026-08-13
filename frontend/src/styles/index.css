@@ -6753,3 +6753,82 @@ textarea,
     max-width: none !important;
   }
 }
+
+
+/* FINAL USER SIDEBAR RESPONSIVE FIX
+   The sidebar is an overlay/fixed element at every viewport size. The user
+   content must never reserve sidebar width while the sidebar is hidden.
+   Desktop only adds the sidebar offset while it is actually open. */
+.portal-shell:not(.admin-portal) > .user-sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  z-index: 30;
+  height: 100vh !important;
+  width: 18rem !important;
+  min-width: 18rem !important;
+  max-width: 18rem !important;
+  flex: none !important;
+}
+
+.portal-shell:not(.admin-portal) > .user-sidebar.user-sidebar-desktop-closed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  transform: translateX(-100%) !important;
+  overflow: hidden !important;
+  border-right-width: 0 !important;
+}
+
+.portal-shell:not(.admin-portal) > .portal-main-shell-user {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  height: 100vh !important;
+}
+
+.portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-closed {
+  position: relative !important;
+  inset: auto !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  height: 100vh !important;
+}
+
+.portal-shell:not(.admin-portal) > .portal-main-shell-user > .user-header,
+.portal-shell:not(.admin-portal) > .portal-main-shell-user > main {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+/* On desktop, opening the user sidebar reserves its width. On smaller
+   viewports it remains an overlay and never pushes the page sideways. */
+@media (min-width: 1024px) {
+  .portal-shell:not(.admin-portal) > .user-sidebar.user-sidebar-desktop-open {
+    transform: translateX(0) !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-open {
+    width: calc(100% - 18rem) !important;
+    margin-left: 18rem !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .portal-shell:not(.admin-portal) > .user-sidebar.user-sidebar-desktop-open {
+    transform: translateX(0) !important;
+  }
+
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user,
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-open,
+  .portal-shell:not(.admin-portal) > .portal-main-shell-user.portal-main-shell-sidebar-closed {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+}
