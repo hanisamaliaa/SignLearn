@@ -1,4 +1,3 @@
-Github : https://github.com/hanisamaliaa/SignLearn.git
 
 # SignLearn
 
