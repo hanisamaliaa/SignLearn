@@ -2,7 +2,7 @@
 /**
  * Smoke test alur autentikasi.
  *
- *   npm run smoke                      # menguji http://localhost:4000
+ *   npm run smoke                      # menguji http://localhost:4788
  *   API_URL=https://... npm run smoke  # menguji environment lain
  *
  * Menguji API yang BENAR-BENAR BERJALAN lewat HTTP — bukan unit test.
@@ -12,7 +12,7 @@
  * yang bertanya "apakah backend-nya sudah jalan?".
  */
 
-const BASE = (process.env.API_URL || "http://localhost:4000").replace(/\/$/, "");
+const BASE = (process.env.API_URL || "http://localhost:4788").replace(/\/$/, "");
 const API = `${BASE}${process.env.API_PREFIX || "/api/v1"}`;
 
 // Email unik per eksekusi agar tes berulang tidak bentrok.

@@ -34,8 +34,23 @@ export const STORAGE_KEYS = {
   USERS: "signlearn.users",
 };
 
-// Backend API base URL (fallback for local dev)
-export const API_DEFAULT_BASE_URL = "http://localhost:5000/api";
+/**
+ * Backend API base URL — cadangan bila VITE_API_BASE_URL tidak diisi.
+ *
+ * ⚠ Nilai ini WAJIB memuat prefix versi (`/api/v1`) dan port yang sama dengan
+ * `PORT` di `backend/.env`. Nilai sebelumnya, `http://localhost:5000/api`,
+ * salah pada KEDUANYA sekaligus:
+ *
+ *   · port 5000 — backend tidak pernah di sana; di macOS port itu justru
+ *     dipakai AirPlay Receiver, sehingga permintaan dijawab 403 oleh layanan
+ *     tak berhubungan alih-alih ditolak bersih
+ *   · prefix `/api` — server memasang router di `/api/v1` (app.js:83), jadi
+ *     setiap rute menjadi 404
+ *
+ * Karena ia CADANGAN, kesalahannya tidak terlihat selama .env benar — lalu
+ * muncul tepat pada orang yang belum sempat menyalin .env.
+ */
+export const API_DEFAULT_BASE_URL = "http://localhost:4788/api/v1";
 
 // Feature placeholders
 export const AI_SUBTITLE_PLACEHOLDER =
