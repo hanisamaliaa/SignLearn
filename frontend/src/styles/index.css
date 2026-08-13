@@ -4408,6 +4408,26 @@ textarea,
   background: #e5f6e8;
   color: #2f7040;
 }
+/*
+ * Daftar syarat kata sandi pada halaman daftar.
+ *
+ * Dua kolom supaya lima syarat tidak mendorong tombol "Lanjutkan" keluar
+ * layar pada ponsel; `list-style: none` karena penanda ceklis/lingkaran
+ * sudah menjadi penanda butirnya sendiri.
+ */
+.auth-password-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 380px) {
+  .auth-password-checklist {
+    grid-template-columns: 1fr;
+  }
+}
 .auth-password-feedback.is-mismatch {
   color: #a4484d;
 }
