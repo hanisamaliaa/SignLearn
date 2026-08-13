@@ -1,6 +1,6 @@
 # SignLearn
 
-[![GitHub Repository](https://img.shields.io/badge/GitHub-hanisamaliaa%2FSignLearn-181717?logo=github)](https://github.com/hanisamaliaa/SignLearn)
+GitHub Repository : https://github.com/hanisamaliaa/SignLearn.git
 
 ## Project Overview
 
