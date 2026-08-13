@@ -22,7 +22,7 @@ export default function PublicPage({ eyebrow, title, intro, children }) {
             <h1 className="mt-3 text-4xl md:text-5xl font-extrabold">{title}</h1>
             <p className="mt-5 text-lg leading-8 max-w-3xl">{intro}</p>
           </div>
-          <div className="mt-14 max-w-5xl">{children}</div>
+          <div className="kids-public-content mt-14 min-w-0 max-w-5xl">{children}</div>
         </section>
       </main>
       <LandingFooter />
