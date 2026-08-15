@@ -5260,14 +5260,8 @@ textarea,
 }
 
 .admin-mini-card::after {
-  position: absolute;
-  right: -20px;
-  bottom: -35px;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: var(--mini-soft);
-  content: "";
+  display: none;
+  content: none;
 }
 
 .admin-mini-dot {
@@ -7967,5 +7961,221 @@ textarea,
   .admin-stat-card:hover,
   .admin-mini-card:hover {
     transform: none;
+  }
+}
+
+
+/* ─── Admin dashboard: balanced interactions ────────────────────────── */
+/* Ringkasan khusus sengaja dibuat tenang: hover hanya memberi feedback
+   permukaan, tanpa scale/gerakan besar. */
+.admin-mini-card {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.admin-mini-card:hover {
+  transform: none;
+  background: var(--adm-surface);
+  border-color: color-mix(in srgb, var(--mini-color) 22%, var(--adm-border));
+  box-shadow: var(--adm-shadow-sm);
+}
+
+.admin-mini-card::after {
+  transition: transform 240ms ease, opacity 240ms ease;
+  opacity: .7;
+}
+
+.admin-mini-card:hover::after {
+  transform: scale(1.08);
+  opacity: .9;
+}
+
+/* Pengguna & aktivitas: feedback lebih jelas, tetapi tetap ringan. */
+.admin-list-row,
+.admin-activity-row {
+  cursor: default;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.admin-list-row:hover,
+.admin-activity-row:hover {
+  background: var(--adm-surface-alt);
+  border-color: var(--adm-border-soft);
+  box-shadow: 0 4px 12px rgba(23, 55, 97, .045);
+  transform: translateY(-1px);
+}
+
+.admin-list-row .admin-avatar {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.admin-list-row:hover .admin-avatar {
+  transform: scale(1.04);
+  box-shadow: 0 5px 12px rgba(23, 55, 97, .12);
+}
+
+.admin-list-row .admin-status-badge {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-list-row:hover .admin-status-badge {
+  transform: translateY(-1px);
+}
+
+.admin-activity-row .admin-activity-icon {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.admin-activity-row:hover .admin-activity-icon {
+  transform: scale(1.05);
+  box-shadow: 0 6px 14px rgba(23, 55, 97, .08);
+}
+
+/* Progress/course rows: cukup terasa saat pointer diarahkan. */
+.admin-progress-row {
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-progress-row:hover {
+  background: var(--adm-surface-alt);
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 var(--adm-blue);
+}
+
+.admin-progress-row:hover .admin-progress-fill {
+  filter: brightness(1.04);
+}
+
+/* Tabel kursus: sorot baris dan thumbnail tanpa efek berlebihan. */
+.admin-table tbody tr {
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.admin-table tbody tr:hover {
+  transform: none;
+  background: var(--adm-surface-alt);
+  box-shadow: inset 3px 0 0 var(--adm-blue);
+}
+
+.admin-table tbody tr .admin-course-thumb {
+  transition: transform 170ms ease, box-shadow 170ms ease;
+}
+
+.admin-table tbody tr:hover .admin-course-thumb {
+  transform: scale(1.04);
+  box-shadow: 0 6px 13px rgba(23, 55, 97, .13);
+}
+
+.admin-table tbody tr .admin-table-title {
+  transition: color 150ms ease;
+}
+
+.admin-table tbody tr:hover .admin-table-title {
+  color: var(--adm-blue-ink);
+}
+
+
+/* ─── Admin interaction refinement: calm summary + responsive management pages ─── */
+
+/* Ringkasan khusus: benar-benar tenang. Hindari orb yang melintas/terlihat
+   seperti bidang putih ketika pointer bergerak. */
+.admin-mini-card {
+  transform: none !important;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
+}
+.admin-mini-card:hover {
+  transform: none !important;
+  background: var(--adm-surface) !important;
+  border-color: var(--adm-border) !important;
+  box-shadow: var(--adm-shadow-sm) !important;
+}
+.admin-mini-card::after,
+.admin-mini-card:hover::after {
+  display: none !important;
+  content: none !important;
+  transform: none !important;
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+/* Halaman Pengguna, Kursus, Lesson, Quiz, Reports, dan halaman admin lain:
+   kartu data memberi feedback pointer yang halus tanpa mengubah layout. */
+.admin-portal .portal-route-content .admin-kids-card:not(.admin-mini-card):not(.admin-panel) {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease !important;
+}
+.admin-portal .portal-route-content .admin-kids-card:not(.admin-mini-card):not(.admin-panel):hover {
+  transform: translateY(-2px) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border)) !important;
+  background-color: var(--surface) !important;
+  box-shadow: 0 10px 24px rgb(32 78 124 / 0.075) !important;
+}
+
+/* Kartu kursus di halaman Courses: thumbnail ikut memberi feedback. */
+.admin-portal .portal-route-content .admin-kids-card:hover img {
+  transition: transform 220ms ease, filter 220ms ease;
+}
+.admin-portal .portal-route-content .admin-kids-card:hover img.object-cover {
+  transform: scale(1.018);
+}
+
+/* Baris data di halaman manajemen: pointer terasa tanpa efek melompat. */
+.admin-portal .portal-route-content table tbody tr,
+.admin-portal .portal-route-content .divide-y > div {
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease !important;
+}
+.admin-portal .portal-route-content table tbody tr:hover,
+.admin-portal .portal-route-content .divide-y > div:hover {
+  background-color: var(--surface-2) !important;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-primary) 72%, transparent);
+}
+
+/* Item lesson/quiz yang sudah memiliki hover Tailwind dibuat sedikit lebih
+   terasa lewat ikon, bukan dengan menggerakkan seluruh baris. */
+.admin-portal .portal-route-content .divide-y > div:hover svg,
+.admin-portal .portal-route-content table tbody tr:hover svg {
+  transition: transform 160ms ease;
+}
+.admin-portal .portal-route-content .divide-y > div:hover svg {
+  transform: scale(1.06);
+}
+
+/* Reports: kartu statistik dan blok chart merespons pointer secara ringan. */
+.admin-portal .portal-route-content .grid > .admin-kids-card:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* Jangan menambahkan efek hover pada field/form agar halaman tetap terasa stabil. */
+.admin-portal .portal-route-content input,
+.admin-portal .portal-route-content select,
+.admin-portal .portal-route-content textarea {
+  transform: none !important;
+}
+
+/* Reduced motion tetap dihormati. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-mini-card,
+  .admin-portal .portal-route-content .admin-kids-card,
+  .admin-portal .portal-route-content table tbody tr,
+  .admin-portal .portal-route-content .divide-y > div {
+    transition: none !important;
+    transform: none !important;
   }
 }

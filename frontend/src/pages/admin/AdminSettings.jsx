@@ -1,9 +1,7 @@
 import { useState } from "react";
 import {
   Card,
-  Button,
   Toggle,
-  Alert,
   Input,
   Select,
 } from "../../components/ui/ui";
@@ -11,32 +9,40 @@ import {
   ShieldIcon,
   GlobeIcon,
   LockIcon,
+  EyeIcon,
 } from "../../components/ui/Icons";
+import { useTheme } from "../../context/ThemeContext";
+import { useAccessibility } from "../../context/AccessibilityContext";
 
 const GENERAL_OPTIONS = [{ value: "id", label: "Bahasa Indonesia" }];
 
 export default function AdminSettings() {
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [general, setGeneral] = useState({
     appName: "SignLearn",
     language: "id",
-    maintenanceMode: false,
-    registrationOpen: true,
   });
   const [security, setSecurity] = useState({
-    twoFactorRequired: false,
-    loginAlerts: true,
     passwordPolicy: "medium",
   });
+  const {
+    theme,
+    setTheme,
+    fontSize,
+    setFontSize,
+    minFontSize,
+    maxFontSize,
+    highContrast,
+    reducedMotion,
+    setHighContrast,
+    setReducedMotion,
+  } = useTheme();
+  const {
+    subtitles,
+    focusMode,
+    setSubtitles,
+    setFocusMode,
+  } = useAccessibility();
 
-  async function handleSave() {
-    setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  }
 
   return (
     <div className="space-y-6">
@@ -49,13 +55,6 @@ export default function AdminSettings() {
         </p>
       </div>
 
-      {saved && (
-        <Alert
-          type="success"
-          message="Pengaturan berhasil disimpan!"
-          onClose={() => setSaved(false)}
-        />
-      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* General */}
@@ -85,22 +84,7 @@ export default function AdminSettings() {
               onChange={(v) => setGeneral((p) => ({ ...p, language: v }))}
               options={GENERAL_OPTIONS}
             />
-            <div className="border-t border-[var(--border-light)] pt-4 space-y-3">
-              <Toggle
-                checked={general.maintenanceMode}
-                onChange={(v) =>
-                  setGeneral((p) => ({ ...p, maintenanceMode: v }))
-                }
-                label="Mode Pemeliharaan"
-              />
-              <Toggle
-                checked={general.registrationOpen}
-                onChange={(v) =>
-                  setGeneral((p) => ({ ...p, registrationOpen: v }))
-                }
-                label="Buka Pendaftaran"
-              />
-            </div>
+
           </div>
         </Card>
 
@@ -132,16 +116,156 @@ export default function AdminSettings() {
         </Card>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[var(--text-subtle)]">
-          <ShieldIcon size={14} />
-          <span className="text-xs">
-            Semua perubahan dicatat di log aktivitas
-          </span>
+      {/* Appearance */}
+      <Card>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)]">
+            <EyeIcon size={18} />
+          </div>
+          <div>
+            <h2 className="font-bold text-[var(--text)]">Tampilan</h2>
+            <p className="text-xs text-[var(--text-subtle)]">
+              Atur tampilan dan aksesibilitas agar dashboard lebih nyaman digunakan.
+            </p>
+          </div>
         </div>
-        <Button size="lg" onClick={handleSave} disabled={saving}>
-          {saving ? "Menyimpan..." : "Simpan Pengaturan"}
-        </Button>
+
+        <div className="space-y-5">
+          <div>
+            <label
+              id="admin-theme-label"
+              className="text-sm font-medium text-[var(--text)] mb-3 block"
+            >
+              Mode tampilan
+            </label>
+            <div
+              className="grid grid-cols-2 gap-3 max-w-md"
+              role="radiogroup"
+              aria-labelledby="admin-theme-label"
+            >
+              {[
+                { id: "light", label: "Terang", icon: "☀️" },
+                { id: "dark", label: "Gelap", icon: "🌙" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={theme === option.id}
+                  onClick={() => setTheme(option.id)}
+                  className={`rounded-xl border-2 p-3 text-center transition-all ${
+                    theme === option.id
+                      ? "border-[#4F8EF7] bg-[var(--primary-light)]"
+                      : "border-[var(--border)] hover:border-[#4F8EF7]/40"
+                  }`}
+                >
+                  <div className="text-xl mb-1">{option.icon}</div>
+                  <p className={`text-xs font-medium ${
+                    theme === option.id
+                      ? "text-[var(--primary)]"
+                      : "text-[var(--text-muted)]"
+                  }`}>
+                    {option.label}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="admin-font-size"
+              className="text-sm font-medium text-[var(--text)] mb-2 block"
+            >
+              Ukuran teks: {fontSize}px
+            </label>
+            <div className="flex items-center gap-3 max-w-md">
+              <span className="text-xs text-[var(--text-subtle)]">Kecil</span>
+              <input
+                id="admin-font-size"
+                type="range"
+                min={minFontSize}
+                max={maxFontSize}
+                value={fontSize}
+                onChange={(e) => setFontSize(e.target.value)}
+                className="flex-1 accent-[#4F8EF7]"
+              />
+              <span className="text-xs text-[var(--text-subtle)]">Besar</span>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--border-light)] pt-5 mt-1 max-w-2xl">
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-[var(--text)]">Aksesibilitas</h3>
+              <p className="text-xs leading-5 text-[var(--text-subtle)] mt-1">
+                Perubahan langsung diterapkan dan tersimpan otomatis.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kontras tinggi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Membuat teks dan batas elemen lebih mudah dibedakan.
+                  </p>
+                </div>
+                <Toggle
+                  checked={highContrast}
+                  onChange={setHighContrast}
+                  ariaLabel="Kontras tinggi"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Subtitle</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Menampilkan subtitle pada video yang mendukungnya.
+                  </p>
+                </div>
+                <Toggle
+                  checked={subtitles}
+                  onChange={setSubtitles}
+                  ariaLabel="Subtitle"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Mode fokus</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Mengurangi elemen dekoratif agar perhatian lebih terarah pada konten utama.
+                  </p>
+                </div>
+                <Toggle
+                  checked={focusMode}
+                  onChange={setFocusMode}
+                  ariaLabel="Mode fokus"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kurangi animasi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Mengurangi gerakan dan transisi agar lebih nyaman.
+                  </p>
+                </div>
+                <Toggle
+                  checked={reducedMotion}
+                  onChange={setReducedMotion}
+                  ariaLabel="Kurangi animasi"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="flex items-center gap-2 text-[var(--text-subtle)]">
+        <ShieldIcon size={14} />
+        <span className="text-xs">Preferensi tampilan dan aksesibilitas tersimpan otomatis di perangkat ini.</span>
       </div>
     </div>
   );
