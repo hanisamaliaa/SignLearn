@@ -1,10 +1,11 @@
 # Postman — SignLearn API
 
-Koleksi resmi untuk **API Contract v1.2.0**. Mencakup **54 dari 54 rute** yang benar-benar terdaftar di `src/routes/`.
+Koleksi request untuk **API Contract v1.2.0**. Source route adalah sumber
+kebenaran utama ketika kontrak dan implementasi berubah.
 
 | Berkas | Isi |
 |---|---|
-| `SignLearn-API.postman_collection.json` | 63 request, 11 folder, skema Postman v2.1.0 |
+| `SignLearn-API.postman_collection.json` | 71 request, 12 folder (termasuk subfolder Questions), skema Postman v2.1.0 |
 | `SignLearn-Local.postman_environment.json` | Konfigurasi lokal. **Rahasia bertipe `secret`.** |
 
 ---
@@ -21,7 +22,7 @@ Backend harus berjalan (`npm run dev`) dan database sudah di-seed (`npm run seed
 
 ## Menjalankan seluruh koleksi
 
-Urutan folder `00` → `09` disengaja: setiap folder menyiapkan variabel untuk folder berikutnya.
+Urutan folder `00` → `10` disengaja: setiap folder menyiapkan variabel untuk folder berikutnya.
 
 | Folder | Menghasilkan |
 |---|---|
@@ -115,4 +116,6 @@ Identifier bawaan lain yang harus dihindari: `environment`, `globals`, `iteratio
 
 Endpoint berikut ada di kontrak tetapi **belum diimplementasikan**, jadi tidak dimasukkan: `/dictionary/**`, `POST /translate`, `/practice/**`, `POST /admin/media`, `GET /admin/ai/jobs/:jobId`.
 
-`/admin/ai/subtitles` dan `/admin/ai/quiz` sudah punya rute dan **diuji membalas `501 NOT_IMPLEMENTED`** — bukan `200` palsu yang membuat frontend mengira pekerjaannya berhasil.
+`/admin/ai/subtitles/:lessonId` dan `/admin/ai/quiz/:lessonId` sudah punya rute
+dan **diuji membalas `501 NOT_IMPLEMENTED`** — bukan `200` palsu yang membuat
+frontend mengira pekerjaannya berhasil.

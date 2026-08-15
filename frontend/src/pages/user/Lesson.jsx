@@ -67,7 +67,7 @@ export default function Lesson() {
   const prevLesson = lessonIdx > 0 ? course.lessons[lessonIdx - 1] : null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="lesson-page space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate("/course-detail")}
@@ -85,8 +85,11 @@ export default function Lesson() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-5">
           <Card padding="none" className="overflow-hidden">
-            <div
-              className="relative w-full aspect-video bg-[#1A2332] flex items-center justify-center cursor-pointer group"
+            <button
+              type="button"
+              aria-pressed={playing}
+              aria-label={playing ? `Jeda ${lesson.title}` : `Putar ${lesson.title}`}
+              className="relative w-full aspect-video bg-[#1A2332] flex items-center justify-center cursor-pointer group text-left"
               onClick={() => setPlaying(!playing)}
             >
               <div className="absolute inset-0 bg-gradient-to-t from-[#1A2332]/60 to-transparent" />
@@ -130,9 +133,9 @@ export default function Lesson() {
                 </div>
                 <span className="text-white/60 text-xs">{lesson.duration}</span>
               </div>
-            </div>
-            <div className="p-4 flex items-center justify-between border-t border-[var(--border)]">
-              <div>
+            </button>
+            <div className="p-4 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[var(--border)]">
+              <div className="min-w-0">
                 <h2 className="font-bold text-[var(--text)]">{lesson.title}</h2>
                 <p className="text-xs text-[var(--text-subtle)]">
                   {course.title} • {lesson.duration}
@@ -151,12 +154,12 @@ export default function Lesson() {
           </Card>
 
           <Card>
-            <div className="flex gap-1 p-1 bg-[var(--surface-3)] rounded-xl mb-4">
+            <div className="flex min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl mb-4">
               {TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  className={`min-h-11 min-w-[8rem] flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                     tab === t.id
                       ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                       : "text-[var(--text-muted)] hover:text-[var(--text)]"

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Card, Badge, ProgressBar, StatCard } from "../../components/ui/ui";
-import { ACHIEVEMENTS } from "../../data/mock";
 import { useApp } from "../../context/app";
 import {
   TrophyIcon,
@@ -17,7 +16,6 @@ const TABS = [
 ];
 
 const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-const WEEK_HEIGHTS = [60, 80, 40, 100, 75, 90, 55];
 const SCORE_DISTRIBUTION = [
   { range: "90 – 100", color: "#2ECC71" },
   { range: "70 – 89", color: "#4F8EF7" },
@@ -25,23 +23,85 @@ const SCORE_DISTRIBUTION = [
   { range: "< 50", color: "#E74C3C" },
 ];
 
+/**
+ * Ikon per badge.
+ *
+ * Badge sendiri DITURUNKAN server dari progres nyata (code, title,
+ * description, earned) - tidak ada tabel badge. Yang tinggal di frontend
+ * hanyalah representasi visualnya, karena ikon urusan tampilan, bukan data.
+ */
+const BADGE_ICONS = {
+  FIRST_LESSON: "\u{1F31F}",
+  TEN_LESSONS: "\u{1F4DA}",
+  FIRST_QUIZ: "\u2705",
+  PERFECT_SCORE: "\u{1F4AF}",
+  COURSE_COMPLETE: "\u{1F393}",
+};
+
 export default function Progress() {
-  const { courses, quizHistory } = useApp();
+  const { courses, quizHistory, badges, stats } = useApp();
   const [activeTab, setActiveTab] = useState("overview");
 
-  const COURSES = courses;
-  const QUIZ_HISTORY = quizHistory;
+  const COURSES = courses ?? [];
+  const QUIZ_HISTORY = quizHistory ?? [];
+  const AVAILABLE_COURSES = COURSES.filter((course) => !course.isLocked);
 
-  const totalLessons = COURSES.reduce((s, c) => s + c.totalLessons, 0);
-  const completedLessons = COURSES.reduce((s, c) => s + c.completedLessons, 0);
+  const totalLessons = AVAILABLE_COURSES.reduce(
+    (s, c) => s + (c.totalLessons ?? 0),
+    0,
+  );
+  const completedLessons = AVAILABLE_COURSES.reduce(
+    (s, c) => s + (c.completedLessons ?? 0),
+    0,
+  );
   const avgScore = QUIZ_HISTORY.length
     ? Math.round(
         QUIZ_HISTORY.reduce((s, q) => s + q.score, 0) / QUIZ_HISTORY.length,
       )
     : 0;
+  /**
+   * Aktivitas 7 hari terakhir, diturunkan dari tanggal pengerjaan kuis.
+   *
+   * Sebelumnya tingginya adalah larik konstan `WEEK_HEIGHTS` — grafik yang
+   * terlihat meyakinkan tetapi identik bagi pengguna yang baru mendaftar lima
+   * detik lalu maupun yang sudah belajar berbulan-bulan.
+   */
+  const todayIndex = (new Date().getDay() + 6) % 7; // Senin = 0
+  const weekActivity = (() => {
+    const counts = Array(7).fill(0);
+    const now = new Date();
+    for (const q of QUIZ_HISTORY) {
+      const diffDays = Math.floor((now - new Date(q.takenAt)) / 86400000);
+      if (diffDays >= 0 && diffDays < 7) {
+        counts[(todayIndex - diffDays + 7) % 7] += 1;
+      }
+    }
+    const peak = Math.max(1, ...counts);
+    return counts.map((count) => ({
+      count,
+      percent: Math.max(6, Math.round((count / peak) * 100)),
+    }));
+  })();
+
   const overallPct = totalLessons
     ? Math.round((completedLessons / totalLessons) * 100)
     : 0;
+
+  // Pesan apresiasi mengikuti jumlah pelajaran selesai. Murni UI/frontend.
+  const encouragement = completedLessons < 4
+    ? {
+        title: "Baru dimulai!",
+        copy: "Setiap pelajaran adalah satu langkah kecil menuju makin jago.",
+      }
+    : completedLessons < 8
+      ? {
+          title: "Meningkat Pesat!",
+          copy: "Progress-mu sudah mulai terlihat. Pertahankan semangat belajarmu!",
+        }
+      : {
+          title: "Luar biasa!",
+          copy: "Kamu sudah melangkah jauh. Siap menaklukkan level berikutnya?",
+        };
 
   return (
     <div className="space-y-6">
@@ -55,32 +115,47 @@ export default function Progress() {
       </div>
 
       {/* Overall progress */}
-      <Card className="bg-gradient-to-r from-[#4F8EF7] to-[#6C63FF] text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <Card className="relative overflow-hidden border-[#c9dceb] bg-[#fffdf3]">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#ffe8a6]/70" />
+        <div className="absolute -bottom-16 left-8 h-32 w-32 rounded-full bg-[#dff3ff]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-white/70 text-sm mb-1">Progress Keseluruhan</p>
-            <p className="text-5xl font-extrabold mb-1">{overallPct}%</p>
-            <p className="text-white/70 text-sm">
-              {completedLessons} dari {totalLessons} pelajaran selesai
+            <p className="mb-1 text-sm font-bold text-[#2e86bf]">Progress belajar</p>
+            <h2 className="text-3xl font-extrabold text-[#123e63] sm:text-4xl">
+              {encouragement.title}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#536777]">
+              {encouragement.copy} {completedLessons} dari {totalLessons} pelajaran selesai.
             </p>
           </div>
-          <div className="lg:w-2/3">
-            <div className="h-4 bg-[var(--surface)]/20 rounded-full overflow-hidden">
+          <div className="w-full lg:max-w-xl">
+            <div className="mb-2 flex items-center justify-between text-sm font-extrabold text-[#214e72]">
+              <span>Progress keseluruhan</span>
+              <span>{overallPct}%</span>
+            </div>
+            <div
+              className="h-4 overflow-hidden rounded-full bg-white shadow-inner"
+              role="progressbar"
+              aria-label="Progress keseluruhan"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={overallPct}
+            >
               <div
-                className="h-full bg-[var(--surface)] rounded-full transition-all duration-1000"
+                className="h-full rounded-full bg-[#2e86bf] transition-[width] duration-700"
                 style={{ width: `${overallPct}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-white/60 mt-1">
-              <span>0%</span>
-              <span>100%</span>
+            <div className="mt-1 flex justify-between text-xs font-semibold text-[#71889a]">
+              <span>Mulai</span>
+              <span>Level berikutnya</span>
             </div>
           </div>
         </div>
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Kursus Aktif"
           value={COURSES.filter((c) => !c.isLocked).length}
@@ -101,19 +176,19 @@ export default function Progress() {
         />
         <StatCard
           label="Streak Belajar"
-          value="7 hari"
+          value={`${stats?.streakDays ?? 0} hari`}
           icon={<FireIcon size={20} />}
           color="#E74C3C"
         />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[var(--surface-3)] rounded-xl w-fit">
+      <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`min-h-11 min-w-0 flex-auto px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
                 ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm"
                 : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -125,25 +200,26 @@ export default function Progress() {
       </div>
 
       {activeTab === "overview" && (
-        <div className="grid lg:grid-cols-2 gap-5">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
           <Card>
             <h2 className="font-bold text-[var(--text)] mb-4">
               Aktivitas Minggu Ini
             </h2>
-            <div className="flex items-end justify-between gap-2 h-32">
+            <div className="weekly-activity-chart flex min-w-0 items-end justify-between gap-2 h-32">
               {DAYS.map((day, i) => {
-                const isToday = i === 3;
+                const isToday = i === todayIndex;
                 return (
                   <div
                     key={day}
-                    className="flex flex-col items-center gap-1 flex-1"
+                    className="min-w-0 flex flex-col items-center gap-1 flex-1"
                   >
                     <div className="w-full rounded-t-lg flex-1 flex items-end">
                       <div
                         className="w-full rounded-lg transition-all"
                         style={{
-                          height: `${WEEK_HEIGHTS[i]}%`,
-                          background: isToday ? "#4F8EF7" : "#EAF3FF",
+                          height: `${weekActivity[i].percent}%`,
+                          background:
+                            weekActivity[i].count > 0 ? "#4F8EF7" : "#EAF3FF",
                         }}
                       />
                     </div>
@@ -164,7 +240,9 @@ export default function Progress() {
               <span className="text-[var(--text-muted)]">
                 Total sesi minggu ini
               </span>
-              <span className="font-bold text-[var(--text)]">7 sesi</span>
+              <span className="font-bold text-[var(--text)]">
+                {weekActivity.reduce((a, d) => a + d.count, 0)} sesi
+              </span>
             </div>
           </Card>
 
@@ -300,8 +378,8 @@ export default function Progress() {
 
       {activeTab === "achievements" && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ACHIEVEMENTS.map((a) => (
-            <Card key={a.id} className={!a.earned ? "opacity-50" : ""}>
+          {badges.map((a) => (
+            <Card key={a.code} className={!a.earned ? "opacity-50" : ""}>
               <div className="flex items-start gap-4">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
@@ -310,7 +388,7 @@ export default function Progress() {
                       : "bg-[var(--surface-3)]"
                   }`}
                 >
-                  {a.icon}
+                  {BADGE_ICONS[a.code] ?? "\u{1F3C5}"}
                 </div>
                 <div>
                   <p className="font-bold text-[var(--text)] text-sm">
@@ -319,10 +397,8 @@ export default function Progress() {
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     {a.description}
                   </p>
-                  {a.earned && a.date && (
-                    <p className="text-xs text-[#2ECC71] mt-1">
-                      ✓ Diperoleh {a.date}
-                    </p>
+                  {a.earned && (
+                    <p className="text-xs text-[#2ECC71] mt-1">✓ Diperoleh</p>
                   )}
                   {!a.earned && (
                     <p className="text-xs text-[var(--text-subtle)] mt-1">

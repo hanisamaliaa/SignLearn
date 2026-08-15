@@ -12,17 +12,14 @@ import { testConnection, closePool } from "./config/database.js";
 async function start() {
   const db = await testConnection();
 
-  if (db.ok) {
-    console.log(`[db] ${db.message}`);
-  } else if (env.isProduction) {
-    // Di produksi, backend tanpa database tidak berguna — dan yang lebih buruk,
-    // ia akan lolos health check lalu membalas 500 ke pengguna sungguhan.
-    // Lebih baik gagal saat deploy, ketika rollback masih otomatis.
+  if (!db.ok) {
+    // Database adalah sumber kebenaran akun, progres, dan konten. Menjalankan
+    // server setengah hidup hanya menghasilkan health check palsu dan 500 pada
+    // login. Gagal cepat di semua environment agar salah konfigurasi terlihat.
     console.error(`[db] Koneksi gagal: ${db.message}`);
     process.exit(1);
-  } else {
-    console.warn(`[db] ${db.message} — server tetap berjalan tanpa database.`);
   }
+  console.log(`[db] ${db.message}`);
 
   const server = app.listen(env.port, () => {
     console.log(`[server] SignLearn API — http://localhost:${env.port}${env.apiPrefix}`);

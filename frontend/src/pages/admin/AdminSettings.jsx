@@ -10,8 +10,6 @@ import {
 import {
   ShieldIcon,
   GlobeIcon,
-  BellIcon,
-  DatabaseIcon,
   LockIcon,
 } from "../../components/ui/Icons";
 
@@ -33,11 +31,6 @@ export default function AdminSettings() {
     twoFactorRequired: false,
     loginAlerts: true,
     passwordPolicy: "medium",
-  });
-  const [notifications, setNotifications] = useState({
-    email: true,
-    sms: false,
-    push: true,
   });
 
   async function handleSave() {
@@ -138,93 +131,6 @@ export default function AdminSettings() {
                 { value: "high", label: "Tinggi (min. 12 karakter)" },
               ]}
             />
-            <div className="border-t border-[var(--border-light)] pt-4 space-y-3">
-              <Toggle
-                checked={security.twoFactorRequired}
-                onChange={(v) =>
-                  setSecurity((p) => ({ ...p, twoFactorRequired: v }))
-                }
-                label="Wajibkan Autentikasi 2 Faktor"
-              />
-              <Toggle
-                checked={security.loginAlerts}
-                onChange={(v) => setSecurity((p) => ({ ...p, loginAlerts: v }))}
-                label="Peringatan Login Baru"
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Notifications */}
-        <Card>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--warning-light)] rounded-xl flex items-center justify-center text-[#F4B400]">
-              <BellIcon size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-[var(--text)]">Notifikasi</h2>
-              <p className="text-xs text-[var(--text-subtle)]">
-                Saluran notifikasi sistem
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <Toggle
-              checked={notifications.email}
-              onChange={(v) => setNotifications((p) => ({ ...p, email: v }))}
-              label="Notifikasi Email"
-            />
-            <Toggle
-              checked={notifications.sms}
-              onChange={(v) => setNotifications((p) => ({ ...p, sms: v }))}
-              label="Notifikasi SMS"
-            />
-            <Toggle
-              checked={notifications.push}
-              onChange={(v) => setNotifications((p) => ({ ...p, push: v }))}
-              label="Notifikasi Push"
-            />
-          </div>
-        </Card>
-
-        {/* Data */}
-        <Card>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--success-light)] rounded-xl flex items-center justify-center text-[#2ECC71]">
-              <DatabaseIcon size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-[var(--text)]">Data & Keamanan</h2>
-              <p className="text-xs text-[var(--text-subtle)]">
-                Manajemen data dan privasi
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-[var(--surface-2)] rounded-xl">
-              <div>
-                <p className="text-sm font-medium text-[var(--text)]">
-                  Cadangkan Data
-                </p>
-                <p className="text-xs text-[var(--text-subtle)]">Terakhir: 2 jam lalu</p>
-              </div>
-              <Button variant="secondary" size="sm">
-                Cadangkan
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-[var(--surface-2)] rounded-xl">
-              <div>
-                <p className="text-sm font-medium text-[var(--text)]">
-                  Hapus Data Pengguna
-                </p>
-                <p className="text-xs text-[var(--text-subtle)]">
-                  Hapus data setelah 30 hari nonaktif
-                </p>
-              </div>
-              <Button variant="danger" size="sm">
-                Hapus
-              </Button>
-            </div>
           </div>
         </Card>
       </div>

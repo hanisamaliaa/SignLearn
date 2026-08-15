@@ -34,8 +34,17 @@ export const STORAGE_KEYS = {
   USERS: "signlearn.users",
 };
 
-// Backend API base URL (fallback for local dev)
-export const API_DEFAULT_BASE_URL = "http://localhost:5000/api";
+/**
+ * Backend API base URL — cadangan bila VITE_API_BASE_URL tidak diisi.
+ *
+ * ⚠ Port di sini WAJIB sama dengan `PORT` di `backend/.env` (4788), dan URL-nya
+ * wajib memuat prefix versi `/api/v1`.
+ *
+ * Nilai ini sudah dua kali kembali ke port lama lewat merge. Karena ia hanya
+ * CADANGAN, kesalahannya tidak terlihat selama .env benar — lalu muncul tepat
+ * pada orang yang baru clone dan belum menyalin .env.
+ */
+export const API_DEFAULT_BASE_URL = "http://localhost:4788/api/v1";
 
 // Feature placeholders
 export const AI_SUBTITLE_PLACEHOLDER =

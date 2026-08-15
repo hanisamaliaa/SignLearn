@@ -7,6 +7,15 @@ build/
 .env
 .env.local
 .env.*.local
+
+# Salinan .env yang dibuat saat menyunting konfigurasi. Isinya sama persis
+# dengan .env — termasuk kata sandi database dan JWT secret — tetapi pola
+# `.env` di atas TIDAK menangkapnya, sehingga `git add -A` akan dengan senang
+# hati meng-commit rahasia yang baru saja kita jaga.
+.env.bak*
+.env.backup*
+*.env.bak
+
 !.env.example
 !**/.env.example
 .vite/
@@ -14,6 +23,7 @@ vite.config.*.timestamp-*
 *.tsbuildinfo
 *-debug.log*
 logs/
+.run-logs/
 *.log
 coverage/
 .DS_Store
@@ -25,8 +35,10 @@ ai/app/__pycache__/
 ai/training/__pycache__/
 ai/data/raw/**
 !ai/data/raw/.gitkeep
+ai/data/cache/**
 ai/data/splits/*.json
 ai/models/candidates/*.pkl
 ai/models/candidates/*.npz
+ai/models/external/**
 kaggle.json
 **/kaggle.json

@@ -26,6 +26,7 @@ import AdminLessons from "../pages/admin/Lessons";
 import AdminQuizzes from "../pages/admin/Quizzes";
 import AdminReports from "../pages/admin/Reports";
 import AdminSettings from "../pages/admin/AdminSettings";
+import AdminTranslations from "../pages/admin/Translations";
 
 export default function AppRoutes() {
   const { currentUser } = useApp();
@@ -112,6 +113,7 @@ export default function AppRoutes() {
             <Route path="/admin/courses" element={<AdminCourses />} />
             <Route path="/admin/lessons" element={<AdminLessons />} />
             <Route path="/admin/quizzes" element={<AdminQuizzes />} />
+            <Route path="/admin/translations" element={<AdminTranslations />} />
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
           </Route>

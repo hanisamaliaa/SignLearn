@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Card, Toggle, Button, Alert } from "../../components/ui/ui";
 import {
   BellIcon,
-  ShieldIcon,
   EyeIcon,
-  BookIcon,
 } from "../../components/ui/Icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -12,7 +10,6 @@ import { useSettings } from "../../context/SettingsContext";
 const THEMES = [
   { id: "light", label: "Terang", icon: "☀️" },
   { id: "dark", label: "Gelap", icon: "🌙" },
-  { id: "system", label: "Sistem", icon: "💻" },
 ];
 
 const NOTIFICATION_ITEMS = [
@@ -36,51 +33,26 @@ const NOTIFICATION_ITEMS = [
     label: "Laporan Mingguan",
     desc: "Ringkasan progress belajar setiap minggu",
   },
-  {
-    key: "email",
-    label: "Notifikasi Email",
-    desc: "Terima notifikasi penting via email",
-  },
-];
-
-const PRIVACY_ITEMS = [
-  {
-    key: "showProgress",
-    label: "Tampilkan Progress",
-    desc: "Izinkan platform menyimpan data progress Anda",
-  },
-  {
-    key: "showAchievements",
-    label: "Tampilkan Pencapaian",
-    desc: "Tampilkan pencapaian di profil publik",
-  },
-];
-
-const SECURITY_ITEMS = [
-  {
-    key: "twoFactor",
-    label: "Autentikasi Dua Faktor (2FA)",
-    desc: "Tambahkan lapisan keamanan ekstra",
-  },
-  {
-    key: "loginAlerts",
-    label: "Peringatan Login",
-    desc: "Notifikasi saat ada login dari perangkat baru",
-  },
 ];
 
 export default function Settings() {
-  const { theme, setTheme, fontSize, setFontSize, minFontSize, maxFontSize } =
-    useTheme();
+  const {
+    theme,
+    setTheme,
+    fontSize,
+    setFontSize,
+    minFontSize,
+    maxFontSize,
+    highContrast,
+    reducedMotion,
+    setHighContrast,
+    setReducedMotion,
+  } = useTheme();
   const {
     language,
     setLanguage,
     notifications,
     setNotification,
-    privacy,
-    setPrivacy,
-    security,
-    setSecurity,
     t,
   } = useSettings();
   const [saved, setSaved] = useState(false);
@@ -110,7 +82,7 @@ export default function Settings() {
         />
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-6">
         {/* Appearance */}
         <Card>
           <div className="flex items-center gap-3 mb-5">
@@ -135,7 +107,7 @@ export default function Settings() {
                 {t("settings.theme")}
               </label>
               <div
-                className="grid grid-cols-3 gap-2"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2"
                 role="radiogroup"
                 aria-labelledby="theme-label"
               >
@@ -207,6 +179,34 @@ export default function Settings() {
                 </span>
               </div>
             </div>
+            <div className="space-y-3 border-t border-[var(--border-light)] pt-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kontras tinggi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Membuat teks dan batas elemen lebih mudah dibedakan.
+                  </p>
+                </div>
+                <Toggle
+                  checked={highContrast}
+                  onChange={setHighContrast}
+                  ariaLabel="Kontras tinggi"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text)]">Kurangi animasi</p>
+                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
+                    Mengurangi gerakan dan transisi agar lebih nyaman.
+                  </p>
+                </div>
+                <Toggle
+                  checked={reducedMotion}
+                  onChange={setReducedMotion}
+                  ariaLabel="Kurangi animasi"
+                />
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -229,7 +229,7 @@ export default function Settings() {
             {NOTIFICATION_ITEMS.map((item) => (
               <div
                 key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
               >
                 <div>
                   <p className="text-sm font-medium text-[var(--text)]">
@@ -242,106 +242,13 @@ export default function Settings() {
                 <Toggle
                   checked={notifications[item.key]}
                   onChange={(v) => setNotification(item.key, v)}
-                  label={item.label}
+                  ariaLabel={item.label}
                 />
               </div>
             ))}
           </div>
         </Card>
 
-        {/* Privacy */}
-        <Card>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--success-light)] rounded-xl flex items-center justify-center text-[#2ECC71]">
-              <BookIcon size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-[var(--text)]">
-                {t("settings.privacy")}
-              </h2>
-              <p className="text-xs text-[var(--text-subtle)]">
-                {t("settings.privacy.desc")}
-              </p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            {PRIVACY_ITEMS.map((item) => (
-              <div
-                key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-[var(--text)]">
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-[var(--text-subtle)]">
-                    {item.desc}
-                  </p>
-                </div>
-                <Toggle
-                  checked={privacy[item.key]}
-                  onChange={(v) => setPrivacy(item.key, v)}
-                  label={item.label}
-                />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Security */}
-        <Card>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--danger-light)] rounded-xl flex items-center justify-center text-[#E74C3C]">
-              <ShieldIcon size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-[var(--text)]">
-                {t("settings.security")}
-              </h2>
-              <p className="text-xs text-[var(--text-subtle)]">
-                {t("settings.security.desc")}
-              </p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            {SECURITY_ITEMS.map((item) => (
-              <div
-                key={item.key}
-                className="flex items-center justify-between py-2 border-b border-[var(--border-light)] last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-[var(--text)]">
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-[var(--text-subtle)]">
-                    {item.desc}
-                  </p>
-                </div>
-                <Toggle
-                  checked={security[item.key]}
-                  onChange={(v) => setSecurity(item.key, v)}
-                  label={item.label}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 p-4 bg-[var(--surface-2)] rounded-xl">
-            <p className="text-xs font-semibold text-[var(--text-muted)] mb-1">
-              Sesi Aktif
-            </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[var(--text)]">Chrome · Windows</p>
-                <p className="text-xs text-[var(--text-subtle)]">
-                  Aktif sekarang · Jakarta, Indonesia
-                </p>
-              </div>
-              <span className="text-xs bg-[var(--success-light)] text-[#2ECC71] px-2 py-0.5 rounded-full font-medium">
-                Ini Anda
-              </span>
-            </div>
-          </div>
-        </Card>
       </div>
 
       <div className="flex justify-end">
