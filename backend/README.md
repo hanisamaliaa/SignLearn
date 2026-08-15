@@ -1,177 +1,454 @@
-# SignLearn Backend (REST API)
+# SignLearn Backend
 
-Node.js + Express REST API for the SignLearn BISINDO learning platform.
+REST API Node.js dan Express untuk autentikasi, konten pembelajaran, kuis, progres, dashboard, laporan, serta bank kata BISINDO.
 
-> **Status:** Architecture only. The API skeleton, JWT auth, RBAC, and MySQL
-> data layer are prepared. Database queries are **not** implemented yet — the
-> server boots without a live database.
+[Kembali ke dokumentasi utama](../README.md)
 
-## Tech Stack
+## Gambaran umum
 
-- **Node.js** + **Express** (ESM)
-- **MySQL** (`mysql2/promise`) — pool prepared, queries pending
-- **JWT** (`jsonwebtoken`) — access + refresh tokens
-- **bcryptjs** — password hashing
-- **RBAC** — `admin` / `user` roles
-- **helmet, cors, express-rate-limit, morgan** — hardening & tooling
+Backend menggunakan PostgreSQL sebagai sumber kebenaran untuk akun, sesi, kursus, pelajaran, kuis, progres, dan terjemahan. Server memvalidasi konfigurasi dan koneksi database saat start. Jika `DATABASE_URL` hilang atau PostgreSQL tidak dapat dijangkau, proses berhenti sebelum membuka port.
 
-## Features (architecture)
+API memakai prefix `/api/v1`; health check berada di luar prefix pada `/api/health`.
 
-- Authentication (register, login, refresh, forgot/reset password)
-- Users management (admin)
-- Courses / Lessons / Quizzes CRUD (admin)
-- Learning progress (sequential course lock)
-- User & Admin dashboard
-- Profile update (persists)
-- AI subtitle & AI quiz generator placeholders
+## Teknologi
 
-## Business Rules
+| Teknologi | Penggunaan |
+| --- | --- |
+| Node.js + Express 4 | Runtime dan HTTP framework |
+| PostgreSQL + `pg` | Penyimpanan dan transaction pool |
+| JWT (`jsonwebtoken`) | Access token bertanda tangan |
+| Opaque refresh token | Sesi jangka panjang, rotasi, dan reuse detection |
+| bcryptjs | Hash kata sandi |
+| cookie-parser | Refresh cookie `HttpOnly` |
+| helmet, cors | HTTP hardening dan cross-origin policy |
+| express-rate-limit | Rate limiter global dan autentikasi |
+| morgan | Request logging pada development |
+| nodemon | Development reload |
 
-- **Sequential course lock:** a lesson is unlocked only after the previous
-  lesson is completed and its quiz is passed.
-- **Minimum passing score = 70** (KKM).
-- **Quiz focus mode:** full-screen timer (5 min default).
-- **RBAC:** users cannot access admin routes and vice-versa.
+## Arsitektur
 
-## Getting Started
+```text
+HTTP request
+    ↓
+routes/          path, auth, RBAC, validation, rate limit
+    ↓
+controllers/     HTTP input/output dan status code
+    ↓
+services/        aturan bisnis dan transaksi
+    ↓
+repositories/    SQL berparameter
+    ↓
+PostgreSQL
+```
+
+Error dari seluruh lapisan diteruskan ke error middleware pusat dan diubah menjadi envelope API konsisten.
+
+## Struktur direktori
+
+```text
+backend/
+├── postman/             # Koleksi dan environment Postman
+├── scripts/             # HTTP/database smoke suites
+├── src/
+│   ├── config/          # Environment, cookie, dan pool database
+│   ├── constants/       # Error code stabil
+│   ├── controllers/     # HTTP handlers
+│   ├── database/        # Schema, migration, inspection, dan seed
+│   ├── middleware/      # Auth, RBAC, validation, rate limit, error
+│   ├── repositories/    # PostgreSQL data access
+│   ├── routes/          # Route registration
+│   ├── services/        # Business logic dan transaksi
+│   ├── utils/           # ApiError, response, crypto, pagination
+│   └── validators/      # Validator request per domain
+├── test/                # Unit test backend
+├── .env.example
+└── package.json
+```
+
+## Autentikasi dan sesi
+
+### Access token
+
+- JWT dikirim melalui `Authorization: Bearer <token>`.
+- TTL bawaan 900 detik.
+- Klaim memuat ID, email, dan peran.
+- Issuer dan audience diverifikasi saat token dibaca.
+
+### Refresh token
+
+- Token acak opaque; database hanya menyimpan hash SHA-256.
+- Browser menerima token melalui cookie `HttpOnly`.
+- Cookie dibatasi ke path `/api/v1/auth`.
+- Refresh token dirotasi setiap digunakan.
+- Penggunaan kembali token yang sudah dirotasi mencabut seluruh token dalam family yang sama.
+- Endpoint sesi memungkinkan pengguna melihat sesi dan logout dari seluruh perangkat.
+
+### Password
+
+- Password disimpan sebagai hash bcrypt.
+- Validator registrasi/perubahan password memeriksa panjang, kombinasi karakter, pola lemah, dan bagian identitas.
+- Login yang gagal dilacak per akun; akun dapat dikunci sementara sesuai konfigurasi.
+- Token reset password disimpan sebagai hash dan hanya dapat dipakai sekali.
+
+## Authorization
+
+Peran backend adalah:
+
+| Peran | Akses utama |
+| --- | --- |
+| `user` | Pembelajaran, progres, submit kuis, profil, dashboard sendiri |
+| `admin` | Administrasi pengguna/konten, laporan, statistik, bank kata |
+
+Registrasi publik membuat `user`. Middleware `authenticate`, `requireUser`, dan `requireAdmin` dipasang pada route yang relevan. Admin sengaja tidak dapat menulis progres atau submit kuis karena data tersebut hanya mewakili pembelajar.
+
+## Database
+
+### Entitas utama
+
+| Entitas | Fungsi |
+| --- | --- |
+| `roles`, `users` | Identitas, peran, profil, dan status akun |
+| `refresh_tokens` | Sesi, family rotation, revocation, dan expiry |
+| `password_reset_tokens` | Reset kata sandi sekali pakai |
+| `courses`, `lessons` | Struktur materi berurutan |
+| `quizzes`, `quiz_questions` | Kuis dan pertanyaan |
+| `lesson_progress`, `quiz_results` | Status belajar dan riwayat nilai |
+| `translations` | Bank kata, alias, gambar, dan video BISINDO |
+
+Foreign key memakai cascade atau set-null sesuai relasi. Kolom terstruktur seperti options dan answers memakai JSONB; aliases bank kata memakai array PostgreSQL.
+
+### Database baru
+
+`schema.sql` membuat struktur lengkap. Perintah membutuhkan `psql` dan
+`DATABASE_URL` pada environment shell; `psql` tidak membaca `backend/.env`
+secara otomatis:
 
 ```bash
-# 1. Install dependencies
-npm install
+cd backend
+export DATABASE_URL='postgresql://USER:PASSWORD@HOST:PORT/DATABASE'
+npm run db:schema
+npm run seed
+```
 
-# 2. Configure environment
-cp .env.example .env
-# edit .env: set DATABASE_URL and a JWT_ACCESS_SECRET of at least 32 chars
-#   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+### Database yang sudah berisi data
 
-# 3. Run the dev server (nodemon)
+`migrate.sql` adalah migrasi transaksional, idempoten, dan non-destruktif untuk menambah struktur yang belum tersedia:
+
+```bash
+cd backend
+export DATABASE_URL='postgresql://USER:PASSWORD@HOST:PORT/DATABASE'
+npm run db:migrate
+npm run seed
+```
+
+Jangan menjalankan `schema.sql` sebagai pengganti migrasi pada database yang harus dipertahankan tanpa meninjau dampaknya.
+
+### Seed administrator
+
+Seed membaca:
+
+- `SEED_ADMIN_EMAIL` — bawaan `admin@signlearn.local`;
+- `SEED_ADMIN_NAME` — bawaan `Administrator`;
+- `SEED_ADMIN_PASSWORD` — opsional.
+- `SEED_ALLOW_PRODUCTION` — override eksplisit yang harus bernilai `true` bila
+  seed memang sengaja dijalankan dengan `NODE_ENV=production`.
+
+Jika password kosong, script membuat password kuat dan menampilkannya satu kali. Tidak ada password admin bawaan yang disimpan di repository.
+
+## Environment variables
+
+Gunakan [`.env.example`](.env.example) sebagai sumber konfigurasi lengkap.
+
+### Runtime dan database
+
+| Variabel | Wajib | Fungsi |
+| --- | --- | --- |
+| `NODE_ENV` | Tidak | `development`, `test`, atau `production` |
+| `PORT` | Tidak | Port HTTP; template memakai `4788` |
+| `API_PREFIX` | Tidak | Prefix API; template memakai `/api/v1` |
+| `DATABASE_URL` | Ya | PostgreSQL connection string |
+| `DB_POOL_MAX` | Tidak | Maksimum koneksi pool |
+| `DB_SSL` | Tidak | Aktifkan SSL database |
+| `DB_SSL_REJECT_UNAUTHORIZED` | Tidak | Verifikasi sertifikat database |
+
+Untuk Supabase, template merekomendasikan transaction pooler port `6543`. Percent-encode karakter khusus pada password di dalam URL.
+
+### Token dan cookie
+
+| Variabel | Fungsi |
+| --- | --- |
+| `JWT_ACCESS_SECRET` | Secret HMAC minimal 32 karakter; wajib di production |
+| `JWT_ACCESS_TTL_SECONDS` | TTL access token |
+| `JWT_ISSUER`, `JWT_AUDIENCE` | Identitas penerbit dan audience JWT |
+| `REFRESH_TTL_DAYS` | Masa aktif refresh token |
+| `REFRESH_COOKIE_NAME` | Nama cookie refresh |
+| `COOKIE_SECURE` | Kirim cookie hanya melalui HTTPS |
+| `COOKIE_SAME_SITE` | SameSite cookie |
+| `COOKIE_DOMAIN` | Domain cookie opsional |
+
+Pada development, backend membuat JWT secret acak sementara jika `JWT_ACCESS_SECRET` kosong. Akibatnya seluruh sesi menjadi tidak valid setelah restart. Isi secret stabil untuk development berkelanjutan.
+
+### Keamanan, CORS, seed, dan feature flags
+
+| Variabel | Fungsi |
+| --- | --- |
+| `BCRYPT_ROUNDS` | Cost hash password |
+| `MAX_FAILED_LOGINS`, `LOCKOUT_MINUTES` | Kebijakan penguncian akun |
+| `PASSWORD_RESET_TTL_MINUTES` | Masa aktif token reset |
+| `CORS_ORIGINS` | Daftar origin frontend dipisahkan koma |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | Rate limit global |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, `SEED_ADMIN_PASSWORD` | Akun admin seed |
+| `SEED_ALLOW_PRODUCTION` | Izin eksplisit menjalankan seed di production |
+| `AI_SUBTITLE_ENABLED`, `AI_QUIZ_GENERATOR_ENABLED` | Feature flag placeholder AI admin |
+
+`CORS_ORIGINS` wajib di production. `COOKIE_SECURE` juga harus `true` pada deployment HTTPS.
+
+## Instalasi
+
+```bash
+npm --prefix backend install
+cp backend/.env.example backend/.env
+```
+
+Buat secret:
+
+```bash
+npm --prefix backend run gen:secret
+```
+
+Masukkan hasilnya ke `backend/.env`, bukan ke source code atau dokumentasi.
+
+## Menjalankan server
+
+Dari root:
+
+```bash
+npm run dev:backend
+```
+
+Atau dari `backend/`:
+
+```bash
 npm run dev
 ```
 
-The server starts on `http://localhost:4788` (or `PORT` from `.env`). It will
-report a warning if the database is unreachable but will **not** crash.
-
-> **Ports.** Backend `4788`, frontend `4789`. Deliberately outside the usual
-> 3000/4000/5000/8080 range. Port 5000 in particular is taken by AirPlay
-> Receiver on macOS, which answers with an unrelated 403 instead of refusing
-> the connection.
->
-> Change `PORT` here and you must also change `VITE_API_BASE_URL` in
-> `frontend/.env` and `CORS_ORIGINS` here — all three have to agree, or login
-> fails with an error that looks like a network or credential problem.
-
-## Project Structure
-
-```
-backend/
-└── src/
-    ├── app.js            # Express app assembly
-    ├── server.js         # Entry point
-    ├── config/           # env + database pool
-    ├── controllers/      # HTTP handlers
-    ├── middleware/       # auth, rbac, error, validation
-    ├── models/           # (future) entity models
-    ├── repositories/     # MySQL data access (placeholders)
-    ├── routes/           # route definitions
-    ├── services/         # business logic (placeholders)
-    ├── utils/            # ApiError, asyncHandler, responses
-    ├── validators/       # request validators
-    └── database/         # schema.sql + seed.js
-```
-
-## API Endpoints (planned)
-
-| Method              | Endpoint                               | Access              |
-| ------------------- | -------------------------------------- | ------------------- |
-| POST                | `/api/auth/register`                   | public              |
-| POST                | `/api/auth/login`                      | public              |
-| POST                | `/api/auth/refresh`                    | public              |
-| GET                 | `/api/auth/me`                         | user                |
-| GET/PUT             | `/api/users/profile`                   | user                |
-| GET/POST/PUT/DELETE | `/api/users`                           | admin               |
-| GET                 | `/api/courses`                         | user                |
-| GET                 | `/api/courses/:id`                     | user                |
-| GET/POST/PUT/DELETE | `/api/courses/:id/lessons`             | user/admin          |
-| GET/POST/PUT/DELETE | `/api/courses/:id/quizzes`             | user/admin          |
-| POST                | `/api/courses/:id/quizzes/:qid/submit` | user                |
-| GET/PUT             | `/api/progress`                        | user                |
-| GET                 | `/api/dashboard/me`                    | user                |
-| GET                 | `/api/dashboard/admin`                 | admin               |
-| GET                 | `/api/admin/stats`                     | admin               |
-| POST                | `/api/admin/ai/subtitles/:lessonId`    | admin (placeholder) |
-| POST                | `/api/admin/ai/quiz/:lessonId`         | admin (placeholder) |
-
-## Postman
-
-Koleksi resmi ada di [`postman/`](postman/) — 63 request yang mencakup **54 dari 54 rute**, lengkap dengan deskripsi, contoh respons, dan 238 assertion otomatis.
+Mode production:
 
 ```bash
-npx newman@6 run postman/SignLearn-API.postman_collection.json -e postman/SignLearn-Local.postman_environment.json --env-var "adminPassword=RAHASIA"
+npm --prefix backend start
 ```
 
-Lihat [`postman/README.md`](postman/README.md) untuk gerbang `runDestructive`, penanganan cookie refresh, dan jebakan identifier `data` di sandbox Postman.
+Dengan template environment, API tersedia pada `http://localhost:4788/api/v1` dan health check pada `http://localhost:4788/api/health`.
+
+## API overview
+
+Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check berada di bawah `/api/v1`.
+
+### Health dan authentication
+
+| Method | Endpoint | Deskripsi | Akses |
+| --- | --- | --- | --- |
+| GET | `/api/health` | Status server, database, uptime | Publik |
+| POST | `/auth/register` | Registrasi akun `user` | Publik |
+| POST | `/auth/login` | Login dan penerbitan sesi | Publik |
+| POST | `/auth/refresh` | Rotasi refresh token | Refresh cookie |
+| POST | `/auth/logout` | Cabut sesi saat ini | Refresh cookie bila ada |
+| POST | `/auth/forgot-password` | Buat permintaan reset | Publik |
+| POST | `/auth/reset-password` | Gunakan token reset | Publik |
+| GET | `/auth/me` | Pengguna aktif | Auth |
+| GET | `/auth/sessions` | Daftar sesi pengguna | Auth |
+| POST | `/auth/logout-all` | Cabut seluruh sesi | Auth |
+| POST | `/auth/change-password` | Ganti password aktif | Auth |
+
+### Users
+
+| Method | Endpoint | Deskripsi | Akses |
+| --- | --- | --- | --- |
+| GET, PUT | `/users/profile` | Baca/perbarui profil sendiri | Auth |
+| GET | `/users` | List/filter pengguna | Admin |
+| GET, PUT, DELETE | `/users/:id` | Detail, update, atau nonaktifkan pengguna | Admin |
+
+### Courses, lessons, quizzes, dan questions
+
+| Method | Endpoint | Deskripsi | Akses |
+| --- | --- | --- | --- |
+| GET | `/courses/categories` | Kategori kursus | Publik |
+| GET | `/courses` | List kursus; progres bila terautentikasi | Publik/opsional auth |
+| GET | `/courses/:id` | Detail kursus | Publik/opsional auth |
+| POST, PUT, DELETE | `/courses`, `/courses/:id` | CRUD kursus | Admin |
+| GET | `/courses/:courseId/lessons` | List pelajaran suatu kursus | Publik/opsional auth |
+| GET | `/courses/:courseId/lessons/:lessonId` | Detail pelajaran | Publik/opsional auth |
+| POST, PUT, DELETE | `/courses/:courseId/lessons[...]` | CRUD pelajaran bersarang | Admin |
+| PATCH | `/courses/:courseId/lessons/reorder` | Ubah urutan pelajaran | Admin |
+| GET | `/lessons/:id` | Detail pelajaran langsung | Publik/opsional auth |
+| POST, PUT, DELETE | `/lessons`, `/lessons/:id` | CRUD pelajaran datar untuk CMS | Admin |
+| GET | `/courses/:courseId/quizzes` | List kuis | Publik/opsional auth |
+| GET | `/courses/:courseId/quizzes/:quizId` | Detail kuis | Publik/opsional auth |
+| POST, PUT, DELETE | `/courses/:courseId/quizzes[...]` | CRUD kuis | Admin |
+| POST | `/courses/:courseId/quizzes/:quizId/submit` | Submit jawaban dan simpan hasil | User |
+| GET, POST | `/courses/:courseId/quizzes/:quizId/questions` | List/buat pertanyaan | Admin |
+| PUT, DELETE | `/courses/:courseId/quizzes/:quizId/questions/:questionId` | Update/hapus pertanyaan | Admin |
+| PATCH | `/courses/:courseId/quizzes/:quizId/questions/reorder` | Ubah urutan pertanyaan | Admin |
+
+`[...]` pada tabel adalah ringkasan pola route, bukan endpoint literal. Gunakan koleksi Postman atau source route untuk path lengkap.
+
+### Progress, dashboard, admin, dan translations
+
+| Method | Endpoint | Deskripsi | Akses |
+| --- | --- | --- | --- |
+| GET | `/progress` | Progres pengguna aktif | User |
+| GET | `/progress/courses/:courseId` | Status akses pelajaran | User |
+| PUT | `/progress/lessons/:lessonId` | Update progres pelajaran | User |
+| GET | `/dashboard/me` | Dashboard pembelajar | Auth |
+| GET | `/dashboard/admin` | Dashboard administrator | Admin |
+| GET | `/dashboard/admin/reports` | Laporan dengan filter tanggal | Admin |
+| GET | `/admin/stats` | Statistik admin | Admin |
+| GET | `/admin/activities` | Feed aktivitas | Admin |
+| GET | `/admin/quiz-results` | Hasil kuis lintas pengguna | Admin |
+| POST | `/admin/ai/subtitles/:lessonId` | Placeholder subtitle AI | Admin; `501` |
+| POST | `/admin/ai/quiz/:lessonId` | Placeholder generator kuis | Admin; `501` |
+| GET | `/translations/lookup` | Lookup kata/alias aktif | Publik |
+| GET | `/translations/categories` | Kategori bank kata | Publik/opsional auth |
+| GET | `/translations` | List/search/filter bank kata | Publik/opsional auth |
+| GET | `/translations/:id` | Detail terjemahan | Publik/opsional auth |
+| POST, PUT, DELETE | `/translations`, `/translations/:id` | CRUD bank kata | Admin |
+
+Dokumentasi request, example response, auth variables, dan skenario negatif tersedia di [panduan Postman](postman/README.md).
+
+## Validasi dan error handling
+
+Validator mengembalikan error per field sebelum controller dijalankan. Backend juga menerjemahkan error JWT, PostgreSQL, payload terlalu besar, dan JSON rusak menjadi respons yang stabil.
+
+Respons sukses:
+
+```json
+{
+  "success": true,
+  "message": "...",
+  "data": {}
+}
+```
+
+Respons error:
+
+```json
+{
+  "success": false,
+  "status": 422,
+  "code": "VALIDATION_FAILED",
+  "message": "Data yang dikirim tidak valid.",
+  "errors": [
+    { "field": "email", "message": "..." }
+  ]
+}
+```
+
+Stack trace hanya dapat disertakan pada error server di non-production dan tidak dikirim pada production.
+
+## Rate limiting
+
+Backend memiliki limiter global dan limiter khusus untuk:
+
+- login per IP;
+- login per email;
+- registrasi;
+- forgot password;
+- refresh token.
+
+Limiter dilewati ketika `NODE_ENV=test` agar smoke suite tidak saling mengganggu.
 
 ## Testing
 
-Seluruh test menembak API yang **benar-benar berjalan** lewat HTTP dan
-PostgreSQL sungguhan — tidak ada mock. Yang ingin dibuktikan justru bahwa
-Express, middleware, dan database bekerja sebagai satu kesatuan.
+### Unit test
 
 ```bash
-npm run smoke:all
+npm --prefix backend test
 ```
 
-| Perintah | Cakupan |
-|---|---|
-| `npm run smoke:auth` | Register, login, rotasi & deteksi pencurian refresh token, kebijakan kata sandi |
-| `npm run smoke:users` | Profil sendiri, admin CRUD, penjaga self-demote & admin terakhir (§7) |
-| `npm run smoke:content` | Courses, lessons, quizzes, progress, buka-kunci pelajaran (§8, §10.1-10.2) |
-| `npm run smoke:dashboard` | Dashboard pengguna & admin, laporan, feed aktivitas (§10.3-10.6) |
-| `npm run smoke:db` | Cakupan transaksi di tingkat repository — tidak dapat diuji lewat HTTP |
-| `npm run smoke:all` | Seluruhnya, berurutan |
+Test yang saat ini tersedia memeriksa validasi dan normalisasi bank kata tanpa database.
 
-**Prasyarat:**
+### Smoke suites
 
-1. Server berjalan — jalankan dengan **`NODE_ENV=test`**.
-2. Database sudah di-`npm run seed`.
-3. `SEED_ADMIN_PASSWORD` ada di environment (test admin membutuhkannya).
-
-> **Kenapa `NODE_ENV=test` untuk server.** Rate limiter register dibatasi
-> 3 pendaftaran per JAM per IP. Suite ini membuat lebih dari itu, jadi pada
-> server biasa ia berhenti di tengah dengan `429` — kegagalan yang terlihat
-> seperti bug padahal justru bukti limiternya bekerja. `NODE_ENV=test`
-> mematikan seluruh limiter (lihat `rateLimit.middleware.js`).
-
-### Menguji terhadap PostgreSQL throwaway
-
-Menjalankan test terhadap database pengembangan akan mengotorinya dengan akun
-dan kursus uji. Database sekali pakai lebih bersih:
+Smoke suites menembak server dan PostgreSQL nyata:
 
 ```bash
-docker run -d --name signlearn-test-db -e POSTGRES_PASSWORD=testpw -e POSTGRES_DB=signlearn -p 55433:5432 postgres:16-alpine
+npm --prefix backend run smoke:auth
+npm --prefix backend run smoke:users
+npm --prefix backend run smoke:content
+npm --prefix backend run smoke:dashboard
+npm --prefix backend run smoke:db
+npm --prefix backend run smoke:all
 ```
 
-Arahkan `DATABASE_URL` ke `postgresql://postgres:testpw@127.0.0.1:55433/signlearn`
-dengan `DB_SSL=false`, terapkan `src/database/schema.sql`, lalu `npm run seed`.
+Prasyarat:
 
-> **Git Bash di Windows.** Setel `MSYS2_ENV_CONV_EXCL='*'` sebelum menjalankan
-> server. Tanpa itu, MSYS mengubah `API_PREFIX=/api/v1` menjadi path Windows
-> (`C:/Program Files/Git/api/v1`) dan seluruh rute menjadi 404 tanpa satu pun
-> pesan error.
+1. Server berjalan dengan `NODE_ENV=test`.
+2. Database test sudah mendapat schema/migration dan seed.
+3. `SEED_ADMIN_PASSWORD` tersedia pada environment proses test.
 
-## Remaining Manual Tasks
+Gunakan PostgreSQL throwaway. Contoh lokal dengan Docker:
 
-1. **Rotasi kata sandi database Supabase** — kata sandi lama pernah muncul di
-   transkrip sesi. Project Settings → Database → Reset database password, lalu
-   perbarui `DATABASE_URL` di `.env`.
-2. Jalankan `npm run smoke:all` terhadap Supabase untuk memastikan paritas
-   dengan lingkungan produksi.
-3. Migrasikan frontend ke autentikasi baru: `withCredentials: true`, access
-   token di memori (bukan `localStorage`), dan interceptor respons yang
-   otomatis me-refresh saat menerima `TOKEN_EXPIRED`.
-4. Integrasikan layanan AI subtitle & pembuat kuis (§10.8). Endpoint-nya sudah
-   ada dan dijaga admin; keduanya membalas `501 NOT_IMPLEMENTED` sampai
-   bendera `AI_SUBTITLE_ENABLED` / `AI_QUIZ_GENERATOR_ENABLED` dinyalakan dan
-   `src/services/aiService.js` diisi.
-5. Modul Dictionary & Translate (§9) dan Practice (§10.9-10.10) belum ada —
-   termasuk tabelnya. `dashboard/me.practice` bernilai `null` sampai itu dibuat.
+```bash
+docker run -d --name signlearn-test-db \
+  -e POSTGRES_PASSWORD=testpw \
+  -e POSTGRES_DB=signlearn \
+  -p 55433:5432 \
+  postgres:16-alpine
+```
+
+Docker bukan dependency repository dan tidak ada `docker-compose.yml`; perintah di atas hanya contoh menyediakan database test eksternal.
+
+### Postman/Newman
+
+```bash
+cd backend
+npx newman@6 run postman/SignLearn-API.postman_collection.json \
+  -e postman/SignLearn-Local.postman_environment.json \
+  --env-var "adminPassword=RAHASIA"
+```
+
+Lihat [`postman/README.md`](postman/README.md) sebelum mengaktifkan request destruktif.
+
+## Troubleshooting
+
+### `DATABASE_URL wajib diisi`
+
+Pastikan file berada di `backend/.env` ketika server dijalankan dari `backend/`, atau ekspor variabel ke environment shell. Root `npm run dev` menjalankan npm dengan prefix backend sehingga dotenv membaca konfigurasi tersebut dari working directory backend.
+
+### Database tidak dapat dijangkau
+
+- Periksa host, port, nama database, dan password.
+- Percent-encode karakter khusus pada password URL.
+- Untuk Supabase bersama, gunakan transaction pooler port `6543`.
+- Sesuaikan `DB_SSL` dengan server PostgreSQL yang digunakan.
+
+### Login gagal karena CORS
+
+Pada production, pastikan `CORS_ORIGINS` memuat origin frontend secara tepat;
+`localhost` dan `127.0.0.1` adalah origin berbeda. Development menerima origin
+secara dinamis. Bila port backend berubah, perbarui juga
+`VITE_API_BASE_URL` frontend.
+
+### Sesi hilang setelah restart
+
+Isi `JWT_ACCESS_SECRET` stabil minimal 32 karakter. Secret acak development berubah setiap proses dimulai.
+
+### Smoke suite menerima `429`
+
+Jalankan server dengan `NODE_ENV=test`, bukan hanya proses smoke test. Rate limiter hidup di proses server.
+
+### Git Bash mengubah `/api/v1`
+
+Pada Git Bash Windows, set `MSYS2_ENV_CONV_EXCL='*'` sebelum menjalankan server agar `API_PREFIX=/api/v1` tidak dikonversi menjadi path Windows.
+
+## Status implementasi
+
+Backend akun, pengguna, kursus, pelajaran, kuis, progres, dashboard, laporan, dan translations telah memiliki route, controller, service, serta repository PostgreSQL. Dua endpoint AI administratif masih placeholder dan sengaja membalas `501`. Modul dictionary/practice/media/job yang disebut di panduan Postman belum tersedia sebagai route backend.
+
+## Dokumentasi terkait
+
+- [Dokumentasi utama](../README.md)
+- [Frontend](../frontend/README.md)
+- [AI](../ai/README.md)
+- [Postman](postman/README.md)
+- [Testing report](../TESTING_REPORT.md)
