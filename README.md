@@ -335,8 +335,8 @@ Lihat [dokumentasi AI](ai/README.md).
 
 ```bash
 npm run ai:download
-npm run ai:train
-npm run ai:evaluate
+npm run ai:download:mendeley
+npm run ai:download:talkee
 npm run ai:train:production
 ```
 

@@ -306,7 +306,10 @@ Contoh respons ketika tangan terdeteksi:
   "handsDetected": 2,
   "relevantHands": 2,
   "handSpan": 0.16,
-  "probabilities": { "A": 0.97, "B": 0.01 },
+  "probabilities": {
+    "A": 0.97,
+    "B": 0.01
+  },
   "secondLabel": "B",
   "margin": 0.96,
   "rejectionReason": null
