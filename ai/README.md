@@ -1,75 +1,67 @@
 # SignLearn BISINDO AI Service
 
-Layanan ini memisahkan inferensi BISINDO dari backend aplikasi. Browser
-mengirim frame JPEG, MediaPipe mengekstrak 126 koordinat landmark dari maksimal
-dua tangan, kemudian Random Forest mengembalikan huruf A-Z dan confidence.
+FastAPI service for conservative, realtime BISINDO alphabet recognition. The
+browser sends a JPEG frame, MediaPipe extracts up to two hands, geometry-v5
+builds 1,179 scale/translation-robust pose and contact features, and a calibrated
+RBF SVM returns one of A-Z plus an acceptance decision.
 
-## Persyaratan
-
-- Python 3.10-3.12 (disarankan 3.12; MediaPipe belum mendukung semua versi baru)
-- Model `models/rf_bisindo_99.pkl`
-
-## Menjalankan lokal
+## Run locally
 
 ```bash
 cd ai
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Periksa layanan melalui `http://localhost:8000/api/health`. Dokumentasi API
-interaktif tersedia di `http://localhost:8000/docs`.
+From the repository root, `npm run dev` starts the frontend and this service.
+Health metadata is available at `GET /api/health`.
 
-## Endpoint inferensi
+## Prediction API
 
-`POST /api/v1/predict` menerima isi gambar secara langsung dengan header
-`Content-Type: image/jpeg`. Respons:
+`POST /api/v1/predict` accepts an image body with `Content-Type: image/jpeg`.
 
 ```json
 {
   "detected": true,
+  "accepted": true,
   "label": "A",
-  "confidence": 0.94,
-  "handsDetected": 1,
-  "probabilities": { "A": 0.94, "B": 0.01 },
+  "confidence": 0.97,
+  "handsDetected": 2,
+  "relevantHands": 2,
+  "handSpan": 0.16,
+  "probabilities": { "A": 0.97, "B": 0.01 },
   "secondLabel": "B",
-  "margin": 0.93
+  "margin": 0.96,
+  "rejectionReason": null
 }
 ```
 
-Model hanya mengenali alfabet statis A-Z. Pemisahan kata dan stabilisasi hasil
-dilakukan oleh frontend. Seluruh probabilitas kelas dikirim agar frontend dapat
-melakukan EMA, voting mayoritas, dan menampilkan ranking hanya dalam debug mode.
+`detected` means MediaPipe saw a hand. Only `accepted: true` is allowed to enter
+the frontend temporal vote. Rejected reasons include `no_hands`,
+`hand_too_small`, `low_confidence`, and `low_margin`.
 
-## Dataset, training, dan evaluasi
+## Production evaluation
 
-Dataset publik yang digunakan adalah `achmadnoer/alfabet-bisindo` dari Kaggle.
-Tidak diperlukan `kaggle.json`; downloader memakai endpoint dataset publik.
+The default model is `models/bisindo_geometry_v5.pkl`. Its conservative
+signer-held-out accepted accuracy is 96.88% at 33.25% coverage; validation is
+99.42% at 45.41% coverage. Raw signer-test accuracy is 74.68%. The legacy model
+reaches only 5.97% on the same signer-test protocol.
+
+See [MODEL_RESEARCH.md](MODEL_RESEARCH.md) and
+[reports/production_v5.json](reports/production_v5.json) for the full audit,
+per-class metrics, rejected alternatives, licensing, and limitations.
+
+## Reproduce training
+
+Raw datasets and generated feature caches are intentionally ignored by Git.
+After downloading them, run the production training command from the repository
+root:
 
 ```bash
-cd ai
-source .venv/bin/activate
-python -m training.download_dataset --output data/raw
-python -m training.train \
-  --data "data/raw/Citra BISINDO" \
-  --manifest data/splits/manifest.json \
-  --output models/candidates \
-  --augmentations 12
-python -m training.evaluate \
-  --manifest data/splits/manifest.json \
-  --old-model models/rf_bisindo_99.pkl \
-  --new-model models/candidates/extra_trees_normalized.pkl \
-  --output reports/model_comparison.json
+npm run ai:train:production
 ```
 
-Pipeline membuat split dari 312 gambar asli terlebih dahulu. Hanya gambar
-train yang diaugmentasi. Validation dan test tidak disentuh. Augmentasi dibuat
-ringan untuk kondisi webcam dan tidak menggunakan horizontal flip. Model baru
-hanya boleh dipromosikan setelah `model_comparison.json` menunjukkan peningkatan
-yang layak pada test asli yang sama. Laporan evaluasi juga menyimpan distribusi
-confidence prediksi benar/salah dan grid kalibrasi confidence-margin.
-
-Untuk mengumpulkan validasi webcam dunia nyata, simpan gambar per kelas di
-`data/real_world/<LABEL>/`. Jangan masukkan direktori tersebut ke training.
+The final refit uses exactly 26 output classes. Talkee's seven word classes are
+never loaded.

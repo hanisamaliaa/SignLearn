@@ -79,7 +79,7 @@ The camera-to-text feature uses three independent layers:
 
 1. `frontend/` captures compressed webcam frames adaptively and stabilizes
    predictions with EMA smoothing plus a rolling 3-of-5 majority vote.
-2. `ai/` extracts MediaPipe landmarks and runs the BISINDO Random Forest model.
+2. `ai/` extracts MediaPipe geometry and runs a calibrated 26-class BISINDO SVM.
 3. `backend/` remains responsible for accounts, courses, quizzes, and progress;
    it is intentionally not coupled to high-frequency image inference.
 
@@ -116,9 +116,10 @@ acceptance paths, and duplicate-only release locking. Set
 telemetry and top-three predictions. Raw frame predictions never directly update
 the translation result.
 
-The model is stored in `ai/models/`. Training CSV files are intentionally not
-duplicated into this application because they are not needed for inference;
-the original dataset remains in the source ML project for retraining and audit.
+The production model is `ai/models/bisindo_geometry_v5.pkl`. It rejects
+uncertain frames before the frontend performs temporal voting. Detailed
+signer-held-out metrics and research decisions are documented in
+`ai/MODEL_RESEARCH.md`.
 
 The leakage-safe Kaggle retraining pipeline can be reproduced from the project
 root with:
@@ -127,6 +128,7 @@ root with:
 npm run ai:download
 npm run ai:train
 npm run ai:evaluate
+npm run ai:train:production
 ```
 
 Evaluation artifacts are written to `ai/reports/`. Candidate models stay under

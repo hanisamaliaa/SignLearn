@@ -23,6 +23,7 @@ vite.config.*.timestamp-*
 *.tsbuildinfo
 *-debug.log*
 logs/
+.run-logs/
 *.log
 coverage/
 .DS_Store
@@ -34,8 +35,10 @@ ai/app/__pycache__/
 ai/training/__pycache__/
 ai/data/raw/**
 !ai/data/raw/.gitkeep
+ai/data/cache/**
 ai/data/splits/*.json
 ai/models/candidates/*.pkl
 ai/models/candidates/*.npz
+ai/models/external/**
 kaggle.json
 **/kaggle.json

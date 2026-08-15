@@ -15,6 +15,7 @@ export const RejectionReason = Object.freeze({
   WAITING_RELEASE: "WAITING_RELEASE",
   COOLDOWN: "COOLDOWN",
   ROI_INVALID: "ROI_INVALID",
+  MODEL_REJECTED: "MODEL_REJECTED",
 });
 
 function rankProbabilities(probabilities) {
@@ -62,6 +63,19 @@ export class PredictionStabilizer {
       this.#observeRelease(now, true);
       this.state = DetectionState.NO_HAND;
       return this.#result(rawPrediction, { rejectionReason: RejectionReason.NO_HAND });
+    }
+
+    if (rawPrediction.accepted === false) {
+      // Rejected frames are uncertainty, not proof that the user released the
+      // sign. Keep the duplicate lock; an actual no-hand frame or a different
+      // stable letter still releases it.
+      this.#addHistory({ label: null, timestamp: now, probabilities: {} });
+      this.state = rawPrediction.rejectionReason === "low_margin"
+        ? DetectionState.UNKNOWN
+        : DetectionState.LOW_CONFIDENCE;
+      return this.#result(rawPrediction, {
+        rejectionReason: RejectionReason.MODEL_REJECTED,
+      });
     }
 
     const probabilities = rawPrediction.probabilities || {};
