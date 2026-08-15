@@ -1,135 +1,203 @@
 # SignLearn
 
-SignLearn is a capstone learning platform for structured, inclusive Indonesian Sign Language (BISINDO) education. The repository contains a React frontend, Node.js application backend, and a Python realtime BISINDO inference service.
+SignLearn adalah platform pembelajaran Bahasa Isyarat Indonesia (BISINDO) yang
+menggabungkan aplikasi React, REST API Node.js, dan layanan computer vision
+Python. Fitur kamera saat ini difokuskan pada pengenalan alfabet BISINDO `A-Z`
+secara realtime.
 
-## Repository structure
+## Komponen
 
 ```text
-CapstoneProject/
-├── frontend/          # React, Vite, and Tailwind CSS application
-│   ├── public/        # Static browser assets
-│   ├── scripts/       # Frontend maintenance scripts
-│   └── src/           # Components, pages, routes, services, and app state
-├── backend/           # Existing Node.js API
-├── ai/                # MediaPipe + Random Forest BISINDO inference API
-├── .figma/            # Figma Make project tooling
-└── README.md
+SignLearn/
+|-- frontend/   # React 19, Vite 8, Tailwind CSS 4
+|-- backend/    # REST API Node.js/Express
+|-- ai/         # FastAPI, MediaPipe, calibrated RBF SVM
+|-- scripts/    # runner lintas platform
+|-- package.json
+`-- README.md
 ```
 
-## Application architecture
+| Service | Port lokal | Fungsi |
+| --- | ---: | --- |
+| Backend | `4788` | Akun, konten belajar, kuis, dan progres |
+| Frontend | `4789` | UI pengguna dan administrator |
+| BISINDO AI | `8000` | Inferensi kamera alfabet A-Z |
 
-The frontend uses React 19, React Router, Tailwind CSS 4, and Vite 8. Its source is organized by responsibility:
+Arsitektur kamera sengaja tidak melewati backend aplikasi. Frontend mengirim
+frame terkompresi langsung ke layanan AI melalui proxy Vite saat development.
+Dengan demikian, request gambar berfrekuensi tinggi tidak membebani API akun dan
+konten.
 
-- `components/` contains reusable UI and layout components.
-- `pages/` contains complete user and administrator screens.
-- `routes/` defines navigation and role-protected routes.
-- `context/` manages authentication, theme, settings, and learning state.
-- `services/` and `utils/` isolate data access and shared application logic.
-- `data/` contains mock content used when API mock mode is enabled.
+## Prasyarat
 
-User profiles, learning progress, quiz results, and settings are isolated by user ID. The local-storage repository seeds demo accounts without replacing registered users, persists user-specific state across refreshes, and clears only the active session during logout. This abstraction is intended to allow the frontend to transition to the backend API without coupling UI components to storage.
-
-The application has two authorization roles: learner and administrator. Registration creates learner accounts only, while protected routes prevent either role from accessing the other role's portal. Lessons are sequential: the next lesson remains locked until the current lesson and its quiz are completed with a minimum score of 70.
-
-## Prerequisites
-
-- Node.js 24 (managed by `.mise.toml` when using mise)
+- Node.js `24`
 - npm
+- Python `3.12`
+- Kamera browser untuk mencoba pengenalan BISINDO
+- Konfigurasi database sesuai [`backend/README.md`](backend/README.md) apabila
+  ingin memakai seluruh fitur backend
 
-## Frontend setup
+Versi Node dapat dikelola menggunakan konfigurasi `.mise.toml` di repository.
 
-From the repository root:
+## Setup pertama
+
+Install dependency JavaScript dari root repository:
 
 ```bash
-cd frontend
 npm install
+npm --prefix frontend install
+npm --prefix backend install
 ```
 
-Copy the example environment file if custom API settings are needed:
+Siapkan virtual environment AI.
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv ai\.venv
+ai\.venv\Scripts\python.exe -m pip install --upgrade pip
+ai\.venv\Scripts\python.exe -m pip install -r ai\requirements.txt
+Copy-Item ai\.env.example ai\.env
+```
+
+macOS/Linux:
 
 ```bash
-cp .env.example .env.local
+python3.12 -m venv ai/.venv
+ai/.venv/bin/python -m pip install --upgrade pip
+ai/.venv/bin/python -m pip install -r ai/requirements.txt
+cp ai/.env.example ai/.env
 ```
 
-## Frontend development
+Untuk konfigurasi frontend/backend, salin `.env.example` masing-masing sesuai
+petunjuk di folder tersebut. Jangan commit file `.env`.
 
-```bash
-cd frontend
-npm run dev
-```
+## Menjalankan aplikasi
 
-The Vite server listens on `PORT` when set and otherwise uses port `5173`.
-
-## Frontend build
-
-```bash
-cd frontend
-npm run build
-```
-
-The production output is written to `frontend/dist/`.
-
-## Backend
-
-The existing Express API skeleton, planned endpoints, environment setup, and implementation status are documented in [`backend/README.md`](backend/README.md).
-
-## Realtime BISINDO camera recognition
-
-The camera-to-text feature uses three independent layers:
-
-1. `frontend/` captures compressed webcam frames adaptively and stabilizes
-   predictions with EMA smoothing plus a rolling 3-of-5 majority vote.
-2. `ai/` extracts MediaPipe geometry and runs a calibrated 26-class BISINDO SVM.
-3. `backend/` remains responsible for accounts, courses, quizzes, and progress;
-   it is intentionally not coupled to high-frequency image inference.
-
-Siapkan virtual environment AI satu kali:
-
-```bash
-cd ai
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-```
-
-Setelah itu backend, frontend, dan layanan AI dapat dijalankan bersama dari satu terminal:
+Jalankan ketiga service dari root:
 
 ```bash
 npm run dev
 ```
 
-Perintah tersebut menghentikan kedua proses bersama saat `Ctrl+C` ditekan.
-Untuk menjalankannya secara terpisah tetap tersedia `npm run dev:frontend` dan
-`npm run dev:ai`.
+Runner akan menghentikan service lain jika salah satu service gagal. Tekan
+`Ctrl+C` untuk menghentikan semuanya.
 
-Open `http://localhost:4789`, choose **Kamera → Teks**, and grant camera
-permission. Hold a sign briefly until it is stable. Different letters can be
-signed directly; repeating the same letter needs a brief release/change signal.
-Spaces are added explicitly with the **Tambah spasi** button.
+Service juga dapat dijalankan terpisah:
 
-Recognition tuning is available through the `VITE_BISINDO_*` values documented
-in `frontend/.env.example`. The realtime pipeline applies probability smoothing,
-a rolling majority window, adaptive top-1/top-2 margin filtering, fast/normal
-acceptance paths, and duplicate-only release locking. Set
-`VITE_BISINDO_DEBUG=true` in `frontend/.env.local` to display per-inference
-telemetry and top-three predictions. Raw frame predictions never directly update
-the translation result.
+```bash
+npm run dev:backend
+npm run dev:frontend
+npm run dev:ai
+```
 
-The production model is `ai/models/bisindo_geometry_v5.pkl`. It rejects
-uncertain frames before the frontend performs temporal voting. Detailed
-signer-held-out metrics and research decisions are documented in
-`ai/MODEL_RESEARCH.md`.
+URL development:
 
-The leakage-safe Kaggle retraining pipeline can be reproduced from the project
-root with:
+- aplikasi: <http://localhost:4789>
+- backend: <http://localhost:4788>
+- AI health: <http://localhost:8000/api/health>
+- dokumentasi AI: <http://localhost:8000/docs>
+
+## Mencoba kamera BISINDO
+
+1. Jalankan frontend dan AI, atau gunakan `npm run dev`.
+2. Buka <http://localhost:4789>.
+3. Scroll ke penerjemah **Kamera -> Teks**.
+4. Klik **Aktifkan Kamera** dan izinkan akses kamera.
+5. Pastikan tangan terlihat penuh, cukup dekat, dan pencahayaan merata.
+6. Tahan satu huruf hingga hasil stabil.
+
+Untuk mengulang huruf yang sama, lepaskan atau ubah bentuk tangan sebentar
+sebelum memperagakan huruf itu lagi. Spasi ditambahkan dengan tombol
+**Tambah spasi**.
+
+Pipeline realtime menggunakan:
+
+1. MediaPipe hand landmark detection;
+2. 1.179 fitur geometry-v5;
+3. calibrated 26-class RBF SVM;
+4. confidence dan top-1/top-2 margin rejection;
+5. EMA smoothing serta rolling temporal vote di frontend.
+
+Prediksi mentah tidak pernah langsung menjadi karakter. Hanya response AI dengan
+`accepted: true` yang dapat masuk ke voting frontend.
+
+Model default adalah `ai/models/bisindo_geometry_v5.pkl`. Pada frozen
+signer-test, raw accuracy-nya `74,68%`; setelah rejection threshold, accepted
+accuracy `96,88%` dengan coverage `33,25%` dari frame terdeteksi. Angka terakhir
+merupakan trade-off presisi terhadap coverage, bukan akurasi seluruh frame.
+
+Dokumentasi teknis lengkap:
+
+- [`ai/README.md`](ai/README.md): instalasi, API, test, konfigurasi, training,
+  troubleshooting, dan deployment.
+- [`ai/MODEL_RESEARCH.md`](ai/MODEL_RESEARCH.md): audit model publik, evaluasi,
+  keputusan arsitektur, dan batasan.
+- [`ai/reports/production_v5.json`](ai/reports/production_v5.json): laporan
+  evaluasi machine-readable.
+
+## Konfigurasi frontend AI
+
+Variable pengenalan kamera didokumentasikan di
+[`frontend/.env.example`](frontend/.env.example). Saat development,
+`VITE_BISINDO_AI_URL` sebaiknya kosong agar request memakai proxy Vite:
+
+```text
+/bisindo-ai/predict -> http://127.0.0.1:8000/api/v1/predict
+```
+
+Untuk melihat telemetry top-3 prediction, smoothing, confidence, dan margin:
+
+```dotenv
+VITE_BISINDO_DEBUG=true
+```
+
+## Build dan test
+
+Frontend:
+
+```bash
+npm --prefix frontend test
+npm --prefix frontend run lint
+npm --prefix frontend run build
+```
+
+AI di Windows:
+
+```powershell
+ai\.venv\Scripts\python.exe -m unittest discover -s ai/tests -v
+```
+
+AI di macOS/Linux:
+
+```bash
+ai/.venv/bin/python -m unittest discover -s ai/tests -v
+```
+
+Backend memiliki smoke test HTTP dan database tersendiri. Lihat bagian Testing
+di [`backend/README.md`](backend/README.md) karena test tersebut memerlukan
+environment serta database khusus.
+
+## Reproduksi model AI
+
+Dataset mentah dan cache tidak disimpan di Git. Untuk mengunduh ketiga dataset
+publik dan melatih ulang model produksi:
 
 ```bash
 npm run ai:download
-npm run ai:train
-npm run ai:evaluate
+npm run ai:download:mendeley
+npm run ai:download:talkee
 npm run ai:train:production
 ```
 
-Evaluation artifacts are written to `ai/reports/`. Candidate models stay under
-`ai/models/candidates/`; the production model is not replaced automatically.
+Perintah terakhir membuat signer-group holdout, memilih hyperparameter dari
+validation group, mengevaluasi frozen test group, kemudian melakukan final refit
+menggunakan seluruh data publik. Detail dataset, lisensi, output, dan peringatan
+overwrite tersedia di [`ai/README.md`](ai/README.md).
+
+## Catatan privasi
+
+Frame kamera dipakai untuk inferensi dan tidak disimpan oleh implementasi ini.
+Jika telemetry atau pengumpulan data ditambahkan di kemudian hari, minta
+persetujuan eksplisit pengguna, hindari data identitas, dan dokumentasikan masa
+retensi serta prosedur penghapusan.
