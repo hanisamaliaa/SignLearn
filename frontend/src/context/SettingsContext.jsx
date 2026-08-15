@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo } from "react";
 import { useApp } from "./app";
 
+// "id" adalah satu-satunya bahasa yang didukung.
 const DEFAULT_SETTINGS = {
   language: "id",
   notifications: {
@@ -20,8 +21,9 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-// i18n-ready dictionary. Currently "id" is fully translated; "en" is a
-// minimal placeholder structure ready for future expansion.
+// Bahasa Indonesia adalah satu-satunya bahasa yang didukung aplikasi ini.
+// (Pilihan "en" sebelumnya dihapus karena terjemahannya belum lengkap dan
+// tampil campur-campur di UI.)
 const MESSAGES = {
   id: {
     "settings.title": "Pengaturan",
@@ -45,34 +47,12 @@ const MESSAGES = {
     "settings.security.desc": "Lindungi akun Anda",
     "settings.save": "Simpan Semua Pengaturan",
   },
-  en: {
-    "settings.title": "Settings",
-    "settings.subtitle": "Customize the application to your preferences",
-    "settings.saved": "Settings saved successfully!",
-    "settings.appearance": "Appearance",
-    "settings.appearance.desc": "Theme and interface language",
-    "settings.theme": "Theme",
-    "settings.theme.light": "Light",
-    "settings.theme.dark": "Dark",
-    "settings.theme.system": "System",
-    "settings.language": "Language",
-    "settings.fontSize": "Font Size",
-    "settings.fontSize.small": "Small",
-    "settings.fontSize.large": "Large",
-    "settings.notifications": "Notifications",
-    "settings.notifications.desc": "Manage your notification preferences",
-    "settings.privacy": "Privacy",
-    "settings.privacy.desc": "Control the information you share",
-    "settings.security": "Account Security",
-    "settings.security.desc": "Protect your account",
-    "settings.save": "Save All Settings",
-  },
 };
 
 function sanitizeSettings(raw) {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   return {
-    language: raw.language === "en" ? "en" : "id",
+    language: "id",
     notifications: {
       ...DEFAULT_SETTINGS.notifications,
       ...raw.notifications,
@@ -103,12 +83,10 @@ export function SettingsProvider({ children }) {
     [currentUser, updateUserSettings],
   );
 
-  const setLanguage = useCallback(
-    (language) => {
-      persist({ language: language === "en" ? "en" : "id" });
-    },
-    [persist],
-  );
+  const setLanguage = useCallback(() => {
+    // Hanya "id" yang didukung; dipertahankan agar pemanggil lama tidak error.
+    persist({ language: "id" });
+  }, [persist]);
 
   const setNotification = useCallback(
     (key, value) => {

@@ -13,10 +13,7 @@ import {
   LockIcon,
 } from "../../components/ui/Icons";
 
-const GENERAL_OPTIONS = [
-  { value: "id", label: "Bahasa Indonesia" },
-  { value: "en", label: "English" },
-];
+const GENERAL_OPTIONS = [{ value: "id", label: "Bahasa Indonesia" }];
 
 export default function AdminSettings() {
   const [saved, setSaved] = useState(false);
