@@ -92,9 +92,28 @@ export default function Courses() {
           <p>Temukan kursus BISINDO yang ingin kamu pelajari hari ini.</p>
         </div>
         <div className="courses-intro-progress">
-          <span>Progress hari ini</span>
-          <strong>3 / 4 Pelajaran</strong>
-          <div><span style={{ width: "75%" }} /></div>
+          <span>Progress keseluruhan</span>
+          <strong>
+            {COURSES.reduce((sum, course) => sum + (course.completedLessons ?? 0), 0)} /{" "}
+            {COURSES.reduce((sum, course) => sum + (course.totalLessons ?? 0), 0)} Pelajaran
+          </strong>
+          <div>
+            <span
+              style={{
+                width: `${(() => {
+                  const total = COURSES.reduce(
+                    (sum, course) => sum + (course.totalLessons ?? 0),
+                    0
+                  );
+                  const completed = COURSES.reduce(
+                    (sum, course) => sum + (course.completedLessons ?? 0),
+                    0
+                  );
+                  return total ? Math.round((completed / total) * 100) : 0;
+                })()}%`,
+              }}
+            />
+          </div>
         </div>
       </section>
 

@@ -18,16 +18,6 @@ import {
   StarIcon,
 } from "../../components/ui/Icons";
 
-const WEEK = [
-  { day: "Sen", value: 34, lessons: 1 },
-  { day: "Sel", value: 48, lessons: 2 },
-  { day: "Rab", value: 67, lessons: 3 },
-  { day: "Kam", value: 82, lessons: 4 },
-  { day: "Jum", value: 55, lessons: 2 },
-  { day: "Sab", value: 28, lessons: 1 },
-  { day: "Min", value: 18, lessons: 1 },
-];
-
 const PROFILE_LABEL = {
   parent: "Orang Tua",
   deaf: "Pelajar Tunarungu",
@@ -48,7 +38,7 @@ export default function UserDashboard() {
   const navigate = useNavigate();
 
   const [showAllLessons, setShowAllLessons] = useState(false);
-  const [activeDay, setActiveDay] = useState(3);
+  const [activeDay, setActiveDay] = useState(() => (new Date().getDay() + 6) % 7);
 
   const COURSES = courses ?? [];
   const QUIZ_HISTORY = quizHistory ?? [];
@@ -121,16 +111,42 @@ export default function UserDashboard() {
   /**
    * Quiz statistics.
    */
-  const passedQuizzes = QUIZ_HISTORY.filter((quiz) => quiz.passed);
-
-  const avgScore = passedQuizzes.length
+  // API dashboard hanya menyediakan kuis terbaru, bukan seluruh riwayat.
+  // Karena itu statistik ini sengaja diberi konteks "kuis terakhir" agar tidak
+  // mengklaim jumlah yang tidak tersedia dari backend.
+  const avgScore = QUIZ_HISTORY.length
     ? Math.round(
-        passedQuizzes.reduce(
-          (sum, quiz) => sum + (quiz.score ?? 0),
-          0
-        ) / passedQuizzes.length
+        QUIZ_HISTORY.reduce((sum, quiz) => sum + (Number(quiz.score) || 0), 0) /
+          QUIZ_HISTORY.length
       )
     : 0;
+
+  // Tanpa mengubah backend, gunakan `lastAccessedAt` dari progress kursus
+  // sebagai aktivitas belajar yang benar-benar tersedia di frontend.
+  // Satu kursus hanya dihitung sekali pada hari akses terakhirnya.
+  const todayIndex = (new Date().getDay() + 6) % 7;
+  const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+  const weekActivity = (() => {
+    const counts = Array(7).fill(0);
+    const now = new Date();
+
+    for (const course of COURSES) {
+      if (!course.lastAccessedAt) continue;
+      const accessed = new Date(course.lastAccessedAt);
+      if (Number.isNaN(accessed.getTime())) continue;
+      const diffDays = Math.floor((now - accessed) / 86400000);
+      if (diffDays >= 0 && diffDays < 7) {
+        counts[(todayIndex - diffDays + 7) % 7] += 1;
+      }
+    }
+
+    const peak = Math.max(1, ...counts);
+    return counts.map((count, index) => ({
+      day: DAYS[index],
+      count,
+      percent: count ? Math.max(12, Math.round((count / peak) * 100)) : 4,
+    }));
+  })();
 
   /**
    * Fungsi untuk melanjutkan pelajaran dari data server.
@@ -175,12 +191,12 @@ export default function UserDashboard() {
           type="button"
           className="user-goal-pill"
           onClick={() => navigate("/progress")}
+          title="Lihat progress belajar"
         >
           <span className="user-goal-star">★</span>
-
           <span>
-            <strong>Target harian</strong>
-            <small>3 / 4 pelajaran</small>
+            <strong>Progress belajar</strong>
+            <small>{overallPct}% dari seluruh pelajaran</small>
           </span>
         </button>
       </section>
@@ -194,7 +210,7 @@ export default function UserDashboard() {
 
           <div className="user-welcome-avatar-wrap">
             <SignLearnAvatar
-              id={currentUser?.profile?.avatar}
+              id={currentUser?.avatar}
               size="xl"
             />
 
@@ -213,7 +229,7 @@ export default function UserDashboard() {
 
               <span className="user-chip user-chip-green">
                 <StarIcon size={13} />
-                {avgScore}% rata-rata kuis
+                {avgScore}% rata-rata 5 kuis terakhir
               </span>
             </div>
 
@@ -250,19 +266,16 @@ export default function UserDashboard() {
 
               <div className="user-level-labels">
                 <span>
-                  Level{" "}
-                  {Math.max(
-                    1,
-                    Math.ceil(overallPct / 25)
-                  )}
+                  Level {Math.min(4, Math.floor(overallPct / 25) + 1)}
                 </span>
 
                 <span>
-                  {Math.min(
-                    100,
-                    overallPct + 25
-                  )}
-                  % menuju level berikutnya
+                  {overallPct >= 100
+                    ? "Level maksimum"
+                    : `${Math.max(
+                        0,
+                        ((Math.floor(overallPct / 25) + 1) * 25) - overallPct
+                      )}% menuju level berikutnya`}
                 </span>
               </div>
             </div>
@@ -344,27 +357,28 @@ export default function UserDashboard() {
             className="user-activity-chart"
             aria-label="Grafik aktivitas belajar minggu ini"
           >
-            {WEEK.map((item, index) => {
+            {weekActivity.map((item, index) => {
               const active = activeDay === index;
 
               return (
                 <button
                   key={item.day}
                   type="button"
-                  className={`user-bar-column ${
+                  className={`user-bar-column transition-transform duration-200 hover:-translate-y-1 ${
                     active ? "is-active" : ""
                   }`}
                   onClick={() => setActiveDay(index)}
                   aria-pressed={active}
+                  title={`${item.day}: ${item.count} kursus diakses`}
                 >
                   <span className="user-bar-value">
-                    {item.lessons} pelajaran
+                    {item.count} kursus
                   </span>
 
                   <span className="user-bar-area">
                     <span
                       style={{
-                        height: `${item.value}%`,
+                        height: `${item.percent}%`,
                       }}
                     />
                   </span>
@@ -380,11 +394,11 @@ export default function UserDashboard() {
           <div className="user-activity-summary">
             <span>
               <strong>
-                {WEEK[activeDay].day}
+                {weekActivity[activeDay].day}
               </strong>{" "}
-              kamu belajar{" "}
+              kamu mengakses{" "}
               <strong>
-                {WEEK[activeDay].lessons} pelajaran
+                {weekActivity[activeDay].count} kursus
               </strong>
               .
             </span>
@@ -403,7 +417,7 @@ export default function UserDashboard() {
           <div className="user-panel-heading">
             <div>
               <h3>Distribusi Nilai Kuis</h3>
-              <p>Ringkasan hasil kuis kamu.</p>
+              <p>Berdasarkan kuis terbaru yang tersedia.</p>
             </div>
 
             <span className="user-panel-icon yellow">
