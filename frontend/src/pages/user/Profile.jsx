@@ -41,12 +41,6 @@ import { normalizeError } from "../../services/api";
  *    seluruh riwayat.
  */
 
-const PROFILE_LABELS = {
-  parent: "Orang Tua dengan Anak Tunarungu",
-  deaf: "Penyandang Tunarungu/Gangguan Pendengaran",
-  general: "Pelajar Umum",
-};
-
 const PROFILE_OPTIONS = [
   { id: "parent", label: "Orang Tua", emoji: "👨‍👩‍👧" },
   { id: "deaf", label: "Tunarungu", emoji: "🤟" },
@@ -240,9 +234,6 @@ export default function Profile() {
             <p className="mt-0.5 text-sm text-[var(--text-muted)]">
               {currentUser?.email}
             </p>
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[var(--primary-light)] px-3 py-1.5 text-xs font-bold text-[var(--primary)]">
-              {PROFILE_LABELS[currentUser?.profileType || "general"]}
-            </div>
           </Card>
 
           <Card className="border-[#d4e0e7]">

@@ -74,12 +74,14 @@ export default function UserDashboard() {
   /**
    * Data progress keseluruhan.
    */
-  const completedLessons = COURSES.reduce(
+  const AVAILABLE_COURSES = COURSES.filter((course) => !course.isLocked);
+
+  const completedLessons = AVAILABLE_COURSES.reduce(
     (total, course) => total + (course.completedLessons ?? 0),
     0
   );
 
-  const totalLessons = COURSES.reduce(
+  const totalLessons = AVAILABLE_COURSES.reduce(
     (total, course) => total + (course.totalLessons ?? 0),
     0
   );
@@ -87,6 +89,23 @@ export default function UserDashboard() {
   const overallPct = totalLessons
     ? Math.round((completedLessons / totalLessons) * 100)
     : 0;
+
+  // Apresiasi berubah mengikuti jumlah pelajaran yang benar-benar selesai.
+  // Ini murni presentasi frontend; tidak mengubah data atau backend.
+  const encouragement = completedLessons < 4
+    ? {
+        title: "Yuk mulai petualangan!",
+        copy: "Setiap pelajaran adalah satu langkah kecil menuju makin jago.",
+      }
+    : completedLessons < 8
+      ? {
+          title: "Wow, kamu hebat!",
+          copy: "Progress-mu sudah mulai terlihat. Pertahankan semangat belajarmu!",
+        }
+      : {
+          title: "Luar biasa, kamu makin jago!",
+          copy: "Kamu sudah melangkah jauh. Siap menaklukkan level berikutnya?",
+        };
 
   const activeCourses = COURSES.filter(
     (course) =>
@@ -142,12 +161,9 @@ export default function UserDashboard() {
       {/* ================= HERO ================= */}
       <section className="user-dashboard-hero">
         <div>
-          <p className="user-eyebrow">
-            SIGNLEARN • AREA BELAJAR
-          </p>
 
           <h1 className="user-welcome-title">
-            Hai, {firstName}! 👋
+            Hai, {firstName}! 
           </h1>
 
           <p className="user-welcome-copy">
@@ -201,15 +217,14 @@ export default function UserDashboard() {
               </span>
             </div>
 
-            <h2>Wow, kamu hebat!</h2>
+            <h2>{encouragement.title}</h2>
 
             <p>
-              Kamu sudah menyelesaikan{" "}
+              {encouragement.copy} Kamu sudah menyelesaikan{" "}
               <strong>
                 {completedLessons} dari {totalLessons}
               </strong>{" "}
-              pelajaran. Teruskan perjalananmu sampai level
-              berikutnya.
+              pelajaran.
             </p>
 
             <div

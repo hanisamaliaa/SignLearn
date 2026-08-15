@@ -1,18 +1,11 @@
 import { useState } from "react";
-import {
-  Card,
-  Badge,
-  EmptyState,
-  ProgressBar,
-  StatCard,
-} from "../../components/ui/ui";
+import { Card, Badge, ProgressBar, StatCard } from "../../components/ui/ui";
 import { useApp } from "../../context/app";
 import {
   TrophyIcon,
   ChartIcon,
   FireIcon,
   StarIcon,
-  BookIcon,
 } from "../../components/ui/Icons";
 
 const TABS = [
@@ -51,11 +44,16 @@ export default function Progress() {
 
   const COURSES = courses ?? [];
   const QUIZ_HISTORY = quizHistory ?? [];
-  const BADGES = badges ?? [];
-  const activeCourses = COURSES.filter((course) => !course.isLocked);
+  const AVAILABLE_COURSES = COURSES.filter((course) => !course.isLocked);
 
-  const totalLessons = COURSES.reduce((s, c) => s + c.totalLessons, 0);
-  const completedLessons = COURSES.reduce((s, c) => s + c.completedLessons, 0);
+  const totalLessons = AVAILABLE_COURSES.reduce(
+    (s, c) => s + (c.totalLessons ?? 0),
+    0,
+  );
+  const completedLessons = AVAILABLE_COURSES.reduce(
+    (s, c) => s + (c.completedLessons ?? 0),
+    0,
+  );
   const avgScore = QUIZ_HISTORY.length
     ? Math.round(
         QUIZ_HISTORY.reduce((s, q) => s + q.score, 0) / QUIZ_HISTORY.length,
@@ -89,8 +87,24 @@ export default function Progress() {
     ? Math.round((completedLessons / totalLessons) * 100)
     : 0;
 
+  // Pesan apresiasi mengikuti jumlah pelajaran selesai. Murni UI/frontend.
+  const encouragement = completedLessons < 4
+    ? {
+        title: "Baru dimulai!",
+        copy: "Setiap pelajaran adalah satu langkah kecil menuju makin jago.",
+      }
+    : completedLessons < 8
+      ? {
+          title: "Meningkat Pesat!",
+          copy: "Progress-mu sudah mulai terlihat. Pertahankan semangat belajarmu!",
+        }
+      : {
+          title: "Luar biasa!",
+          copy: "Kamu sudah melangkah jauh. Siap menaklukkan level berikutnya?",
+        };
+
   return (
-    <div className="progress-page space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-[var(--text)]">
           Progress Belajar
@@ -101,26 +115,26 @@ export default function Progress() {
       </div>
 
       {/* Overall progress */}
-      <Card className="progress-hero relative overflow-hidden">
-        <div className="progress-hero-orb is-yellow" aria-hidden="true" />
-        <div className="progress-hero-orb is-blue" aria-hidden="true" />
+      <Card className="relative overflow-hidden border-[#c9dceb] bg-[#fffdf3]">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#ffe8a6]/70" />
+        <div className="absolute -bottom-16 left-8 h-32 w-32 rounded-full bg-[#dff3ff]" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="progress-hero-kicker mb-1 text-sm font-bold">Progress belajar</p>
-            <h2 className="progress-hero-title text-3xl font-extrabold sm:text-4xl">
-              Meningkat pesat! 
+            <p className="mb-1 text-sm font-bold text-[#2e86bf]">Progress belajar</p>
+            <h2 className="text-3xl font-extrabold text-[#123e63] sm:text-4xl">
+              {encouragement.title}
             </h2>
-            <p className="progress-hero-copy mt-2 text-sm leading-6">
-              {completedLessons} dari {totalLessons} pelajaran selesai. Tinggal sedikit lagi menuju target berikutnya.
+            <p className="mt-2 text-sm leading-6 text-[#536777]">
+              {encouragement.copy} {completedLessons} dari {totalLessons} pelajaran selesai.
             </p>
           </div>
           <div className="w-full lg:max-w-xl">
-            <div className="progress-hero-label mb-2 flex items-center justify-between text-sm font-extrabold">
+            <div className="mb-2 flex items-center justify-between text-sm font-extrabold text-[#214e72]">
               <span>Progress keseluruhan</span>
               <span>{overallPct}%</span>
             </div>
             <div
-              className="progress-hero-track h-4 overflow-hidden rounded-full shadow-inner"
+              className="h-4 overflow-hidden rounded-full bg-white shadow-inner"
               role="progressbar"
               aria-label="Progress keseluruhan"
               aria-valuemin={0}
@@ -128,11 +142,11 @@ export default function Progress() {
               aria-valuenow={overallPct}
             >
               <div
-                className="progress-hero-fill h-full rounded-full transition-[width] duration-700"
+                className="h-full rounded-full bg-[#2e86bf] transition-[width] duration-700"
                 style={{ width: `${overallPct}%` }}
               />
             </div>
-            <div className="progress-hero-scale mt-1 flex justify-between text-xs font-semibold">
+            <div className="mt-1 flex justify-between text-xs font-semibold text-[#71889a]">
               <span>Mulai</span>
               <span>Level berikutnya</span>
             </div>
@@ -144,7 +158,7 @@ export default function Progress() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Kursus Aktif"
-          value={activeCourses.length}
+          value={COURSES.filter((c) => !c.isLocked).length}
           icon={<ChartIcon size={20} />}
           color="#4F8EF7"
         />
@@ -169,13 +183,10 @@ export default function Progress() {
       </div>
 
       {/* Tabs */}
-      <div className="progress-tabs flex w-full min-w-0 flex-wrap gap-1 p-1 rounded-xl" role="tablist" aria-label="Bagian progress belajar">
+      <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`min-h-11 min-w-0 flex-auto px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
@@ -208,7 +219,7 @@ export default function Progress() {
                         style={{
                           height: `${weekActivity[i].percent}%`,
                           background:
-                            weekActivity[i].count > 0 ? "var(--primary)" : "var(--chart-empty)",
+                            weekActivity[i].count > 0 ? "#4F8EF7" : "#EAF3FF",
                         }}
                       />
                     </div>
@@ -261,7 +272,7 @@ export default function Progress() {
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
-                          width: `${QUIZ_HISTORY.length ? (count / QUIZ_HISTORY.length) * 100 : 0}%`,
+                          width: `${(count / QUIZ_HISTORY.length) * 100}%`,
                           background: d.color,
                         }}
                       />
@@ -279,20 +290,14 @@ export default function Progress() {
 
       {activeTab === "courses" && (
         <div className="space-y-4">
-          {activeCourses.map((course) => (
+          {COURSES.filter((c) => !c.isLocked).map((course) => (
             <Card key={course.id}>
               <div className="flex items-start gap-4">
-                {course.thumbnail ? (
-                  <img
-                    src={course.thumbnail}
-                    alt=""
-                    className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--surface-3)] text-[var(--primary)]" aria-hidden="true">
-                    <BookIcon size={25} />
-                  </span>
-                )}
+                <img
+                  src={course.thumbnail}
+                  alt={course.title}
+                  className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-bold text-[var(--text)]">
@@ -323,15 +328,6 @@ export default function Progress() {
               </div>
             </Card>
           ))}
-          {activeCourses.length === 0 && (
-            <Card>
-              <EmptyState
-                icon={<BookIcon size={28} />}
-                title="Belum ada kursus aktif"
-                description="Pilih kursus pertamamu untuk mulai mengisi progress belajar."
-              />
-            </Card>
-          )}
         </div>
       )}
 
@@ -368,13 +364,6 @@ export default function Progress() {
                 </Badge>
               </div>
             ))}
-            {QUIZ_HISTORY.length === 0 && (
-              <EmptyState
-                icon={<TrophyIcon size={28} />}
-                title="Belum ada riwayat kuis"
-                description="Selesaikan kuis pertamamu, lalu hasilnya akan muncul di sini."
-              />
-            )}
           </div>
           <div className="mt-5 pt-4 border-t border-[var(--border)] flex items-center justify-between text-sm">
             <span className="text-[var(--text-muted)]">
@@ -389,7 +378,7 @@ export default function Progress() {
 
       {activeTab === "achievements" && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {BADGES.map((a) => (
+          {badges.map((a) => (
             <Card key={a.code} className={!a.earned ? "opacity-50" : ""}>
               <div className="flex items-start gap-4">
                 <div
@@ -420,15 +409,6 @@ export default function Progress() {
               </div>
             </Card>
           ))}
-          {BADGES.length === 0 && (
-            <Card className="sm:col-span-2 lg:col-span-3">
-              <EmptyState
-                icon={<StarIcon size={28} />}
-                title="Pencapaian sedang disiapkan"
-                description="Terus belajar dan badge pertamamu akan tampil di sini."
-              />
-            </Card>
-          )}
         </div>
       )}
     </div>

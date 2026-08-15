@@ -136,7 +136,7 @@ export default function PortalLayout({ variant }) {
 
       <div
         className={`portal-main-shell ${isUserPortal ? "portal-main-shell-user" : "portal-main-shell-admin"} flex-1 flex flex-col min-w-0 overflow-hidden ${
-          !sidebarOpen ? "portal-main-shell-sidebar-closed" : ""
+          sidebarOpen ? "portal-main-shell-sidebar-open" : "portal-main-shell-sidebar-closed"
         }`}
       >
         <PortalHeader
