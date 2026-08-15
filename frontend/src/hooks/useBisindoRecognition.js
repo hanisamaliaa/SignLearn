@@ -23,7 +23,7 @@ function captureFrame(video, canvas) {
     targetHeight,
   );
 
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
 }
 
 export function useBisindoRecognition({ active, videoRef }) {

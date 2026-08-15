@@ -1,13 +1,25 @@
 {
-  "model_name": "rf_bisindo_99",
-  "model_version": "1.0.0",
-  "training_date": "2024-10-25",
-  "dataset_source": "achmadnoer/alfabet-bisindo",
-  "input_features": 126,
-  "feature_preprocessing": "legacy absolute MediaPipe x-y-z landmarks with zero padding",
+  "model_name": "rbf_svc_bisindo_geometry",
+  "model_version": "5.0.0-2026-08-14",
+  "training_date": "2026-08-14",
+  "dataset_sources": [
+    "Mendeley Data 10.17632/4xnkvr88tk.1 (CC BY 4.0)",
+    "achmadnoer/alfabet-bisindo (CC0)",
+    "niputukarismadewi/talkee-bisindo-sign-language-dataset (CC0)"
+  ],
+  "input_features": 1179,
+  "feature_preprocessing": "MediaPipe hand geometry v5: local pose, bone directions, intra-hand distances, full cross-hand contact distances, passive-hand filtering, mirror augmentation",
   "classes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
-  "framework": "scikit-learn 1.5.2",
-  "reported_validation_accuracy": 0.991705,
-  "reported_test_accuracy": 0.993551,
-  "evaluation_warning": "Original metrics used augmented-image random splitting and may be optimistic. See ai/reports/model_comparison.json for leakage-safe held-out evaluation."
+  "framework": "MediaPipe 0.10.21 + scikit-learn 1.5.2",
+  "signer_holdout_raw_accuracy": 0.746753,
+  "signer_holdout_raw_macro_f1": 0.738848,
+  "production_min_confidence": 0.93,
+  "production_min_margin": 0.02,
+  "signer_holdout_accepted_accuracy": 0.96875,
+  "signer_holdout_accepted_coverage": 0.332468,
+  "validation_accepted_accuracy": 0.99422,
+  "validation_accepted_coverage": 0.454068,
+  "model_sha256": "6fac6ef36d6258c9f46ca3d4a5b11b5e061bfa4a1e8199e431e78b9ede6e7910",
+  "end_to_end_p95_latency_ms": 40.99,
+  "evaluation_warning": "Production refit uses all public participants after model selection. The unbiased metrics above belong to the frozen evaluation model; see ai/reports/production_v5.json."
 }

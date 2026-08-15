@@ -300,12 +300,16 @@ Contoh respons ketika tangan terdeteksi:
 ```json
 {
   "detected": true,
+  "accepted": true,
   "label": "A",
-  "confidence": 0.94,
-  "handsDetected": 1,
-  "probabilities": { "A": 0.94, "B": 0.01 },
+  "confidence": 0.97,
+  "handsDetected": 2,
+  "relevantHands": 2,
+  "handSpan": 0.16,
+  "probabilities": { "A": 0.97, "B": 0.01 },
   "secondLabel": "B",
-  "margin": 0.93
+  "margin": 0.96,
+  "rejectionReason": null
 }
 ```
 

@@ -15,20 +15,19 @@ export const DETECTION_CONFIG = Object.freeze({
   // menghapus kandidat yang sudah terkumpul.
   uncertainConfidence: numberFromEnv("VITE_BISINDO_UNCERTAIN_CONFIDENCE", 0.4),
   // Syarat normal untuk memasukkan sebuah huruf.
-  // Held-out source-image evaluation separates 48 correct samples (minimum
-  // 0.54) from one incorrect sample (0.49) at this boundary.
-  minConfidence: numberFromEnv("VITE_BISINDO_MIN_CONFIDENCE", 0.5),
-  minMargin: numberFromEnv("VITE_BISINDO_MIN_MARGIN", 0.05),
+  // Geometry-v5's signer-held-out threshold is also enforced by the AI API.
+  minConfidence: numberFromEnv("VITE_BISINDO_MIN_CONFIDENCE", 0.93),
+  minMargin: numberFromEnv("VITE_BISINDO_MIN_MARGIN", 0.02),
   // Confidence tinggi boleh memakai margin sedikit lebih kecil (hysteresis
   // keputusan), karena kelas teratas sudah sangat kuat.
-  highConfidence: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE", 0.8),
-  highConfidenceMinMargin: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE_MIN_MARGIN", 0.03),
+  highConfidence: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE", 0.96),
+  highConfidenceMinMargin: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE_MIN_MARGIN", 0.02),
   // Voting mayoritas: satu frame salah di jendela 5 frame tidak mereset progres.
   predictionWindow: numberFromEnv("VITE_BISINDO_PREDICTION_WINDOW", 5),
   minimumVotes: numberFromEnv("VITE_BISINDO_MINIMUM_VOTES", 3),
   stableDurationMs: numberFromEnv("VITE_BISINDO_STABLE_DURATION_MS", 180),
   // Jalur cepat hanya untuk prediksi yang benar-benar tegas.
-  fastConfidence: numberFromEnv("VITE_BISINDO_FAST_CONFIDENCE", 0.85),
+  fastConfidence: numberFromEnv("VITE_BISINDO_FAST_CONFIDENCE", 0.97),
   fastMargin: numberFromEnv("VITE_BISINDO_FAST_MARGIN", 0.15),
   fastVotes: numberFromEnv("VITE_BISINDO_FAST_VOTES", 2),
   fastWindow: numberFromEnv("VITE_BISINDO_FAST_WINDOW", 3),

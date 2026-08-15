@@ -337,6 +337,7 @@ Lihat [dokumentasi AI](ai/README.md).
 npm run ai:download
 npm run ai:train
 npm run ai:evaluate
+npm run ai:train:production
 ```
 
 Dataset mentah dan split manifest dihasilkan secara lokal serta diabaikan Git. Training menghasilkan model kandidat di `ai/models/candidates/`; evaluasi menghasilkan perbandingan dan confusion matrix di `ai/reports/`. Pipeline tidak mengganti model produksi secara otomatis.

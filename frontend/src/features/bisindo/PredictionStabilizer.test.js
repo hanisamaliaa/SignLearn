@@ -119,3 +119,12 @@ test("no-hand and low-confidence frames never commit", () => {
   assert.equal(stabilizer.update({ detected: false }, 0).rejectionReason, RejectionReason.NO_HAND);
   assert.equal(stabilizer.update(frame("B", 0.3, "D", 0.28), 90).committedCharacter, null);
 });
+
+test("server-rejected frames never vote or unlock a held duplicate", () => {
+  const stabilizer = new PredictionStabilizer(config);
+  const rejected = { ...frame("A", 0.92), accepted: false, rejectionReason: "low_confidence" };
+  const inputs = [frame("A"), frame("A"), frame("A"), rejected, rejected, rejected,
+    frame("A"), frame("A"), frame("A")];
+  assert.deepEqual(collect(stabilizer, inputs), ["A"]);
+  assert.equal(stabilizer.update(rejected, 900).rejectionReason, RejectionReason.MODEL_REJECTED);
+});
