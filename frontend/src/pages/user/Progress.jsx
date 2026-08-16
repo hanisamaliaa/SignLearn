@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, Badge, ProgressBar, StatCard } from "../../components/ui/ui";
 import { useApp } from "../../context/app";
 import {
@@ -7,6 +7,9 @@ import {
   FireIcon,
   StarIcon,
 } from "../../components/ui/Icons";
+import * as progressService from "../../services/progressService";
+import QuizHistory from "../../features/progress/QuizHistory";
+import ScoreTrend from "../../features/progress/ScoreTrend";
 
 const TABS = [
   { id: "overview", label: "Ringkasan" },
@@ -33,11 +36,32 @@ const BADGE_ICONS = {
 
 export default function Progress() {
   const { courses, quizHistory, badges, stats } = useApp();
+
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    progressService
+      .getQuizHistory()
+      .then((data) => {
+        if (!cancelled) setHistory(data);
+      })
+      .catch((error) => {
+        if (!cancelled) setHistoryError(error?.message ?? "Riwayat kuis gagal dimuat.");
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [activeTab, setActiveTab] = useState("overview");
   const [hoveredDay, setHoveredDay] = useState(null);
   const [hoveredScore, setHoveredScore] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [hoveredQuiz, setHoveredQuiz] = useState(null);
   const [hoveredBadge, setHoveredBadge] = useState(null);
 
   const COURSES = courses ?? [];
@@ -52,12 +76,10 @@ export default function Progress() {
     (s, c) => s + (c.completedLessons ?? 0),
     0,
   );
-  const avgScore = QUIZ_HISTORY.length
-    ? Math.round(
-        QUIZ_HISTORY.reduce((s, q) => s + (Number(q.score) || 0), 0) /
-          QUIZ_HISTORY.length,
-      )
-    : 0;
+  // Rata-rata dari nilai TERBAIK tiap kuis, bukan dari seluruh percobaan:
+  // mengulang kuis untuk belajar tidak seharusnya menurunkan gambaran
+  // kemampuan seseorang.
+  const avgScore = history?.summary?.averageBestScore ?? 0;
 
   const todayIndex = (new Date().getDay() + 6) % 7;
   const weekActivity = useMemo(() => {
@@ -342,43 +364,62 @@ export default function Progress() {
       )}
 
       {activeTab === "quizzes" && (
-        <Card interactive>
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div>
-              <h2 className="font-bold text-[var(--text)]">Kuis Terbaru Yang Tersedia</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1">Arahkan mouse ke hasil untuk melihat interaksi</p>
+        <div className="space-y-5">
+          <Card>
+            <h2 className="mb-1 font-bold text-[var(--text)]">Peningkatan nilai kuis</h2>
+            <p className="mb-4 text-xs text-[var(--text-muted)]">
+              Setiap titik adalah satu percobaan, dari yang terlama ke terbaru.
+            </p>
+            <ScoreTrend points={history?.trend} />
+          </Card>
+
+          {history?.letterMistakes?.length > 0 && (
+            <Card>
+              <h2 className="mb-1 font-bold text-[var(--text)]">Huruf yang perlu dilatih</h2>
+              <p className="mb-4 text-xs text-[var(--text-muted)]">
+                Huruf yang paling sering keliru saat diperagakan di kuis kamera.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {history.letterMistakes.slice(0, 12).map((item) => (
+                  <span
+                    key={item.letter}
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2"
+                  >
+                    <strong className="text-lg font-extrabold text-[var(--text)]">
+                      {item.letter}
+                    </strong>
+                    <span className="text-xs text-[var(--text-subtle)]">{item.count}x</span>
+                  </span>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-[var(--text)]">Riwayat kuis</h2>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Dikelompokkan per kuis; klik sebuah percobaan untuk melihat soal
+                  mana yang benar dan salah.
+                </p>
+              </div>
+              <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
+                {history?.summary?.totalAttempts ?? 0} percobaan
+              </span>
             </div>
-            <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">{QUIZ_HISTORY.length} hasil</span>
-          </div>
-          <div className="space-y-3">
-            {QUIZ_HISTORY.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-muted)]">Belum ada riwayat kuis.</div>
-            ) : QUIZ_HISTORY.map((q) => {
-              const isHovered = hoveredQuiz === q.id;
-              return (
-                <div
-                  key={q.id}
-                  className={`flex items-center gap-4 p-4 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] transition-all duration-200 ${isHovered ? "-translate-y-0.5 shadow-md border-[var(--primary)]/30" : ""}`}
-                  onMouseEnter={() => setHoveredQuiz(q.id)}
-                  onMouseLeave={() => setHoveredQuiz(null)}
-                >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 transition-transform duration-200 ${isHovered ? "scale-110" : ""} ${q.passed ? "bg-[var(--success-light)] text-[#2ECC71]" : "bg-[var(--danger-light)] text-[#E74C3C]"}`}>
-                    {q.score}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[var(--text)] truncate">{q.lesson}</p>
-                    <p className="text-xs text-[var(--text-subtle)] truncate">{q.course} · {q.date}</p>
-                  </div>
-                  <Badge variant={q.passed ? "success" : "danger"}>{q.passed ? "✓ Lulus" : "✕ Tidak Lulus"}</Badge>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-5 pt-4 border-t border-[var(--border)] flex items-center justify-between text-sm">
-            <span className="text-[var(--text-muted)]">Rata-rata skor kuis terbaru</span>
-            <span className="text-xl font-extrabold text-[var(--primary)] transition-transform duration-200 hover:scale-110">{avgScore}%</span>
-          </div>
-        </Card>
+
+            {historyError ? (
+              <p className="py-6 text-center text-sm text-[#E74C3C]">{historyError}</p>
+            ) : historyLoading ? (
+              <p className="py-6 text-center text-sm text-[var(--text-muted)]">
+                Memuat riwayat…
+              </p>
+            ) : (
+              <QuizHistory quizzes={history?.quizzes} />
+            )}
+          </Card>
+        </div>
       )}
 
       {activeTab === "achievements" && (

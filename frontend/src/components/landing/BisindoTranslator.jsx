@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeftIcon,
@@ -12,6 +12,7 @@ import {
   TrashIcon,
 } from "../ui/Icons";
 import { useInView, useReducedMotion } from "../../hooks/useLandingMotion";
+import { useCameraStream } from "../../hooks/useCameraStream";
 import { useBisindoRecognition } from "../../hooks/useBisindoRecognition";
 import TranslationResult from "./TranslationResult";
 import TranslatorIntro from "./TranslatorIntro";
@@ -293,49 +294,6 @@ function TextToSignMode({ reducedMotion }) {
   );
 }
 
-function useCameraSession() {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const requestRef = useRef(0);
-  const [state, setState] = useState("idle");
-
-  const stop = useCallback(() => {
-    requestRef.current += 1;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setState("idle");
-  }, []);
-
-  const start = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setState("unsupported");
-      return;
-    }
-    const requestId = requestRef.current + 1;
-    requestRef.current = requestId;
-    setState("requesting");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-      if (requestRef.current !== requestId) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setState("active");
-    } catch (error) {
-      setState(error?.name === "NotAllowedError" ? "denied" : "error");
-    }
-  }, []);
-
-  useEffect(() => stop, [stop]);
-  return { videoRef, state, start, stop };
-}
-
 function CameraToTextMode({ camera, reducedMotion }) {
   const recognition = useBisindoRecognition({
     active: camera.state === "active",
@@ -349,7 +307,7 @@ export default function BisindoTranslator() {
   const reducedMotion = useReducedMotion();
   const { ref, inView } = useInView({ rootMargin: "0px 0px -10%", threshold: 0.18 });
   const [mode, setMode] = useState("camera");
-  const camera = useCameraSession();
+  const camera = useCameraStream();
 
   const changeMode = (nextMode) => {
     if (nextMode !== "camera") camera.stop();

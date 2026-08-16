@@ -1,6 +1,7 @@
 import * as progressRepo from "../repositories/progressRepository.js";
 import * as lessonRepo from "../repositories/lessonRepository.js";
 import * as courseRepo from "../repositories/courseRepository.js";
+import * as quizRepo from "../repositories/quizRepository.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ERROR_CODES } from "../constants/errorCodes.js";
 
@@ -162,4 +163,107 @@ export async function updateLessonProgress(userId, lessonId, status) {
       percent: courseProgress.percent,
     },
   };
+}
+
+// ─── Riwayat kuis pembelajar ─────────────────────────────────────────────
+
+/**
+ * Riwayat pengerjaan, dikelompokkan per kuis.
+ *
+ * Mengerjakan kuis yang sama tiga kali dulu menghasilkan tiga baris terpisah
+ * yang terlihat seperti tiga kuis berbeda. Di sini percobaan dikumpulkan ke
+ * satu entri: nilai TERTINGGI yang mewakilinya, dengan seluruh percobaan tetap
+ * tersimpan di dalamnya.
+ *
+ * Percobaan lama sengaja TIDAK dihapus. Ia satu-satunya bukti bahwa seorang
+ * anak membaik dari 40 ke 90, dan grafik peningkatan tidak dapat digambar dari
+ * data yang sudah dibuang.
+ */
+export async function quizHistory(userId) {
+  const results = await quizRepo.findResultsForUser(userId);
+
+  const byQuiz = new Map();
+  const letterMistakes = new Map();
+
+  for (const result of results) {
+    // Agregat huruf dihitung di server dan `answers` tidak pernah ikut ke
+    // daftar riwayat, supaya jawaban per soal tidak terbawa ke setiap
+    // pemuatan halaman.
+    for (const answer of result.answers) {
+      for (const [letter, count] of Object.entries(answer?.mistakes ?? {})) {
+        letterMistakes.set(letter, (letterMistakes.get(letter) ?? 0) + Number(count || 0));
+      }
+    }
+
+    const entry = byQuiz.get(result.quizId) ?? {
+      quizId: result.quizId,
+      quizTitle: result.quizTitle,
+      courseId: result.courseId,
+      courseTitle: result.courseTitle,
+      minPassingScore: result.minPassingScore,
+      attempts: [],
+    };
+    entry.attempts.push({
+      id: result.id,
+      score: result.score,
+      passed: result.passed,
+      takenAt: result.takenAt,
+    });
+    byQuiz.set(result.quizId, entry);
+  }
+
+  const quizzes = [...byQuiz.values()].map((entry) => {
+    const scores = entry.attempts.map((a) => a.score);
+    const best = Math.max(...scores);
+    return {
+      ...entry,
+      // Percobaan terbaru lebih dulu; yang paling relevan bagi pemelajar.
+      attempts: [...entry.attempts].reverse(),
+      attemptCount: entry.attempts.length,
+      bestScore: best,
+      latestScore: scores.at(-1),
+      // Peningkatan sejak percobaan pertama — inti dari "apakah anak membaik".
+      improvement: scores.length > 1 ? scores.at(-1) - scores[0] : 0,
+      passed: entry.attempts.some((a) => a.passed),
+      lastTakenAt: entry.attempts.at(-1).takenAt,
+    };
+  });
+  quizzes.sort((a, b) => b.lastTakenAt.localeCompare(a.lastTakenAt));
+
+  const bestScores = quizzes.map((q) => q.bestScore);
+
+  return {
+    quizzes,
+    // Deret waktu seluruh percobaan, untuk grafik peningkatan.
+    trend: results.map((r) => ({
+      resultId: r.id,
+      quizId: r.quizId,
+      quizTitle: r.quizTitle,
+      courseTitle: r.courseTitle,
+      score: r.score,
+      passed: r.passed,
+      takenAt: r.takenAt,
+    })),
+    letterMistakes: [...letterMistakes.entries()]
+      .map(([letter, count]) => ({ letter, count }))
+      .sort((a, b) => b.count - a.count || a.letter.localeCompare(b.letter)),
+    summary: {
+      totalAttempts: results.length,
+      quizzesAttempted: quizzes.length,
+      quizzesPassed: quizzes.filter((q) => q.passed).length,
+      // Dirata-ratakan dari nilai TERBAIK tiap kuis, bukan dari seluruh
+      // percobaan: mengulang untuk belajar tidak seharusnya menurunkan
+      // gambaran kemampuan seseorang.
+      averageBestScore: bestScores.length
+        ? Math.round(bestScores.reduce((a, b) => a + b, 0) / bestScores.length)
+        : 0,
+    },
+  };
+}
+
+/** Detail satu percobaan: benar/salah per soal, beserta kursusnya. */
+export async function quizResultDetail(userId, resultId) {
+  const detail = await quizRepo.findResultDetail(resultId, userId);
+  if (!detail) throw ApiError.notFound("Hasil kuis tidak ditemukan.");
+  return detail;
 }

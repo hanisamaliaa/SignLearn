@@ -50,7 +50,11 @@ function toUiCourse(course) {
   return {
     ...course,
     completedLessons: course.progress?.completedLessons ?? 0,
+    startedLessons: course.progress?.startedLessons ?? 0,
     percent: course.progress?.percent ?? 0,
+    // Server yang menentukan status belajar. Menurunkannya ulang di halaman
+    // sempat menghasilkan "0 belajar" permanen pada kursus satu pelajaran.
+    learningStatus: course.progress?.status ?? "not_started",
     lastAccessedAt: course.progress?.lastAccessedAt ?? null,
   };
 }
@@ -317,6 +321,26 @@ export function AppProvider({ children }) {
    * Server yang menentukan boleh atau tidaknya — pelajaran terkunci ditolak
    * 403 LESSON_LOCKED. Frontend tidak menduplikasi aturannya.
    */
+  /**
+   * Menandai pelajaran mulai dipelajari.
+   *
+   * Dipanggil saat video benar-benar diputar, bukan saat halaman dibuka:
+   * membuka halaman lalu langsung pergi bukan belajar. Tanpa ini tidak ada
+   * satu pun kode yang pernah menulis status `in_progress`, sehingga kursus
+   * yang sedang ditonton tidak terhitung di mana pun.
+   *
+   * Kegagalannya sengaja diam: ini telemetri progres, dan gagal menyimpannya
+   * tidak boleh menghalangi orang menonton videonya.
+   */
+  const startLesson = useCallback(async (lessonId) => {
+    try {
+      await progressService.updateLessonProgress(lessonId, "in_progress");
+      await loadLearnerData();
+    } catch {
+      /* diabaikan dengan sengaja */
+    }
+  }, [loadLearnerData]);
+
   const completeLesson = useCallback(
     async (lessonId) => {
       try {
@@ -399,6 +423,7 @@ export function AppProvider({ children }) {
       register,
       updateProfile,
       updateUserSettings,
+      startLesson,
       completeLesson,
       submitQuiz,
       setSelectedCourse: selectCourse,
@@ -410,7 +435,7 @@ export function AppProvider({ children }) {
       currentUser, booting, users, courses, quizHistory, badges, stats, dashboard,
       progress, selectedCourseId, selectedLessonId, selectedCourse, quizScore,
       quizPassed, navigate, login, logout, register, updateProfile,
-      updateUserSettings, completeLesson, submitQuiz, selectCourse, selectLesson,
+      updateUserSettings, startLesson, completeLesson, submitQuiz, selectCourse, selectLesson,
       setQuizResult, loadLearnerData,
     ],
   );

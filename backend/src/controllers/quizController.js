@@ -64,6 +64,7 @@ export const createQuestion = asyncHandler(async (req, res) => {
     questionType: req.body.questionType,
     options: req.body.options,
     correctIndex: req.body.correctIndex,
+    answerText: req.body.answerText,
     sortOrder: req.body.sortOrder,
   });
   created(res, { question }, "Pertanyaan berhasil dibuat.");
@@ -71,7 +72,7 @@ export const createQuestion = asyncHandler(async (req, res) => {
 
 export const updateQuestion = asyncHandler(async (req, res) => {
   const patch = {};
-  for (const key of ["question", "questionType", "options", "correctIndex", "sortOrder"]) {
+  for (const key of ["question", "questionType", "options", "correctIndex", "answerText", "sortOrder"]) {
     if (req.body[key] !== undefined) patch[key] = req.body[key];
   }
 

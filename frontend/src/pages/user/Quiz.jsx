@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { Button } from "../../components/ui/ui";
 import { XIcon, ClockIcon } from "../../components/ui/Icons";
 import BrandLogo from "../../components/common/BrandLogo";
+import SpellCameraQuestion from "../../features/quiz/SpellCameraQuestion";
 
 /**
  * Halaman pengerjaan kuis.
@@ -22,6 +23,17 @@ import BrandLogo from "../../components/common/BrandLogo";
  * Sekarang soal datang dari API TANPA `correctIndex`, dan yang dikirim balik
  * hanyalah indeks pilihan. Server yang membandingkannya ke kunci jawaban,
  * menghitung skor, dan menentukan kelulusan terhadap KKM milik kuis itu.
+ *
+ * ── Dua bentuk soal ───────────────────────────────────────────────────
+ *
+ * `multiple-choice` menjawab dengan `selectedIndex`; `camera-spell` menjawab
+ * dengan `answerText`, yaitu huruf-huruf yang berhasil diperagakan di depan
+ * kamera. Keduanya tetap dinilai di server.
+ *
+ * Kata target soal kamera memang terlihat oleh klien — ia bagian dari
+ * soalnya, karena peserta harus tahu apa yang harus dieja. Konsekuensinya
+ * jujur: skor soal kamera dapat dipalsukan lewat DevTools dan layak untuk
+ * latihan, bukan penilaian resmi.
  */
 
 export default function Quiz() {
@@ -41,11 +53,16 @@ export default function Quiz() {
   const [submitError, setSubmitError] = useState(null);
 
   const [currentQ, setCurrentQ] = useState(0);
-  const [selected, setSelected] = useState(null);
+  // Satu larik untuk kedua bentuk soal: angka untuk pilihan ganda, teks untuk
+  // soal kamera. Jawaban disimpan begitu dibuat, sehingga berpindah soal tidak
+  // pernah bisa menghilangkannya.
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(300);
   const [showExit, setShowExit] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Di ref, bukan state: catatan huruf tidak memengaruhi apa pun yang dirender,
+  // dan menaruhnya di state akan merender ulang kamera setiap huruf keliru.
+  const mistakesRef = useRef({});
 
   /**
    * Kuis mana yang dikerjakan: diutamakan yang terikat pelajaran yang sedang
@@ -94,18 +111,24 @@ export default function Quiz() {
     if (submitted || total === 0) return;
     setSubmitted(true);
 
-    const finalAnswers = [...answers];
-    finalAnswers[currentQ] = selected;
-
     /**
      * Seluruh pertanyaan WAJIB terkirim — server menolak jawaban parsial
-     * (§8.12). Soal yang dilewati dikirim sebagai -1: indeks di luar jangkauan
-     * dihitung salah, bukan menggagalkan seluruh pengerjaan.
+     * (§8.12). Soal yang dilewati tetap dikirim dalam bentuk yang pasti
+     * dinilai salah, bukan menggagalkan seluruh pengerjaan: indeks -1 di luar
+     * jangkauan pilihan, atau teks kosong untuk soal kamera. Itu yang membuat
+     * kamera yang bermasalah tidak mengunci peserta dari kursusnya.
      */
-    const payload = questions.map((q, i) => ({
-      questionId: q.id,
-      selectedIndex: finalAnswers[i] ?? -1,
-    }));
+    const payload = questions.map((q, i) =>
+      q.questionType === "camera-spell"
+        ? {
+            questionId: q.id,
+            answerText: typeof answers[i] === "string" ? answers[i] : "",
+            // Huruf yang sempat keliru diperagakan. Murni telemetri belajar;
+            // server tidak memakainya untuk menskor.
+            mistakes: mistakesRef.current[i] ?? null,
+          }
+        : { questionId: q.id, selectedIndex: Number.isInteger(answers[i]) ? answers[i] : -1 },
+    );
 
     const spent = (quiz?.durationSeconds ?? 300) - timeLeft;
     const outcome = await submitQuiz(selectedCourseId, quiz.id, payload, spent);
@@ -119,7 +142,7 @@ export default function Quiz() {
     setQuizResult(outcome.result.score, outcome.result.passed);
     navigate("/quiz-result");
   }, [
-    submitted, total, answers, currentQ, selected, questions, quiz, timeLeft,
+    submitted, total, answers, questions, quiz, timeLeft,
     submitQuiz, selectedCourseId, setQuizResult, navigate,
   ]);
 
@@ -145,22 +168,42 @@ export default function Quiz() {
   const timerColor =
     timeLeft < 60 ? "#E74C3C" : timeLeft < 120 ? "#F4B400" : "#4F8EF7";
 
-  function handleSelect(idx) {
+  function recordAnswer(index, value) {
     if (submitted) return;
-    setSelected(idx);
+    setAnswers((current) => {
+      if (current[index] === value) return current;
+      const next = [...current];
+      next[index] = value;
+      return next;
+    });
   }
 
-  function commitAndGo(nextIndex) {
-    const newAnswers = [...answers];
-    newAnswers[currentQ] = selected;
-    setAnswers(newAnswers);
+  function handleSelect(idx) {
+    recordAnswer(currentQ, idx);
+  }
+
+  // Stabil terhadap soal yang sedang dibuka: komponen kamera memanggilnya dari
+  // dalam effect, dan fungsi baru setiap render akan memicu putaran tak henti.
+  const handleSpellAnswer = useCallback(
+    (text, mistakes) => {
+      if (mistakes) mistakesRef.current[currentQ] = mistakes;
+      setAnswers((current) => {
+        if (current[currentQ] === text) return current;
+        const next = [...current];
+        next[currentQ] = text;
+        return next;
+      });
+    },
+    [currentQ],
+  );
+
+  function goToQuestion(nextIndex) {
     setCurrentQ(nextIndex);
-    setSelected(newAnswers[nextIndex] ?? null);
   }
 
-  const answeredCount = answers.filter(
-    (a, i) => a !== null || (i === currentQ && selected !== null),
-  ).length;
+  const isAnswered = (value) =>
+    typeof value === "string" ? value.length > 0 : Number.isInteger(value);
+  const answeredCount = answers.filter(isAnswered).length;
 
   // ─── Keadaan memuat & gagal ────────────────────────────────────────────
 
@@ -270,9 +313,18 @@ export default function Quiz() {
             </p>
           </div>
 
+          {question.questionType === "camera-spell" ? (
+            <div className="mb-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+              <SpellCameraQuestion
+                key={question.id}
+                target={question.answerText ?? ""}
+                onAnswerChange={handleSpellAnswer}
+              />
+            </div>
+          ) : (
           <div className="space-y-3 mb-8">
             {(question.options ?? []).map((option, idx) => {
-              const isSelected = selected === idx;
+              const isSelected = answers[currentQ] === idx;
               return (
                 <button
                   key={idx}
@@ -306,6 +358,7 @@ export default function Quiz() {
               );
             })}
           </div>
+          )}
 
           {submitError && (
             <div className="mb-6 p-4 rounded-xl bg-[var(--danger-light)] border border-[#E74C3C]/30 text-sm text-[#E74C3C]">
@@ -316,7 +369,7 @@ export default function Quiz() {
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
-              onClick={() => commitAndGo(currentQ - 1)}
+              onClick={() => goToQuestion(currentQ - 1)}
               disabled={currentQ === 0}
             >
               ← Sebelumnya
@@ -325,11 +378,11 @@ export default function Quiz() {
               {questions.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => commitAndGo(i)}
+                  onClick={() => goToQuestion(i)}
                   className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
                     i === currentQ
                       ? "bg-[#4F8EF7] text-white"
-                      : answers[i] !== null
+                      : isAnswered(answers[i])
                         ? "bg-[var(--success-light)] text-[#2ECC71] border border-[#2ECC71]/30"
                         : "bg-[var(--surface-3)] text-[var(--text-subtle)]"
                   }`}
@@ -339,7 +392,7 @@ export default function Quiz() {
               ))}
             </div>
             {currentQ < total - 1 ? (
-              <Button onClick={() => commitAndGo(currentQ + 1)}>Selanjutnya →</Button>
+              <Button onClick={() => goToQuestion(currentQ + 1)}>Selanjutnya →</Button>
             ) : (
               <Button variant="success" onClick={handleFinish} disabled={submitted}>
                 {submitted ? "Mengirim…" : "Selesai & Kumpulkan"}

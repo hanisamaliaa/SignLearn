@@ -46,6 +46,15 @@ export function toQuestionDto(row, includeAnswer = false) {
     sortOrder: Number(row.sort_order),
   };
   if (includeAnswer) dto.correctIndex = Number(row.correct_index);
+
+  // `answerText` ikut untuk semua peran, dan itu disengaja: pada soal
+  // camera-spell kata targetnya ADALAH soalnya — peserta harus melihat kata
+  // apa yang diminta untuk dieja. Tantangannya memeragakan, bukan menebak,
+  // sehingga menyembunyikannya justru membuat soal mustahil dikerjakan.
+  //
+  // Konsekuensinya jujur: skor soal kamera tidak antimanipulasi lewat
+  // DevTools. Menutup celah itu menuntut verifikasi frame di sisi server.
+  if (row.question_type === "camera-spell") dto.answerText = row.answer_text ?? null;
   return dto;
 }
 
@@ -117,7 +126,7 @@ export async function findById(id) {
 
 export async function findQuestions(quizId, includeAnswer = false) {
   const { rows } = await query(
-    `SELECT id, quiz_id, question, question_type, options, correct_index, sort_order
+    `SELECT id, quiz_id, question, question_type, options, correct_index, answer_text, sort_order
        FROM quiz_questions WHERE quiz_id = $1 ORDER BY sort_order ASC, id ASC`,
     [quizId],
   );
@@ -132,20 +141,23 @@ export async function findQuestions(quizId, includeAnswer = false) {
  */
 export async function findAnswerKey(quizId) {
   const { rows } = await query(
-    `SELECT id, correct_index, jsonb_array_length(options) AS option_count
+    `SELECT id, question_type, correct_index, answer_text,
+            jsonb_array_length(options) AS option_count
        FROM quiz_questions WHERE quiz_id = $1 ORDER BY sort_order ASC, id ASC`,
     [quizId],
   );
   return rows.map((r) => ({
     id: String(r.id),
+    questionType: r.question_type,
     correctIndex: Number(r.correct_index),
+    answerText: r.answer_text ?? null,
     optionCount: Number(r.option_count),
   }));
 }
 
 export async function findQuestionById(id) {
   const { rows } = await query(
-    `SELECT id, quiz_id, question, question_type, options, correct_index, sort_order
+    `SELECT id, quiz_id, question, question_type, options, correct_index, answer_text, sort_order
        FROM quiz_questions WHERE id = $1 LIMIT 1`,
     [id],
   );
@@ -224,16 +236,24 @@ export async function createQuestion(quizId, data) {
       sortOrder = rows[0].next;
     }
 
+    // Kedua tipe soal memakai tabel yang sama tetapi kolom jawaban yang
+    // berbeda. Kolom milik tipe yang tidak dipakai diisi nilai netral, bukan
+    // dibiarkan menerima input, supaya tidak ada baris yang punya dua kunci
+    // jawaban yang bisa saling bertentangan.
+    const questionType = data.questionType ?? "multiple-choice";
+    const isSpell = questionType === "camera-spell";
+
     const { rows } = await client.query(
-      `INSERT INTO quiz_questions (quiz_id, question, question_type, options, correct_index, sort_order)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6)
-       RETURNING id, quiz_id, question, question_type, options, correct_index, sort_order`,
+      `INSERT INTO quiz_questions (quiz_id, question, question_type, options, correct_index, answer_text, sort_order)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+       RETURNING id, quiz_id, question, question_type, options, correct_index, answer_text, sort_order`,
       [
         quizId,
         String(data.question).trim(),
-        data.questionType ?? "multiple-choice",
-        JSON.stringify(data.options),
-        data.correctIndex,
+        questionType,
+        JSON.stringify(isSpell ? [] : (data.options ?? [])),
+        isSpell ? 0 : data.correctIndex,
+        isSpell ? data.answerText : null,
         sortOrder,
       ],
     );
@@ -253,6 +273,7 @@ export async function updateQuestion(id, data) {
     question: "question",
     questionType: "question_type",
     correctIndex: "correct_index",
+    answerText: "answer_text",
     sortOrder: "sort_order",
   };
 
@@ -270,11 +291,20 @@ export async function updateQuestion(id, data) {
     sets.push(`options = $${values.length}::jsonb`);
   }
 
+  // Berpindah tipe harus ikut membersihkan kolom milik tipe lama, kalau tidak
+  // constraint bentuk jawaban akan menolak baris itu — atau lebih buruk, soal
+  // menyimpan dua kunci jawaban sekaligus.
+  if (data.questionType === "camera-spell") {
+    sets.push(`options = '[]'::jsonb`, `correct_index = 0`);
+  } else if (data.questionType === "multiple-choice") {
+    sets.push(`answer_text = NULL`);
+  }
+
   if (sets.length === 0) return findQuestionById(id);
 
   const { rows } = await query(
     `UPDATE quiz_questions SET ${sets.join(", ")} WHERE id = $1
-     RETURNING id, quiz_id, question, question_type, options, correct_index, sort_order`,
+     RETURNING id, quiz_id, question, question_type, options, correct_index, answer_text, sort_order`,
     values,
   );
   return rows[0] ? toQuestionDto(rows[0], true) : null;
@@ -320,7 +350,7 @@ export async function reorderQuestions(quizId, orderedIds) {
     }
 
     const { rows: updated } = await client.query(
-      `SELECT id, quiz_id, question, question_type, options, correct_index, sort_order
+      `SELECT id, quiz_id, question, question_type, options, correct_index, answer_text, sort_order
          FROM quiz_questions WHERE quiz_id = $1 ORDER BY sort_order ASC`,
       [quizId],
     );
@@ -359,5 +389,105 @@ export async function findBestAttempt(quizId, userId) {
     bestScore: Number(rows[0].best_score),
     attemptCount: Number(rows[0].attempt_count),
     passed: rows[0].ever_passed,
+  };
+}
+
+// ─── Riwayat pengerjaan pembelajar ───────────────────────────────────────
+
+/**
+ * Seluruh percobaan milik satu pengguna, beserta kuis dan kursusnya.
+ *
+ * `answers` ikut diambil karena agregat huruf-yang-sering-salah dihitung di
+ * server; ia TIDAK diteruskan apa adanya ke daftar riwayat.
+ */
+export async function findResultsForUser(userId) {
+  const { rows } = await query(
+    `SELECT qr.id, qr.quiz_id, qr.score, qr.passed, qr.taken_at, qr.answers,
+            q.title AS quiz_title, q.min_passing_score,
+            c.id AS course_id, c.title AS course_title
+       FROM quiz_results qr
+       JOIN quizzes q ON q.id = qr.quiz_id
+       JOIN courses c ON c.id = q.course_id
+      WHERE qr.user_id = $1
+      ORDER BY qr.taken_at ASC, qr.id ASC`,
+    [userId],
+  );
+  return rows.map((r) => ({
+    id: String(r.id),
+    quizId: String(r.quiz_id),
+    quizTitle: r.quiz_title,
+    courseId: String(r.course_id),
+    courseTitle: r.course_title,
+    minPassingScore: Number(r.min_passing_score),
+    score: Number(r.score),
+    passed: r.passed,
+    takenAt: r.taken_at.toISOString(),
+    answers: Array.isArray(r.answers) ? r.answers : [],
+  }));
+}
+
+/**
+ * Satu percobaan lengkap dengan soalnya.
+ *
+ * Dibatasi ke pemiliknya lewat `user_id` di WHERE, bukan diperiksa setelah
+ * diambil: percobaan orang lain tidak boleh pernah termuat ke memori proses.
+ */
+export async function findResultDetail(resultId, userId) {
+  const { rows } = await query(
+    `SELECT qr.id, qr.quiz_id, qr.score, qr.passed, qr.taken_at, qr.answers,
+            q.title AS quiz_title, q.min_passing_score,
+            c.id AS course_id, c.title AS course_title
+       FROM quiz_results qr
+       JOIN quizzes q ON q.id = qr.quiz_id
+       JOIN courses c ON c.id = q.course_id
+      WHERE qr.id = $1 AND qr.user_id = $2
+      LIMIT 1`,
+    [resultId, userId],
+  );
+  if (!rows[0]) return null;
+
+  const r = rows[0];
+  const { rows: questions } = await query(
+    `SELECT id, question, question_type, options, correct_index, answer_text, sort_order
+       FROM quiz_questions WHERE quiz_id = $1 ORDER BY sort_order ASC, id ASC`,
+    [r.quiz_id],
+  );
+
+  const submitted = new Map(
+    (Array.isArray(r.answers) ? r.answers : []).map((a) => [String(a.questionId), a]),
+  );
+
+  return {
+    id: String(r.id),
+    quizId: String(r.quiz_id),
+    quizTitle: r.quiz_title,
+    courseId: String(r.course_id),
+    courseTitle: r.course_title,
+    minPassingScore: Number(r.min_passing_score),
+    score: Number(r.score),
+    passed: r.passed,
+    takenAt: r.taken_at.toISOString(),
+    questions: questions.map((q) => {
+      const answer = submitted.get(String(q.id));
+      const isSpell = q.question_type === "camera-spell";
+      return {
+        id: String(q.id),
+        question: q.question,
+        questionType: q.question_type,
+        // Kunci jawaban ikut DI SINI dengan sengaja: percobaan sudah selesai
+        // dan peserta memang perlu tahu yang benar apa untuk belajar darinya.
+        correctAnswer: isSpell
+          ? q.answer_text
+          : (Array.isArray(q.options) ? q.options[q.correct_index] : null) ?? null,
+        givenAnswer: isSpell
+          ? (answer?.answerText || null)
+          : (Array.isArray(q.options) ? q.options[answer?.selectedIndex] : null) ?? null,
+        isCorrect: Boolean(answer?.isCorrect),
+        answered: isSpell
+          ? Boolean(answer?.answerText)
+          : Number.isInteger(answer?.selectedIndex) && answer.selectedIndex >= 0,
+        mistakes: answer?.mistakes ?? null,
+      };
+    }),
   };
 }

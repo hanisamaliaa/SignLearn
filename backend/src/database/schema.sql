@@ -202,14 +202,33 @@ CREATE TRIGGER trg_quizzes_updated_at
   BEFORE UPDATE ON quizzes
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- `camera-spell` menilai peragaan abjad BISINDO lewat webcam: jawabannya ada di
+-- `answer_text`, bukan `correct_index`, dan `options` tetap kosong. Constraint
+-- di bawah menolak baris yang tipenya tidak cocok dengan kolom jawabannya,
+-- karena soal tanpa kunci akan selalu dinilai salah dan peserta tidak punya
+-- cara memperbaikinya sendiri.
 CREATE TABLE quiz_questions (
   id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   quiz_id       BIGINT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
   question      TEXT NOT NULL,
-  question_type VARCHAR(30) NOT NULL DEFAULT 'multiple-choice',
+  question_type VARCHAR(30) NOT NULL DEFAULT 'multiple-choice'
+                CHECK (question_type IN ('multiple-choice', 'camera-spell')),
   options       JSONB NOT NULL DEFAULT '[]'::jsonb,
   correct_index INT NOT NULL DEFAULT 0,
-  sort_order    INT NOT NULL DEFAULT 0
+  answer_text   VARCHAR(190),
+  sort_order    INT NOT NULL DEFAULT 0,
+  CONSTRAINT chk_question_answer_shape CHECK (
+    (question_type = 'multiple-choice' AND jsonb_array_length(options) >= 2)
+    OR
+    -- Hanya A-Z dan spasi tunggal: model hanya mengenali 26 huruf statis, jadi
+    -- angka atau tanda baca akan membuat soal yang mustahil diselesaikan.
+    (question_type = 'camera-spell'
+     -- NULL ~ regex bernilai NULL, dan CHECK lolos saat ekspresinya NULL.
+     -- Tanpa uji IS NOT NULL, soal kamera tanpa kunci jawaban akan diterima
+     -- diam-diam dan tidak akan pernah bisa dijawab benar.
+     AND answer_text IS NOT NULL
+     AND answer_text ~ '^[A-Z]+( [A-Z]+)*$')
+  )
 );
 
 CREATE INDEX idx_questions_quiz ON quiz_questions (quiz_id, sort_order);

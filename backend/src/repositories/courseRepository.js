@@ -129,11 +129,13 @@ export async function findAllWithProgress(userId, filters = {}, options = {}) {
   const { rows } = await query(
     `SELECT ${COLUMNS.split(",").map((c) => `c.${c.trim()}`).join(", ")},
             COALESCE(p.completed, 0)::int AS completed_lessons,
+            COALESCE(p.started, 0)::int   AS started_lessons,
             p.last_seen
        FROM courses c
        LEFT JOIN (
          SELECT l.course_id,
                 COUNT(*) FILTER (WHERE lp.status = 'completed') AS completed,
+                COUNT(*)                                        AS started,
                 MAX(lp.updated_at) AS last_seen
            FROM lessons l
            JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $${userIdx}
@@ -147,17 +149,45 @@ export async function findAllWithProgress(userId, filters = {}, options = {}) {
 
   return rows.map((row) => {
     const dto = toCourseDto(row);
-    const completed = Number(row.completed_lessons);
     return {
       ...dto,
-      progress: {
-        completedLessons: completed,
-        totalLessons: dto.totalLessons,
-        percent: dto.totalLessons ? Math.round((completed / dto.totalLessons) * 100) : 0,
-        lastAccessedAt: row.last_seen?.toISOString() ?? null,
-      },
+      progress: buildProgress(
+        Number(row.started_lessons ?? 0),
+        Number(row.completed_lessons),
+        dto.totalLessons,
+        row.last_seen,
+      ),
     };
   });
+}
+
+/**
+ * Status belajar sebuah kursus bagi satu pengguna.
+ *
+ * Diturunkan di server, bukan di tiap halaman. Sebelumnya frontend menebaknya
+ * dengan `completedLessons > 0 && completedLessons < totalLessons`, yang
+ * MUSTAHIL benar untuk kursus berisi satu pelajaran: nilainya hanya bisa 0
+ * atau 1, sehingga kursus yang sedang dipelajari tidak pernah terhitung dan
+ * ringkasan selalu menampilkan "0 belajar".
+ */
+function courseProgressStatus({ startedLessons, completedLessons, totalLessons }) {
+  if (totalLessons === 0) return "empty";
+  if (completedLessons >= totalLessons) return "completed";
+  if (startedLessons > 0) return "in_progress";
+  return "not_started";
+}
+
+function buildProgress(started, completed, totalLessons, lastSeen) {
+  return {
+    startedLessons: started,
+    completedLessons: completed,
+    totalLessons,
+    percent: totalLessons ? Math.round((completed / totalLessons) * 100) : 0,
+    status: courseProgressStatus({
+      startedLessons: started, completedLessons: completed, totalLessons,
+    }),
+    lastAccessedAt: lastSeen?.toISOString() ?? null,
+  };
 }
 
 export async function findById(id) {
@@ -174,6 +204,7 @@ export async function findByIdWithProgress(id, userId) {
 
   const { rows } = await query(
     `SELECT COUNT(*) FILTER (WHERE lp.status = 'completed')::int AS completed,
+            COUNT(lp.id)::int                                    AS started,
             MAX(lp.updated_at) AS last_seen
        FROM lessons l
        LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $2
@@ -181,15 +212,14 @@ export async function findByIdWithProgress(id, userId) {
     [id, userId],
   );
 
-  const completed = Number(rows[0]?.completed ?? 0);
   return {
     ...course,
-    progress: {
-      completedLessons: completed,
-      totalLessons: course.totalLessons,
-      percent: course.totalLessons ? Math.round((completed / course.totalLessons) * 100) : 0,
-      lastAccessedAt: rows[0]?.last_seen?.toISOString() ?? null,
-    },
+    progress: buildProgress(
+      Number(rows[0]?.started ?? 0),
+      Number(rows[0]?.completed ?? 0),
+      course.totalLessons,
+      rows[0]?.last_seen,
+    ),
   };
 }
 

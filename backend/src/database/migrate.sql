@@ -196,6 +196,26 @@
   ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS options       JSONB       DEFAULT '[]'::jsonb;
   ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS correct_index INT         DEFAULT 0;
   ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS sort_order    INT         DEFAULT 0;
+  -- Soal `camera-spell` menyimpan jawabannya di sini, bukan di correct_index.
+  ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS answer_text   VARCHAR(190);
+
+  -- Constraint bentuk jawaban dipasang ulang agar tipe baru ikut diizinkan.
+  -- Soal tanpa kunci jawaban akan selalu dinilai salah, dan peserta tidak
+  -- punya cara memperbaikinya sendiri.
+  ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check;
+  ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS chk_question_answer_shape;
+  ALTER TABLE quiz_questions ADD  CONSTRAINT quiz_questions_question_type_check
+    CHECK (question_type IN ('multiple-choice', 'camera-spell'));
+  ALTER TABLE quiz_questions ADD  CONSTRAINT chk_question_answer_shape CHECK (
+    (question_type = 'multiple-choice' AND jsonb_array_length(options) >= 2)
+    OR
+    (question_type = 'camera-spell'
+     -- NULL ~ regex bernilai NULL, dan CHECK lolos saat ekspresinya NULL.
+     -- Tanpa uji IS NOT NULL, soal kamera tanpa kunci jawaban akan diterima
+     -- diam-diam dan tidak akan pernah bisa dijawab benar.
+     AND answer_text IS NOT NULL
+     AND answer_text ~ '^[A-Z]+( [A-Z]+)*$')
+  );
 
   -- ── lesson_progress ────────────────────────────────────────────
   ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS status       VARCHAR(20) DEFAULT 'not_started';

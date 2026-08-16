@@ -9,6 +9,7 @@ import {
   ClockIcon,
   BookIcon,
 } from "../../components/ui/Icons";
+import { formatEstimatedHours } from "../../features/lesson/courseMeta";
 
 const COURSE_INFO = [
   { label: "Kategori", value: "" },
@@ -83,9 +84,11 @@ export default function CourseDetail() {
               <div className="flex items-center gap-1.5">
                 <BookIcon size={15} /> {course.totalLessons} Pelajaran
               </div>
-              <div className="flex items-center gap-1.5">
-                <ClockIcon size={15} /> {course.estimatedHours} Jam Estimasi
-              </div>
+              {formatEstimatedHours(course.estimatedHours) && (
+                <div className="flex items-center gap-1.5">
+                  <ClockIcon size={15} /> {formatEstimatedHours(course.estimatedHours)} estimasi
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <span>📊</span> Nilai KKM: 70
               </div>
@@ -236,7 +239,7 @@ export default function CourseDetail() {
                       : info.label === "Total Pelajaran"
                         ? `${course.totalLessons} pelajaran`
                         : info.label === "Durasi Estimasi"
-                          ? `${course.estimatedHours} jam`
+                          ? (formatEstimatedHours(course.estimatedHours) ?? "—")
                           : info.value;
                 return (
                   <div

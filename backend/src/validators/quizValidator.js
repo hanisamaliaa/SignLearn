@@ -7,9 +7,45 @@
 const err = (field, message) => ({ field, message });
 const isBlank = (v) => v === undefined || v === null || String(v).trim() === "";
 
-export const QUESTION_TYPES = Object.freeze(["multiple-choice"]);
+export const QUESTION_TYPES = Object.freeze(["multiple-choice", "camera-spell"]);
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 6;
+
+/** Batas panjang target ejaan; tiap huruf perlu beberapa detik untuk diperagakan. */
+export const MAX_SPELL_TARGET = 40;
+export const MIN_SPELL_TARGET = 2;
+
+/**
+ * Bentuk baku target ejaan: huruf besar A-Z dengan spasi tunggal.
+ *
+ * Dipakai bersama oleh validasi penyusunan soal dan penilaian jawaban, supaya
+ * "Pagi " yang tersimpan dan "pagi" yang dikenali kamera tidak pernah dianggap
+ * berbeda hanya karena spasi atau kapitalisasi.
+ */
+export function normalizeSpellTarget(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+export function validateSpellTarget(value, field = "answerText") {
+  if (isBlank(value)) {
+    return [err(field, "Kata yang harus dieja wajib diisi.")];
+  }
+  const normalized = normalizeSpellTarget(value);
+  if (!/^[A-Z]+( [A-Z]+)*$/.test(normalized)) {
+    // Disebutkan eksplisit karena penyusun soal tidak punya cara lain untuk
+    // tahu bahwa model pengenal hanya menguasai abjad.
+    return [err(field, "Hanya huruf A-Z dan spasi yang dapat diperagakan; angka, tanda baca, dan huruf beraksen tidak dikenali model.")];
+  }
+  const letters = normalized.replace(/ /g, "").length;
+  if (letters < MIN_SPELL_TARGET) {
+    return [err(field, `Kata yang harus dieja minimal ${MIN_SPELL_TARGET} huruf.`)];
+  }
+  if (normalized.length > MAX_SPELL_TARGET) {
+    return [err(field, `Kata yang harus dieja maksimal ${MAX_SPELL_TARGET} karakter.`)];
+  }
+  return [];
+}
 
 function validateTitle(title, required, label = "Judul kuis") {
   if (isBlank(title)) return required ? [err("title", `${label} wajib diisi.`)] : [];
@@ -120,11 +156,15 @@ export function validateCreateQuestion(body = {}) {
     errors.push(err("question", "Pertanyaan maksimal 1000 karakter."));
   }
 
-  if (body.questionType !== undefined && !QUESTION_TYPES.includes(body.questionType)) {
+  const type = body.questionType ?? "multiple-choice";
+  if (!QUESTION_TYPES.includes(type)) {
     errors.push(err("questionType", `questionType harus salah satu dari: ${QUESTION_TYPES.join(", ")}.`));
+  } else if (type === "camera-spell") {
+    errors.push(...validateSpellTarget(body.answerText));
+  } else {
+    errors.push(...validateOptions(body.options, body.correctIndex, true));
   }
 
-  errors.push(...validateOptions(body.options, body.correctIndex, true));
   errors.push(...validateInt(body.sortOrder, "sortOrder", { min: 0, max: 9999, label: "Urutan" }));
 
   return errors;
@@ -141,6 +181,14 @@ export function validateUpdateQuestion(body = {}) {
   }
   if (body.questionType !== undefined && !QUESTION_TYPES.includes(body.questionType)) {
     errors.push(err("questionType", `questionType harus salah satu dari: ${QUESTION_TYPES.join(", ")}.`));
+  }
+
+  // Berpindah ke camera-spell tanpa mengirim answerText akan menyisakan soal
+  // tanpa kunci jawaban, jadi keduanya wajib menyertai.
+  if (body.questionType === "camera-spell") {
+    errors.push(...validateSpellTarget(body.answerText));
+  } else if (body.answerText !== undefined) {
+    errors.push(...validateSpellTarget(body.answerText));
   }
 
   // correctIndex hanya dapat divalidasi terhadap options. Bila salah satunya
@@ -160,7 +208,7 @@ export function validateUpdateQuestion(body = {}) {
 
   errors.push(...validateInt(body.sortOrder, "sortOrder", { min: 0, max: 9999, label: "Urutan" }));
 
-  const updatable = ["question", "questionType", "options", "correctIndex", "sortOrder"];
+  const updatable = ["question", "questionType", "options", "correctIndex", "answerText", "sortOrder"];
   if (!updatable.some((k) => body[k] !== undefined)) {
     errors.push(err("body", "Tidak ada field yang dapat diperbarui."));
   }
@@ -187,8 +235,39 @@ export function validateSubmitQuiz(body = {}) {
     if (!/^\d+$/.test(String(a.questionId))) {
       errors.push(err(`answers[${i}].questionId`, "questionId harus berupa angka."));
     }
-    if (!Number.isInteger(Number(a.selectedIndex)) || Number(a.selectedIndex) < 0) {
+
+    // Soal pilihan ganda mengirim selectedIndex, soal kamera mengirim
+    // answerText. Bentuk mana yang benar ditentukan server dari tipe soal yang
+    // tersimpan; di sini cukup dipastikan salah satunya ada dan berbentuk sah.
+    const hasIndex = a.selectedIndex !== undefined && a.selectedIndex !== null;
+    const hasText = a.answerText !== undefined && a.answerText !== null;
+
+    if (!hasIndex && !hasText) {
+      errors.push(err(`answers[${i}]`, "Jawaban harus berisi selectedIndex atau answerText."));
+    }
+    if (hasIndex && (!Number.isInteger(Number(a.selectedIndex)) || Number(a.selectedIndex) < 0)) {
       errors.push(err(`answers[${i}].selectedIndex`, "selectedIndex harus bilangan bulat tidak negatif."));
+    }
+    if (hasText && typeof a.answerText !== "string") {
+      errors.push(err(`answers[${i}].answerText`, "answerText harus berupa teks."));
+    }
+    if (hasText && typeof a.answerText === "string" && a.answerText.length > 200) {
+      errors.push(err(`answers[${i}].answerText`, "answerText maksimal 200 karakter."));
+    }
+
+    // Catatan huruf yang sempat keliru. Murni telemetri belajar dan tidak
+    // memengaruhi skor sama sekali, jadi bentuk yang aneh cukup ditolak di
+    // sini alih-alih menggagalkan pengiriman kuis.
+    if (a.mistakes !== undefined && a.mistakes !== null) {
+      const shapeOk =
+        typeof a.mistakes === "object" &&
+        !Array.isArray(a.mistakes) &&
+        Object.entries(a.mistakes).every(
+          ([letter, count]) => /^[A-Z]$/.test(letter) && Number.isInteger(count) && count > 0,
+        );
+      if (!shapeOk) {
+        errors.push(err(`answers[${i}].mistakes`, "mistakes harus berupa peta huruf A-Z ke jumlah kesalahan."));
+      }
     }
   }
 
