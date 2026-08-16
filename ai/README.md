@@ -1,6 +1,7 @@
 # SignLearn BISINDO AI
 
-Layanan FastAPI dan pipeline machine learning untuk mengenali alfabet statis BISINDO A-Z dari landmark tangan MediaPipe.
+Layanan FastAPI dan pipeline machine learning untuk mengenali alfabet statis
+BISINDO A-Z dari landmark tangan MediaPipe.
 
 [Kembali ke dokumentasi utama](../README.md)
 
@@ -8,19 +9,24 @@ Layanan FastAPI dan pipeline machine learning untuk mengenali alfabet statis BIS
 
 Modul ini memiliki dua tanggung jawab terpisah:
 
-1. **Inference service** — menerima gambar dari browser, mengekstrak landmark, dan mengembalikan probabilitas kelas.
-2. **Training/evaluation pipeline** — mengunduh dataset, membuat split leakage-safe, melatih model kandidat, dan membandingkannya dengan model produksi.
+1. **Inference service** — menerima gambar dari browser, mengekstrak landmark,
+   dan mengembalikan probabilitas kelas.
+2. **Training/evaluation pipeline** — memuat korpus, membuat split bebas
+   kebocoran, melatih model, dan mengevaluasinya per huruf.
 
-Frontend berkomunikasi langsung dengan layanan ini. Backend Express tidak menerima atau meneruskan frame kamera.
+Frontend berkomunikasi langsung dengan layanan ini. Backend Express tidak
+menerima atau meneruskan frame kamera.
 
 ## Tujuan AI
 
 - Mengenali satu huruf alfabet BISINDO statis per frame.
 - Mendukung satu atau dua tangan dengan input berdimensi tetap.
-- Mengembalikan probabilitas lengkap agar frontend dapat melakukan smoothing dan voting temporal.
-- Memisahkan model kandidat dari model produksi agar retraining tidak menyebabkan deployment tidak disengaja.
+- Mengembalikan probabilitas lengkap agar frontend dapat melakukan smoothing dan
+  voting temporal.
+- Menjaga agar model yang dikirim adalah persis model yang angkanya dilaporkan.
 
-Model ini tidak mengenali kata kontinu, gerakan dinamis, ekspresi wajah, atau tata bahasa BISINDO. Pembentukan teks dan spasi dilakukan di frontend.
+Model ini tidak mengenali kata kontinu, gerakan dinamis, ekspresi wajah, atau
+tata bahasa BISINDO. Pembentukan teks dan spasi dilakukan di frontend.
 
 ## Arsitektur inferensi
 
@@ -29,13 +35,15 @@ flowchart LR
     browser["Browser webcam"] -->|"JPEG image body"| api["POST /api/v1/predict"]
     api --> validation["Content type dan size validation"]
     validation --> mp["MediaPipe Hands<br/>maks. 2 tangan"]
-    mp --> features["126 fitur<br/>2 × 21 × x-y-z"]
-    features --> classifier["scikit-learn classifier"]
+    mp --> iso["Koreksi aspect ratio<br/>ke satuan isotropik"]
+    iso --> features["1.179 fitur geometri"]
+    features --> classifier["Calibrated RBF SVM"]
     classifier --> response["Label, confidence,<br/>probabilities, top-2 margin"]
     response --> stabilizer["Frontend EMA + voting<br/>+ release lock"]
 ```
 
-MediaPipe Hands memiliki state tracking dan tidak thread-safe. `BisindoClassifier` melindungi ekstraksi serta model call dengan satu lock.
+MediaPipe Hands memiliki state tracking dan tidak thread-safe. `BisindoClassifier`
+melindungi ekstraksi serta model call dengan satu lock.
 
 ## Struktur direktori
 
@@ -44,28 +52,25 @@ ai/
 ├── app/
 │   ├── main.py             # FastAPI app dan endpoint
 │   ├── config.py           # Environment settings
-│   └── classifier.py       # MediaPipe dan inference model
+│   ├── landmarks.py        # MediaPipe, koreksi aspect, fitur geometri
+│   └── classifier.py       # Pemuatan bundle dan inference
 ├── data/
-│   ├── raw/                # Dataset hasil download; diabaikan Git
-│   ├── splits/             # Manifest split lokal; diabaikan Git
-│   └── DATASET.md          # Provenance dataset
+│   ├── raw/                # Korpus hasil download; diabaikan Git
+│   ├── cache/              # Landmark cache; diabaikan Git
+│   ├── real_world/         # Validasi webcam sendiri; diabaikan Git
+│   └── DATASET.md          # Provenance dan kebijakan split
 ├── models/
-│   ├── rf_bisindo_99.pkl   # Model produksi
-│   ├── labels.json
+│   ├── bisindo_geometry_v6.pkl   # Model produksi
 │   ├── model_metadata.json
-│   ├── candidates/         # Model hasil training; file model diabaikan Git
-│   └── README.md           # Provenance model produksi
+│   └── README.md                 # Provenance dan hasil terverifikasi
 ├── reports/
-│   ├── model_comparison.json
-│   └── *_confusion_matrix.csv
+│   └── production_v6.json  # Audit training/evaluasi lengkap
 ├── training/
-│   ├── download_dataset.py
-│   ├── dataset.py
-│   ├── augment.py
-│   ├── features.py
-│   ├── train.py
-│   └── evaluate.py
-├── .env.example
+│   ├── corpora.py          # Loader tiap korpus + split + higienis
+│   ├── train_production.py # Training dan evaluasi jujur
+│   ├── evaluate_model.py   # Skor per huruf atas bundle yang dikirim
+│   └── capture_webcam.py   # Perekam set validasi webcam
+├── tests/
 └── requirements.txt
 ```
 
@@ -73,150 +78,127 @@ ai/
 
 | Properti | Nilai |
 | --- | --- |
-| File | `models/rf_bisindo_99.pkl` |
-| Tipe | `RandomForestClassifier` scikit-learn |
+| File | `models/bisindo_geometry_v6.pkl` |
+| Tipe | Calibrated `SVC` RBF (`C=10`) di atas `StandardScaler` |
 | Kelas | A-Z (26 kelas) |
-| Input | 126 nilai floating point |
-| Fitur | Maks. 2 tangan × 21 landmark × koordinat x, y, z |
-| Preprocessing | Mode `legacy`: koordinat absolut MediaPipe dan zero padding |
-| Framework artefak | scikit-learn 1.5.2 |
+| Input | 1.179 nilai floating point |
+| Feature schema | `bisindo-geometry-v6` |
+| Acceptance policy | confidence `0,68`, margin `0,0` |
+| Refit pada data evaluasi | tidak |
 
-Jika hanya satu tangan terdeteksi, slot fitur yang tersisa diisi nol. Model produksi memakai urutan deteksi legacy. Jangan mengaktifkan `BISINDO_FEATURE_MODE=normalized` dengan model produksi karena representasi fiturnya berbeda dari saat model tersebut dilatih.
+### Hasil terverifikasi
 
-Provenance dan lisensi sumber model tersedia di [`models/README.md`](models/README.md) dan [`models/SOURCE_LICENSE.txt`](models/SOURCE_LICENSE.txt).
+Diukur dengan `npm run ai:evaluate` terhadap artifact yang dikirim:
 
-## Dataset
+| Domain uji | n | Accuracy | Macro F1 | Huruf < 0,90 |
+| --- | ---: | ---: | ---: | --- |
+| Talkee held-out (mirip webcam) | 1.560 | **0,9942** | 0,9942 | **tidak ada** |
+| Kaggle held-out (close-up, kamera miring) | 93 | 0,7742 | 0,7544 | 12 |
+| Mendeley held-out (fisheye jarak jauh) | 770 | 0,7636 | 0,7481 | 13 |
 
-| Properti | Nilai yang tercatat |
-| --- | --- |
-| Sumber | Kaggle `achmadnoer/alfabet-bisindo` |
-| Judul | Bahasa Isyarat Indonesia (BISINDO) Alphabets |
-| Kelas | 26 kelas A-Z |
-| Gambar asli | 312 (12 per kelas) |
-| Lisensi dataset | CC0 — Public Domain |
+Pada domain webcam, seluruh huruf mencapai recall `1,00` kecuali M `0,93`,
+J `0,97`, Y `0,97`, dan R `0,98`. Dengan acceptance policy: accepted accuracy
+`0,9994` pada coverage `0,9897`.
 
-Detail provenance tersedia di [`data/DATASET.md`](data/DATASET.md).
+Sebagai pembanding, model v5 sebelumnya mencapai `0,7467` pada test-nya dengan
+**P dan S di recall `0,00`**.
 
-Dataset mentah tidak di-commit karena ukuran dan karena tidak dibutuhkan untuk inference. `.gitignore` mengecualikan:
+## Yang membuat v5 hanya menguasai 18 huruf
 
-- `ai/data/raw/**` selain `.gitkeep`;
-- `ai/data/splits/*.json`;
-- model `.pkl`/`.npz` di `ai/models/candidates/`;
-- credential `kaggle.json` jika ada.
+Akar masalahnya bukan arsitektur model atau hyperparameter. Di dalam satu sesi
+rekaman, 1-NN sederhana atas fitur yang sama sudah mencapai 97-99%, jadi
+informasinya selalu ada. Yang salah adalah data latihnya.
 
-Downloader memakai endpoint publik dataset dan tidak membaca `kaggle.json`.
+Enam belas huruf BISINDO memakai dua tangan. Pada korpus Mendeley — kamera
+fisheye dengan penanda duduk jauh, tangan hanya 13,8% lebar frame — MediaPipe
+**sering hanya menemukan satu tangan**. Ketika itu terjadi, blok
+`cross_distances` dan `pair`, yaitu 504 dari 1.179 fitur, serentak menjadi nol
+sementara labelnya tetap huruf penuh. Sekitar 57% data latih "P" berupa artefak
+satu tangan seperti ini, sehingga kelas P runtuh seluruhnya ke Q pada signer
+baru.
 
-## Dataset download
+Rasio sampel yang jumlah tangannya cocok dengan hurufnya: Talkee 99,1%,
+Kaggle 68,7%, Mendeley 61,7%.
 
-Dari root repository, setelah virtual environment siap:
+Tiga cacat lain ikut diperbaiki:
 
-```bash
-npm run ai:download
-```
+- **Aspect ratio tidak dikoreksi.** MediaPipe membagi `x` dengan lebar dan `y`
+  dengan tinggi, sehingga frame 4:3 meregangkan tangan dibanding webcam 16:9.
+  Rasio anatomi lebar telapak terhadap panjang telunjuk terbaca 0,807 pada
+  gambar persegi, 0,723 pada 4:3, dan 0,662 pada Talkee — bukti langsung
+  distorsinya.
+- **Model yang dikirim di-refit pada train+val+test**, sehingga angka yang
+  dipublikasikan menggambarkan model yang tidak pernah di-deploy.
+- **Threshold rejection dikalibrasi pada model yang berbeda** dan membuang 55%
+  frame.
 
-Perintah mengekstrak dataset ke `ai/data/raw/`. Script training root mengharapkan direktori gambar pada:
-
-```text
-ai/data/raw/Citra BISINDO/
-```
-
-Setiap direktori kelas harus bernama satu huruf A-Z. File yang dikenali adalah `.jpg`, `.jpeg`, dan `.png`.
+Hipotesis yang diuji dan **terbantahkan**, agar tidak dicoba ulang: mirror
+augmentation tidak menabrakkan kelas mana pun; normalisasi rotasi justru
+menurunkan skor; augmentasi rotasi/anisotropi/noise tidak memperbaiki transfer
+lintas domain; deteksi dua tahap hanya menaikkan kecocokan jumlah tangan dari
+63,1% ke 66,9%.
 
 ## Preprocessing
 
-### Produksi legacy
+Landmark dikonversi ke **satuan isotropik** tepat saat keluar dari MediaPipe,
+yaitu `y` dikalikan tinggi/lebar sehingga kedua sumbu menjadi fraksi lebar
+frame. Karena dilakukan di titik paling awal, seluruh besaran hilir — palm
+scale, arah tulang, jarak berpasangan, dan gap tangan pasif — otomatis benar
+secara geometris dan sebanding antar kamera.
 
-- MediaPipe menerima gambar RGB.
-- Maksimum dua tangan diambil.
-- Tiap landmark menyediakan x, y, dan z.
-- Fitur diratakan secara posisi menjadi 126 nilai.
-- Slot tangan yang kosong di-zero-pad.
+Fitur `bisindo-geometry-v6` (1.179 nilai):
 
-### Kandidat normalized
+| Blok | Dimensi | Isi |
+| --- | ---: | --- |
+| `local` | 126 | Pose tiap tangan, berpusat di pergelangan, dibagi palm scale |
+| `bone` | 126 | Vektor satuan tiap tulang |
+| `intra` | 420 | Jarak antar landmark dalam satu tangan |
+| `cross` | 441 | Jarak kontak antar dua tangan |
+| `pair` | 63 | Perpindahan antar tangan |
+| `masks` + count | 3 | Kehadiran tangan |
 
-Pipeline v2:
+Tangan pasif yang jauh dibuang bila gap melebihi 1,5 kali palm scale; tanpa
+pruning ini akurasi Mendeley turun 14 poin karena grup AR memuat dua orang
+dalam satu frame.
 
-- menstabilkan urutan tangan berdasarkan handedness kiri/kanan;
-- mengurangi setiap landmark dengan posisi pergelangan tangan;
-- membagi koordinat dengan span terbesar bounding box tangan pada bidang x-y;
-- mempertahankan zero padding hingga 126 fitur.
+## Dataset dan split
 
-Mode inference harus cocok dengan mode preprocessing model yang dipilih.
+Detail lengkap di [`data/DATASET.md`](data/DATASET.md).
 
-## Data augmentation
+| Korpus | Peran | Unit yang ditahan |
+| --- | --- | --- |
+| Talkee | korpus utama, domain webcam | sequence utuh |
+| Kaggle | ragam close-up | gambar, rotasi deterministik |
+| Mendeley | ragam signer, stress test | capture/signer group utuh |
 
-`augment_webcam` hanya diterapkan pada data train dan menghasilkan variasi ringan kondisi webcam:
+Tidak ada split yang memotong bagian dalam satu sesi rekaman.
 
-- rotasi `-12°` sampai `12°`;
-- scale `0.92` sampai `1.08`;
-- translasi hingga sekitar 4% dimensi;
-- perubahan brightness/contrast;
-- blur ringan;
-- noise Gaussian;
-- kompresi JPEG quality 70-93.
+**Higienis jumlah tangan hanya untuk data latih.** Sampel yang jumlah tangannya
+bertentangan dengan hurufnya dibuang dari training, tetapi val dan test dinilai
+utuh — di aplikasi, frame tempat MediaPipe kehilangan satu tangan tetap sampai
+ke model dan tetap menampilkan huruf. Report memisahkan keduanya lewat
+`accuracy_when_hands_seen` dan `accuracy_when_a_hand_was_missed`.
 
-Horizontal flip sengaja tidak digunakan karena dapat mengubah makna handedness/isyarat.
-
-## Dataset splitting
-
-Split dibuat per kelas dengan seed bawaan `42` sebelum augmentasi. Untuk setiap kelas, sekitar 17% dialokasikan ke test dan 17% ke validation; sisanya menjadi train.
-
-Artefak training yang di-commit mencatat:
-
-| Split | Gambar asli pada manifest | Sampel dengan landmark setelah proses |
-| --- | ---: | ---: |
-| Train | 208 | 2.444, termasuk varian augmentasi |
-| Validation | 52 | 43 |
-| Test | 52 | 49 |
-
-Manifest dibuat sekali bila belum ada. Karena menyimpan path lokal, file tersebut diabaikan Git.
-
-## Pipeline training
-
-```mermaid
-flowchart TD
-    source["Kaggle dataset<br/>312 gambar asli"] --> download["npm run ai:download"]
-    download --> raw["ai/data/raw/Citra BISINDO"]
-    raw --> split["Split per kelas<br/>sebelum augmentasi"]
-    split --> train["Train set"]
-    split --> val["Validation set asli"]
-    split --> test["Test set asli"]
-    train --> augment["12 augmentasi per gambar"]
-    augment --> landmarks["MediaPipe + normalized features"]
-    val --> landmarks
-    test --> landmarks
-    landmarks --> candidates["Random Forest + Extra Trees candidates"]
-    candidates --> report["training_report.json"]
-    report --> compare["npm run ai:evaluate"]
-    compare --> decision["Manual promotion decision"]
-```
-
-Jalankan training:
+## Training
 
 ```bash
 npm run ai:train
 ```
 
-Konfigurasi root saat ini:
+Menulis `models/bisindo_geometry_v6.pkl` dan `reports/production_v6.json`.
+Ekstraksi MediaPipe di-cache; gunakan `--rebuild-cache` bila kode landmark
+berubah.
 
-- 12 augmentasi per gambar train;
-- 400 estimator untuk Random Forest;
-- 400 estimator untuk Extra Trees;
-- `class_weight="balanced"`;
-- `n_jobs=-1`;
-- pemilihan kandidat berdasarkan macro F1 validation tertinggi.
+Pemilihan `C` dilakukan pada validation, acceptance threshold dikalibrasi pada
+validation, lalu test dijalankan sekali. Artifact disimpan **tanpa** refit pada
+val atau test.
 
-Output:
-
-```text
-ai/models/candidates/
-├── random_forest_normalized.pkl
-├── extra_trees_normalized.pkl
-├── training_report.json
-└── heldout_features.npz
-```
-
-Model dan heldout features bersifat lokal/tergenerasi; `training_report.json` dapat menyimpan ringkasan tanpa menyimpan dataset mentah.
+Acceptance threshold dipilih sebagai coverage tertinggi yang masih mencapai
+`--target-accuracy` (default `0,975`), dengan syarat tidak ada satu huruf pun
+yang coverage-nya jatuh di bawah `--min-letter-coverage` (default `0,40`).
+Syarat kedua mencegah kasus yang disembunyikan threshold global: kebijakan bisa
+mencapai 98% keseluruhan sementara satu huruf sulit nyaris tidak pernah
+diterima, yang membuat pelajaran huruf itu mustahil diselesaikan.
 
 ## Evaluasi
 
@@ -224,70 +206,49 @@ Model dan heldout features bersifat lokal/tergenerasi; `training_report.json` da
 npm run ai:evaluate
 ```
 
-Perintah root membandingkan:
+Melaporkan recall ke-26 huruf, confusion teratas, dan coverage per huruf, lalu
+keluar dengan status bukan nol bila ada huruf di bawah `--min-recall`.
 
-- model produksi legacy `ai/models/rf_bisindo_99.pkl` dengan fitur legacy;
-- kandidat `ai/models/candidates/extra_trees_normalized.pkl` dengan fitur normalized.
+## Validasi webcam nyata
 
-Keduanya diuji pada split gambar asli yang sama. Latency pada laporan hanya mengukur `model.predict()`; waktu deteksi MediaPipe, transfer gambar, dan stabilisasi frontend tidak termasuk.
+Seluruh korpus adalah rekaman orang lain dengan kamera lain. **Validasi lintas
+pengguna pada webcam sebenarnya belum dilakukan**; angka 0,9942 berarti "penanda
+yang mungkin sama, rekaman baru".
 
-### Hasil artefak saat ini
+```bash
+npm run ai:capture     # rekam A-Z dari webcam sendiri
+npm run ai:validate    # skor per huruf terhadap rekaman itu
+```
 
-Ringkasan berikut berasal dari [`reports/model_comparison.json`](reports/model_comparison.json):
-
-| Model | Sampel terdeteksi | Accuracy | Macro F1 | Weighted F1 |
-| --- | ---: | ---: | ---: | ---: |
-| Produksi Random Forest legacy | 49 | 0,9796 | 0,9787 | 0,9782 |
-| Kandidat Extra Trees normalized | 49 | 0,9388 | 0,9307 | 0,9361 |
-
-Artefak menetapkan `production_replacement_recommended: false` karena macro F1 kandidat lebih rendah.
-
-Angka tersebut adalah evaluasi offline pada 49 gambar test yang landmark-nya berhasil diekstrak, bukan jaminan performa pada webcam dunia nyata. Metadata model legacy juga memperingatkan bahwa metrik training lama memakai split setelah augmentasi dan dapat terlalu optimistis. Gunakan laporan perbandingan leakage-safe di atas untuk keputusan antarmodel.
-
-Evaluasi juga menghasilkan:
-
-- classification report per kelas di JSON;
-- confusion matrix CSV untuk model lama dan baru;
-- distribusi confidence/margin prediksi benar dan salah;
-- calibration grid untuk kombinasi confidence dan margin;
-- ukuran model dan latency classifier.
-
-## Keamanan promosi model produksi
-
-Training dan evaluasi tidak mengganti `models/rf_bisindo_99.pkl`. Promosi harus menjadi keputusan manual setelah meninjau:
-
-- macro F1 dan confusion matrix test asli;
-- kegagalan deteksi MediaPipe;
-- distribusi confidence dan margin;
-- ukuran/latency model;
-- pengujian webcam lintas pengguna, pencahayaan, latar, dan perangkat.
-
-Jika model normalized dipromosikan, `BISINDO_MODEL_PATH` dan `BISINDO_FEATURE_MODE=normalized` harus diubah bersama. Mengganti hanya salah satunya membuat input inference tidak cocok dengan training.
+Perekam menolak menyimpan frame yang jumlah tangannya tidak sesuai huruf,
+sehingga set validasi tidak mengulang kerusakan yang dulu merusak model. Hasil
+rekaman disimpan di `data/real_world/` dan diabaikan Git karena berisi foto
+orang; laporan evaluasinya yang layak dibagikan. Jangan memasukkan set ini ke
+data latih — begitu dilatih, ia berhenti menjadi bukti.
 
 ## Inference API
 
 ### `GET /api/health`
 
-Contoh respons:
-
 ```json
 {
   "status": "ok",
   "service": "signlearn-bisindo-ai",
-  "modelLoaded": true
+  "modelLoaded": true,
+  "model": {
+    "name": "rbf_svc_bisindo_geometry",
+    "version": "6.0.0-2026-08-16",
+    "featureSchema": "bisindo-geometry-v6",
+    "classes": 26,
+    "rejection": { "min_confidence": 0.68, "min_margin": 0.0 }
+  }
 }
 ```
 
 ### `POST /api/v1/predict`
 
-Request:
-
-- body berisi byte gambar secara langsung;
-- `Content-Type` harus dimulai dengan `image/`;
-- ukuran tidak boleh melebihi `AI_MAX_IMAGE_BYTES`;
-- bukan JSON dan bukan multipart form.
-
-Contoh dengan curl:
+Body berisi byte gambar secara langsung, `Content-Type` harus dimulai dengan
+`image/`, dan ukurannya tidak melebihi `AI_MAX_IMAGE_BYTES`.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/predict \
@@ -295,30 +256,33 @@ curl -X POST http://localhost:8000/api/v1/predict \
   --data-binary @frame.jpg
 ```
 
-Contoh respons ketika tangan terdeteksi:
-
 ```json
 {
   "detected": true,
   "accepted": true,
-  "label": "A",
-  "confidence": 0.97,
+  "label": "S",
+  "confidence": 0.982,
   "handsDetected": 2,
   "relevantHands": 2,
-  "handSpan": 0.16,
-  "probabilities": {
-    "A": 0.97,
-    "B": 0.01
-  },
-  "secondLabel": "B",
-  "margin": 0.96,
-  "rejectionReason": null
+  "handSpan": 0.31,
+  "probabilities": { "S": 0.982, "C": 0.007 },
+  "secondLabel": "C",
+  "margin": 0.975,
+  "rejectionReason": null,
+  "expectedHands": 2,
+  "handCountMismatch": false
 }
 ```
 
-Ketika tidak ada tangan, `detected` bernilai `false`, label/secondLabel bernilai `null`, dan probabilities kosong.
+`expectedHands` adalah jumlah tangan yang dibutuhkan huruf **yang diprediksi**,
+dan `handCountMismatch` menandai bahwa jumlah itu berbeda dari yang terlihat.
+Keduanya bersifat informatif dan tidak memveto prediksi: memblokir kelas yang
+tidak cocok sudah diukur dan justru menurunkan akurasi, karena model lebih sering
+pulih dari tangan yang terlewat daripada yang diizinkan oleh pemblokiran itu.
 
-Kemungkinan error:
+Untuk memandu pengguna pada pelajaran huruf tertentu, bandingkan `relevantHands`
+di frontend dengan jumlah tangan huruf yang sedang diajarkan — frontend tahu
+targetnya, API tidak.
 
 | Status | Kondisi |
 | --- | --- |
@@ -327,119 +291,83 @@ Kemungkinan error:
 | `415` | `Content-Type` bukan gambar |
 | `503` | Classifier belum siap |
 
-OpenAPI interaktif tersedia di `http://localhost:8000/docs` ketika service aktif.
-
 ## Environment variables
 
-| Variabel | Default/template | Fungsi |
+| Variabel | Default | Fungsi |
 | --- | --- | --- |
-| `BISINDO_MODEL_PATH` | `models/rf_bisindo_99.pkl` | Path model relatif terhadap `ai/` atau absolut |
-| `BISINDO_FEATURE_MODE` | `legacy` | `legacy` untuk produksi; `normalized` untuk kandidat v2 |
+| `BISINDO_MODEL_PATH` | `models/bisindo_geometry_v6.pkl` | Path model relatif terhadap `ai/` atau absolut |
 | `AI_CORS_ORIGINS` | origin frontend lokal | Allowlist origin browser |
 | `AI_MAX_IMAGE_BYTES` | `2000000` | Batas body gambar |
 | `AI_MIN_DETECTION_CONFIDENCE` | `0.5` | Threshold deteksi MediaPipe |
 | `AI_MIN_TRACKING_CONFIDENCE` | `0.5` | Threshold tracking MediaPipe |
-
-Gunakan [`.env.example`](.env.example); jangan commit konfigurasi rahasia atau URL internal yang sensitif.
+| `BISINDO_MIN_HAND_SPAN` | `0.06` | Tangan terkecil yang diterima, fraksi lebar frame |
 
 ## Persyaratan dan instalasi
 
 - Python 3.10-3.12; 3.12 direkomendasikan.
-- Model produksi tersedia pada `ai/models/rf_bisindo_99.pkl`.
-
-macOS/Linux dari root repository:
 
 ```bash
-python3.12 -m venv ai/.venv
-source ai/.venv/bin/activate
-pip install -r ai/requirements.txt
-cp ai/.env.example ai/.env
-deactivate
-```
-
-Windows PowerShell:
-
-```powershell
-py -3.12 -m venv ai/.venv
+py -3.12 -m venv ai/.venv          # Windows PowerShell
 ai/.venv/Scripts/Activate.ps1
 pip install -r ai/requirements.txt
 Copy-Item ai/.env.example ai/.env
-deactivate
+```
+
+```bash
+python3.12 -m venv ai/.venv        # macOS/Linux
+source ai/.venv/bin/activate
+pip install -r ai/requirements.txt
+cp ai/.env.example ai/.env
 ```
 
 ## Menjalankan layanan
 
-Dari root:
-
 ```bash
-npm run dev:ai
-```
-
-Atau secara langsung dari `ai/` setelah mengaktifkan virtual environment:
-
-```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Menjalankan seluruh sistem:
-
-```bash
-npm run dev
+npm run dev:ai      # hanya AI
+npm run dev         # seluruh sistem
+npm run ai:test     # test suite AI
 ```
 
 ## Integrasi frontend
 
-Pada development, `frontend/vite.config.js` meneruskan:
+Pada development, `frontend/vite.config.js` meneruskan
+`/bisindo-ai/predict` ke `http://127.0.0.1:8000/api/v1/predict`.
 
-```text
-/bisindo-ai/predict → http://127.0.0.1:8000/api/v1/predict
-```
-
-Frontend mengirim satu request pada satu waktu, membatalkan request ketika panel kamera dilepas, dan tidak mengirim frame jika frame sebelumnya belum selesai. Tuning acceptance berada di variabel `VITE_BISINDO_*`, bukan di service AI.
-
-## Validasi dunia nyata
-
-Untuk dataset webcam terpisah, simpan gambar menurut label di:
-
-```text
-ai/data/real_world/<LABEL>/
-```
-
-Jangan campurkan gambar validasi dunia nyata ke train set. Repository belum menyediakan script evaluasi khusus direktori tersebut; validasi lintas pengguna/perangkat masih merupakan pekerjaan manual.
+`VITE_BISINDO_MIN_CONFIDENCE` di frontend **harus sama dengan** `min_confidence`
+di dalam bundle (terlihat pada `GET /api/health`). Menyetelnya lebih tinggi
+tidak membuat aplikasi lebih akurat; ia hanya membuang prediksi yang sudah
+terbukti benar. Ketika model dilatih ulang dan threshold-nya berubah, perbarui
+[`frontend/src/features/bisindo/detectionConfig.js`](../frontend/src/features/bisindo/detectionConfig.js)
+bersamaan.
 
 ## Troubleshooting
 
-### `BISINDO model not found`
+### `... predates feature schema bisindo-geometry-v6`
 
-Pastikan path model benar dan relatif terhadap direktori `ai/`. Model produksi harus berada pada `ai/models/rf_bisindo_99.pkl` dengan template bawaan.
+Artifact lama (`rf_bisindo_99.pkl`, `bisindo_geometry_v5.pkl`) dilatih sebelum
+koreksi aspect ratio. Bentuk fiturnya masih cocok sehingga tidak akan error —
+ia hanya salah secara diam-diam. Arahkan `BISINDO_MODEL_PATH` ke bundle v6.
 
-### `Model expects ... features; expected 126`
+### `Model feature schema does not match runtime`
 
-Artefak model tidak kompatibel dengan extractor saat ini. Gunakan model yang dilatih dengan 126 fitur atau perbarui pipeline secara terkoordinasi; jangan menonaktifkan validasi jumlah fitur.
-
-### Service hidup tetapi frontend tidak dapat memanggilnya
-
-- Periksa `http://localhost:8000/api/health`.
-- Saat development, kosongkan `VITE_BISINDO_AI_URL` agar proxy Vite digunakan.
-- Jika frontend mengakses AI secara langsung, tambahkan origin tepat ke `AI_CORS_ORIGINS`.
+Bundle dan `app/landmarks.py` tidak sinkron. Latih ulang; jangan menonaktifkan
+validasinya.
 
 ### Banyak frame tidak mendeteksi tangan
 
-Perbaiki pencahayaan, pastikan tangan utuh berada dalam frame, dan gunakan latar yang cukup kontras. Jangan menurunkan threshold secara agresif tanpa mengevaluasi false positive.
+Perbaiki pencahayaan dan pastikan kedua tangan utuh dalam frame. Untuk 16 huruf
+dua tangan, satu tangan yang terlewat membuat 504 fitur menjadi nol dan
+prediksinya tidak dapat dipercaya. Duduk lebih dekat ke kamera membantu:
+kegagalan deteksi meningkat tajam ketika tangan mengecil di frame.
 
-### Training tidak menemukan gambar
+### Akurasi bagus di dataset tetapi buruk di webcam
 
-Pastikan download selesai, path `ai/data/raw/Citra BISINDO` ada, dan gambar berada di subfolder satu huruf A-Z.
-
-### Evaluasi gagal karena kandidat tidak ada
-
-Jalankan `npm run ai:train` sebelum `npm run ai:evaluate`. File kandidat `.pkl` memang diabaikan Git dan tidak tersedia pada clone baru.
+Itu tepat gejala yang diperbaiki rilis ini, dan satu-satunya cara mengukurnya
+adalah dengan data sendiri: `npm run ai:capture` lalu `npm run ai:validate`.
 
 ## Dokumentasi terkait
 
 - [Dokumentasi utama](../README.md)
+- [Dataset dan kebijakan split](data/DATASET.md)
+- [Provenance model](models/README.md)
 - [Frontend](../frontend/README.md)
-- [Backend](../backend/README.md)
-- [Dataset](data/DATASET.md)
-- [Model provenance](models/README.md)
-- [Testing report](../TESTING_REPORT.md)
