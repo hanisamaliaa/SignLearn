@@ -151,7 +151,6 @@ export default function Settings() {
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] outline-none focus:border-[#4F8EF7] focus:ring-2 focus:ring-[#4F8EF7]/20"
               >
                 <option value="id">Bahasa Indonesia</option>
-                <option value="en">English</option>
               </select>
             </div>
             <div>

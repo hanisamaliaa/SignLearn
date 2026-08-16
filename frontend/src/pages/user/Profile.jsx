@@ -224,7 +224,7 @@ export default function Profile() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left column */}
         <div className="space-y-4">
-          <Card className="overflow-hidden border-[#d4e0e7] text-center">
+          <Card interactive className="overflow-hidden border-[#d4e0e7] text-center">
             <div className="rounded-2xl bg-[#fff8df] p-5">
               <SignLearnAvatar id={avatar} size="xl" className="mx-auto" />
             </div>
@@ -236,7 +236,7 @@ export default function Profile() {
             </p>
           </Card>
 
-          <Card className="border-[#d4e0e7]">
+          <Card interactive className="border-[#d4e0e7]">
             <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
               Informasi Akun
             </h3>
@@ -254,7 +254,7 @@ export default function Profile() {
           </Card>
 
           {learningStats && (
-            <Card className="border-[#d4e0e7]">
+            <Card interactive className="border-[#d4e0e7]">
               <h3 className="mb-4 text-sm font-extrabold text-[var(--text)]">
                 Statistik Belajar
               </h3>
@@ -277,7 +277,7 @@ export default function Profile() {
 
         {/* Right column */}
         <div className="space-y-5 lg:col-span-2">
-          <Card className="border-[#d4e0e7]">
+          <Card interactive className="border-[#d4e0e7]">
             <div className="mb-6">
               <h2 className="text-lg font-extrabold text-[var(--text)]">
                 Informasi Pribadi
@@ -415,7 +415,7 @@ export default function Profile() {
             </form>
           </Card>
 
-          <Card className="border-[#d4e0e7]">
+          <Card interactive className="border-[#d4e0e7]">
             <h2 className="mb-5 text-lg font-extrabold text-[var(--text)]">
               Ubah Kata Sandi
             </h2>
