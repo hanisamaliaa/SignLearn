@@ -33,3 +33,13 @@ export const updateLessonProgress = asyncHandler(async (req, res) => {
   );
   success(res, result, "Progres berhasil disimpan.");
 });
+
+export const getQuizHistory = asyncHandler(async (req, res) => {
+  const history = await progressService.quizHistory(req.user.id);
+  success(res, history);
+});
+
+export const getQuizResultDetail = asyncHandler(async (req, res) => {
+  const detail = await progressService.quizResultDetail(req.user.id, req.params.resultId);
+  success(res, { result: detail });
+});

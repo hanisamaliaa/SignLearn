@@ -20,6 +20,8 @@ const router = Router();
 router.use(authenticate, requireUser);
 
 router.get("/", progressController.getUserProgress);
+router.get("/quiz-history", progressController.getQuizHistory);
+router.get("/quiz-results/:resultId", progressController.getQuizResultDetail);
 router.get("/courses/:courseId", progressController.getCourseAccess);
 
 router.put(

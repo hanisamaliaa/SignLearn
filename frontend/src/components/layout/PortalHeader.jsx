@@ -8,27 +8,7 @@ import {
   UserIcon,
 } from "../ui/Icons";
 import { SignLearnAvatar, resolveAvatarId } from "../common/SignLearnAvatar";
-
-const NOTIFICATIONS = [
-  {
-    title: "Kuis berhasil!",
-    body: 'Anda lulus kuis "Huruf A-F" dengan skor 90.',
-    time: "2 jam lalu",
-    unread: true,
-  },
-  {
-    title: "Pelajaran baru tersedia",
-    body: '"Mengeja Kata Pendek" sudah bisa dimulai.',
-    time: "1 hari lalu",
-    unread: true,
-  },
-  {
-    title: "Streak 7 hari!",
-    body: "Selamat! Anda belajar 7 hari berturut-turut.",
-    time: "3 hari lalu",
-    unread: false,
-  },
-];
+import { useNotifications, timeAgo } from "../../features/notifications/useNotifications";
 
 export default function PortalHeader({
   variant,
@@ -41,6 +21,7 @@ export default function PortalHeader({
 }) {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const notifications = useNotifications();
   const [profileOpen, setProfileOpen] = useState(false);
   const userAvatar = resolveAvatarId(currentUser?.profile?.avatar);
   const firstName = currentUser?.name?.split(" ")[0] || "User";
@@ -131,31 +112,53 @@ export default function PortalHeader({
           <div className="relative">
             <button
               onClick={() => {
-                setNotifOpen(!notifOpen);
+                const opening = !notifOpen;
+                setNotifOpen(opening);
                 setProfileOpen(false);
+                if (opening) notifications.markAllSeen();
               }}
               className="relative w-11 h-11 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
               data-focus-secondary="true"
-              aria-label="Notifikasi"
+              aria-label={
+                notifications.unreadCount
+                  ? `Notifikasi, ${notifications.unreadCount} belum dibaca`
+                  : "Notifikasi"
+              }
             >
               <BellIcon size={18} />
-              <span className="user-header-notif-dot" />
+              {/* Titik hanya muncul bila memang ada yang belum dibaca; versi
+                  sebelumnya menampilkannya selamanya. */}
+              {notifications.unreadCount > 0 && <span className="user-header-notif-dot" />}
             </button>
             {notifOpen && (
               <div className="user-header-dropdown absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl">
                 <div className="border-b border-[var(--border)] px-4 py-3"><p className="text-sm font-semibold text-[var(--text)]">Notifikasi</p></div>
-                {NOTIFICATIONS.map((item, index) => (
-                  <div key={`${item.title}-${index}`} className={`border-b border-[var(--border-light)] px-4 py-3 last:border-0 ${item.unread ? "bg-[var(--surface-2)]" : ""}`}>
-                    <div className="flex items-start gap-2">
-                      {item.unread && <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#4F8EF7]" />}
-                      <div className={item.unread ? "" : "ml-4"}>
-                        <p className="text-sm font-medium text-[var(--text)]">{item.title}</p>
-                        <p className="mt-0.5 text-xs text-[var(--text-muted)]">{item.body}</p>
-                        <p className="mt-1 text-xs text-[var(--text-subtle)]">{item.time}</p>
+                {notifications.items.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
+                    Belum ada aktivitas. Mulai sebuah kursus untuk melihat kabarnya di sini.
+                  </p>
+                ) : (
+                  notifications.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setNotifOpen(false);
+                        navigate(item.to);
+                      }}
+                      className={`w-full border-b border-[var(--border-light)] px-4 py-3 text-left last:border-0 transition-colors hover:bg-[var(--surface-3)] ${item.unread ? "bg-[var(--surface-2)]" : ""}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {item.unread && <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-[#4F8EF7]" />}
+                        <div className={item.unread ? "" : "ml-4"}>
+                          <p className="text-sm font-medium text-[var(--text)]">{item.title}</p>
+                          <p className="mt-0.5 text-xs text-[var(--text-muted)]">{item.body}</p>
+                          <p className="mt-1 text-xs text-[var(--text-subtle)]">{timeAgo(item.at)}</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>

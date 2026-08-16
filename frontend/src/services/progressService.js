@@ -28,3 +28,20 @@ export async function updateLessonProgress(lessonId, status = "completed") {
 export async function getDashboard() {
   return request({ url: "/dashboard/me" });
 }
+
+/**
+ * Riwayat kuis, sudah dikelompokkan per kuis oleh server.
+ *
+ * Pengelompokan dan agregat huruf sengaja dihitung di server: ia satu-satunya
+ * pihak yang melihat seluruh percobaan tanpa perlu mengirim jawaban per soal
+ * ke setiap pemuatan halaman.
+ */
+export async function getQuizHistory() {
+  return request({ url: "/progress/quiz-history" });
+}
+
+/** Detail satu percobaan: benar/salah per soal beserta kursusnya. */
+export async function getQuizResultDetail(resultId) {
+  const payload = await request({ url: `/progress/quiz-results/${resultId}` });
+  return payload.result;
+}
