@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import * as authService from "../services/authService";
 import { Button, Input, Alert } from "../components/ui/ui";
 import { ArrowLeftIcon, CheckCircleIcon } from "../components/ui/Icons";
 import BrandLogo from "../components/common/BrandLogo";
@@ -10,7 +11,20 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [devToken, setDevToken] = useState("");
 
+  /**
+   * Meminta tautan reset.
+   *
+   * Sebelumnya fungsi ini hanya menunggu 800ms lalu menyatakan "email
+   * terkirim" — tanpa memanggil API sama sekali. Siapa pun yang lupa kata
+   * sandinya akan menunggu email yang tidak pernah dikirim oleh siapa pun.
+   *
+   * Respons server SENGAJA sama untuk email terdaftar maupun tidak, supaya
+   * halaman ini tidak dapat dipakai memetakan email mana yang punya akun.
+   * Karena itu pesan sukses di bawah tidak pernah menjanjikan bahwa emailnya
+   * memang ada.
+   */
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -21,9 +35,18 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSent(true);
-    setLoading(false);
+    try {
+      const payload = await authService.requestPasswordReset(email.trim());
+      // Di luar produksi server mengembalikan tokennya langsung karena
+      // pengiriman email belum tersambung; ini yang membuat alurnya dapat
+      // diselesaikan dan diuji tanpa SMTP.
+      setDevToken(payload?.devToken ?? "");
+      setSent(true);
+    } catch (requestError) {
+      setError(requestError?.message ?? "Permintaan gagal dikirim. Coba lagi sebentar, ya.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -117,12 +140,34 @@ export default function ForgotPassword() {
               <CheckCircleIcon size={32} className="text-[#2ECC71]" />
             </div>
             <h1 className="text-2xl font-extrabold text-[var(--text)] mb-3">
-              Email Terkirim!
+              Permintaan Terkirim
             </h1>
+            {/* Tidak menyatakan emailnya pasti ada: server sengaja menjawab
+                sama untuk email terdaftar maupun tidak, agar halaman ini tidak
+                bisa dipakai memetakan akun siapa saja yang terdaftar. */}
             <p className="text-sm text-[var(--text-muted)] mb-2">
-              Kami telah mengirimkan tautan reset kata sandi ke:
+              Bila email ini terdaftar, tautan reset kata sandi telah dikirim ke:
             </p>
             <p className="font-semibold text-[var(--text)] mb-5">{email}</p>
+
+            {devToken && (
+              <div className="mb-6 rounded-xl border border-[#F4B400]/40 bg-[var(--warning-light)] p-4 text-left">
+                <p className="text-sm font-semibold text-[var(--text)]">
+                  Mode pengembangan
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                  Pengiriman email belum tersambung, jadi server memberikan
+                  tautannya langsung di sini. Di produksi bagian ini tidak
+                  pernah muncul.
+                </p>
+                <Link
+                  to={`/reset-password?token=${encodeURIComponent(devToken)}`}
+                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                >
+                  Lanjut atur kata sandi baru
+                </Link>
+              </div>
+            )}
 
             <div className="bg-[var(--surface-2)] rounded-xl p-4 mb-6 text-left text-sm text-[var(--text-muted)]">
               <p className="font-medium text-[var(--text)] mb-2">
@@ -139,9 +184,9 @@ export default function ForgotPassword() {
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => setSent(false)}
+              onClick={() => { setSent(false); setDevToken(""); }}
             >
-              Kirim Ulang Email
+              Kirim Ulang Permintaan
             </Button>
             <Button
               variant="ghost"

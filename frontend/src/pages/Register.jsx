@@ -3,6 +3,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/app";
 import {
+  authErrorMessage,
+  authFieldErrors,
+  isAuthFailure,
+} from "../features/auth/authResult";
+import {
   ArrowLeftIcon,
   BookIcon,
   CheckCircleIcon,
@@ -146,12 +151,24 @@ export default function Register() {
     setAuthError("");
     setLoading(true);
     try {
-      const ok = await register({ name: name.trim(), email: email.trim(), password, profile });
-      if (!ok) {
-        setAuthError("Email ini sudah digunakan. Coba gunakan email lain, ya.");
+      const result = await register({
+        name: name.trim(), email: email.trim(), password, profile,
+      });
+
+      // `register` mengembalikan objek hasil, bukan boolean. Pemeriksaan lama
+      // `if (!ok)` tidak pernah bernilai benar karena `{ success: false }`
+      // tetap truthy, sehingga pendaftaran yang DITOLAK server tetap
+      // menampilkan "Pendaftaran berhasil" dan pengguna baru menyadarinya saat
+      // gagal masuk.
+      if (isAuthFailure(result)) {
+        setFieldErrors((current) => ({ ...current, ...authFieldErrors(result) }));
+        setAuthError(
+          authErrorMessage(result, "Akun belum berhasil dibuat. Coba lagi sebentar, ya."),
+        );
         setLoading(false);
         return;
       }
+
       setSuccess(true);
       setLoading(false);
     } catch {

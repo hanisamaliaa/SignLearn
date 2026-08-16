@@ -7,6 +7,7 @@ import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
 import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
 import ParentGuide from "../pages/ParentGuide";
 import AboutBisindo from "../pages/AboutBisindo";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
@@ -41,6 +42,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/parent-guide" element={<ParentGuide />} />
       <Route path="/about-bisindo" element={<AboutBisindo />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
