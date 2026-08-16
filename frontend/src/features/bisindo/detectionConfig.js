@@ -14,14 +14,19 @@ export const DETECTION_CONFIG = Object.freeze({
   // Prediksi di bawah nilai ini tidak ikut voting, tetapi tidak langsung
   // menghapus kandidat yang sudah terkumpul.
   uncertainConfidence: numberFromEnv("VITE_BISINDO_UNCERTAIN_CONFIDENCE", 0.4),
-  // Syarat normal untuk memasukkan sebuah huruf.
-  // Geometry-v5's signer-held-out threshold is also enforced by the AI API.
-  minConfidence: numberFromEnv("VITE_BISINDO_MIN_CONFIDENCE", 0.93),
-  minMargin: numberFromEnv("VITE_BISINDO_MIN_MARGIN", 0.02),
+  // Syarat normal untuk memasukkan sebuah huruf. Harus sama dengan acceptance
+  // policy di dalam bundle model (lihat `rejection` pada GET /api/health), yang
+  // dikalibrasi pada validation set untuk akurasi >= 97,5%. Menyetel angka ini
+  // lebih tinggi daripada model tidak membuat aplikasi lebih akurat; ia hanya
+  // membuang prediksi yang sudah terbukti benar.
+  minConfidence: numberFromEnv("VITE_BISINDO_MIN_CONFIDENCE", 0.68),
+  minMargin: numberFromEnv("VITE_BISINDO_MIN_MARGIN", 0.0),
   // Confidence tinggi boleh memakai margin sedikit lebih kecil (hysteresis
-  // keputusan), karena kelas teratas sudah sangat kuat.
+  // keputusan), karena kelas teratas sudah sangat kuat. Nilainya tidak boleh
+  // melebihi minMargin, jika tidak prediksi paling yakin justru disaring lebih
+  // ketat daripada yang ragu.
   highConfidence: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE", 0.96),
-  highConfidenceMinMargin: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE_MIN_MARGIN", 0.02),
+  highConfidenceMinMargin: numberFromEnv("VITE_BISINDO_HIGH_CONFIDENCE_MIN_MARGIN", 0.0),
   // Voting mayoritas: satu frame salah di jendela 5 frame tidak mereset progres.
   predictionWindow: numberFromEnv("VITE_BISINDO_PREDICTION_WINDOW", 5),
   minimumVotes: numberFromEnv("VITE_BISINDO_MINIMUM_VOTES", 3),

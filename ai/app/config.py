@@ -16,7 +16,7 @@ def _csv(value: str) -> tuple[str, ...]:
 @dataclass(frozen=True)
 class Settings:
     model_path: Path = Path(
-        os.getenv("BISINDO_MODEL_PATH", "models/bisindo_geometry_v5.pkl")
+        os.getenv("BISINDO_MODEL_PATH", "models/bisindo_geometry_v6.pkl")
     )
     cors_origins: tuple[str, ...] = _csv(
         os.getenv(
@@ -31,7 +31,6 @@ class Settings:
     min_tracking_confidence: float = float(
         os.getenv("AI_MIN_TRACKING_CONFIDENCE", 0.5)
     )
-    feature_mode: str = os.getenv("BISINDO_FEATURE_MODE", "geometry")
     min_hand_span: float = float(os.getenv("BISINDO_MIN_HAND_SPAN", 0.06))
 
 

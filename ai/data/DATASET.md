@@ -6,14 +6,45 @@ artifact produksi, dan laporan evaluasi.
 
 ## Sumber data
 
-| Sumber | Lisensi | Pemakaian |
-| --- | --- | --- |
-| [Mendeley BISINDO](https://data.mendeley.com/datasets/4xnkvr88tk/1), DOI `10.17632/4xnkvr88tk.1` | CC BY 4.0 | Dataset utama dan signer/capture group holdout |
-| Kaggle [`achmadnoer/alfabet-bisindo`](https://www.kaggle.com/datasets/achmadnoer/alfabet-bisindo) | CC0 Public Domain | Auxiliary training-only images, 312 gambar (12 x 26 kelas) |
-| Kaggle [`niputukarismadewi/talkee-bisindo-sign-language-dataset`](https://www.kaggle.com/datasets/niputukarismadewi/talkee-bisindo-sign-language-dataset) | CC0 | Auxiliary MediaPipe landmark sequence; hanya A-Z |
+| Sumber | Lisensi | Kamera | Peran |
+| --- | --- | --- | --- |
+| Kaggle [`niputukarismadewi/talkee-bisindo-sign-language-dataset`](https://www.kaggle.com/datasets/niputukarismadewi/talkee-bisindo-sign-language-dataset) | CC0 | landmark, aspect ~16:9 | **Korpus utama.** Domain paling dekat webcam |
+| Kaggle [`achmadnoer/alfabet-bisindo`](https://www.kaggle.com/datasets/achmadnoer/alfabet-bisindo) | CC0 Public Domain | persegi 1:1, close-up | Ragam close-up, 312 gambar (12 x 26) |
+| [Mendeley BISINDO](https://data.mendeley.com/datasets/4xnkvr88tk/1), DOI `10.17632/4xnkvr88tk.1` | CC BY 4.0 | fisheye 640x480, penanda jauh | Ragam signer; stress test out-of-domain |
 
 Talkee juga memuat tujuh kelas kata. Pipeline produksi secara eksplisit membaca
 direktori `A` sampai `Z`, sehingga kelas kata tidak pernah masuk ke model.
+
+### Kenapa Talkee menjadi korpus utama
+
+Mendeley sempat menjadi sumber utama dan itu penyebab langsung model v5 hanya
+menguasai 18 huruf. Rekamannya memakai kamera fisheye dengan penanda duduk jauh:
+tangan hanya menempati 13,8% lebar frame (median), dibanding 33,7% pada Talkee.
+Pada ukuran sekecil itu MediaPipe sering **hanya menemukan satu tangan** untuk
+huruf dua tangan.
+
+Rasio sampel yang jumlah tangannya cocok dengan hurufnya:
+
+| Korpus | Konsisten |
+| --- | ---: |
+| Talkee | 99,1% |
+| Kaggle | 68,7% |
+| Mendeley | 61,7% |
+
+Sampel yang tidak konsisten bukan variasi sah: ketika satu tangan hilang, 504
+dari 1.179 fitur (`cross_distances` + `pair`) serentak menjadi nol sementara
+labelnya tetap huruf penuh. Sekitar 57% data latih "P" dahulu berupa artefak
+satu tangan, sehingga kelas P runtuh seluruhnya ke Q pada signer baru.
+
+### Aspect ratio per korpus
+
+MediaPipe membagi `x` dengan lebar dan `y` dengan tinggi, jadi frame non-persegi
+meregangkan tangan. Pipeline mengubah landmark ke satuan isotropik (fraksi lebar
+frame) saat pemuatan. Korpus gambar memakai dimensi file yang sebenarnya; Talkee
+hanya berisi landmark sehingga aspect-nya direkonstruksi dari data: rasio lebar
+telapak terhadap panjang telunjuk yang seharusnya konstan secara anatomis
+terbaca 0,807 (Kaggle 1:1), 0,723 (Mendeley 4:3), dan 0,662 (Talkee), dan 16:9
+adalah nilai yang memaksimalkan transfer Talkee ke kedua korpus lain.
 
 ## Download
 
@@ -49,17 +80,38 @@ Semua isi `raw/`, `cache/`, dan manifest JSON di `splits/` diabaikan Git.
 
 ## Split dan pencegahan leakage
 
-Mendeley menjadi sumber evaluasi utama. Suffix filename dipakai sebagai
-capture/signer group dan kelompok lengkap ditahan untuk validation serta test.
-Frame yang berdekatan dari capture yang sama tidak diacak ke beberapa split.
+Tidak ada split yang memotong bagian dalam satu sesi rekaman. Frame berdekatan
+dari sesi yang sama nyaris identik; mengacaknya ke dua sisi akan membuat angka
+evaluasi terlihat bagus tanpa membuktikan apa pun.
 
-Dataset Achmad dan Talkee hanya ditambahkan ke training. Keduanya tidak dipakai
-untuk memilih threshold atau menghitung frozen signer-test metric.
+| Korpus | Unit yang ditahan | Train | Validation | Test |
+| --- | --- | --- | --- | --- |
+| Talkee | sequence utuh | seq 1-80 | seq 81-85 | seq 86-100 |
+| Mendeley | capture/signer group utuh | BASE + AR | group 2 | group 3 |
+| Kaggle | gambar, rotasi deterministik per kelas | 2 dari 3 | — | 1 dari 3 |
 
-Setelah hyperparameter dan threshold dibekukan serta test selesai, artifact
-deployment di-refit dengan seluruh partisipan publik. Oleh karena itu, metrik
-independen di `../reports/production_v5.json` adalah milik evaluation model,
-bukan evaluasi ulang atas final-refit bundle.
+Talkee memakai frame yang sudah mapan (13, 16, 19, 22, 25, 28) karena awal
+sequence masih berisi tangan yang bergerak menuju posisi: akurasi pada sequence
+held-out naik monoton dari 96,3% di frame 2 ke 99,5% di frame 26.
+
+### Higienis jumlah tangan: hanya untuk data latih
+
+Sampel yang jumlah tangannya bertentangan dengan hurufnya dibuang **dari data
+latih saja**. Val dan test dinilai utuh, termasuk frame tempat MediaPipe
+kehilangan satu tangan, karena di aplikasi frame seperti itu tetap sampai ke
+model dan tetap menampilkan huruf kepada pengguna. Menyaringnya dari evaluasi
+akan mengukur dunia yang tidak dialami pengguna.
+
+Laporan memisahkan keduanya lewat `accuracy_when_hands_seen` dan
+`accuracy_when_a_hand_was_missed`, sehingga kesalahan classifier dapat dibedakan
+dari kegagalan deteksi.
+
+### Model yang dikirim tidak pernah melihat data ujinya
+
+Pipeline v5 melakukan refit pada train+val+test sebelum menyimpan artifact,
+sehingga angka yang dipublikasikan menggambarkan model yang tidak pernah
+di-deploy. Pipeline v6 menyimpan persis estimator yang dievaluasi
+(`refit_on_evaluation_data: false`, diverifikasi oleh test suite).
 
 ## Feature cache
 

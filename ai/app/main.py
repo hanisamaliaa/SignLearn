@@ -18,7 +18,6 @@ async def lifespan(_app: FastAPI):
         model_path=settings.model_path,
         min_detection_confidence=settings.min_detection_confidence,
         min_tracking_confidence=settings.min_tracking_confidence,
-        feature_mode=settings.feature_mode,
         min_hand_span=settings.min_hand_span,
     )
     yield
@@ -82,4 +81,6 @@ async def predict(request: Request):
         "secondLabel": result.second_label,
         "margin": round(result.margin, 6),
         "rejectionReason": result.rejection_reason,
+        "expectedHands": result.expected_hands,
+        "handCountMismatch": result.hand_count_mismatch,
     }

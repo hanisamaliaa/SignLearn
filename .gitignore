@@ -33,10 +33,18 @@ ai/.venv/
 ai/__pycache__/
 ai/app/__pycache__/
 ai/training/__pycache__/
+ai/tests/__pycache__/
 ai/data/raw/**
 !ai/data/raw/.gitkeep
 ai/data/cache/**
 ai/data/splits/*.json
+
+# Webcam validation frames recorded by `npm run ai:capture`. These are photos
+# of whoever sat in front of the camera, so they stay on the machine that
+# recorded them; the evaluation report they produce is the shareable artifact.
+ai/data/real_world/**
+!ai/data/real_world/.gitkeep
+ai/.diag/
 ai/models/candidates/*.pkl
 ai/models/candidates/*.npz
 ai/models/external/**
