@@ -12,9 +12,9 @@ import numpy as np
 from .landmarks import (
     FEATURE_SCHEMA_VERSION,
     GEOMETRY_FEATURE_COUNT,
-    LEGACY_FEATURE_COUNT,
     HandLandmarkExtractor,
     build_features,
+    expected_hand_count,
 )
 
 
@@ -34,6 +34,8 @@ class Prediction:
     second_label: str | None = None
     margin: float = 0.0
     rejection_reason: str | None = None
+    expected_hands: int = 0
+    hand_count_mismatch: bool = False
 
 
 class BisindoClassifier:
@@ -44,7 +46,6 @@ class BisindoClassifier:
         model_path: Path,
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
-        feature_mode: str = "geometry",
         min_hand_span: float = 0.06,
     ) -> None:
         if not model_path.is_file():
@@ -71,15 +72,18 @@ class BisindoClassifier:
             self.model_version = str(artifact.get("model_version", "unknown"))
             self.feature_schema = str(artifact["feature_schema"])
         else:
-            # Kept only as an explicit rollback path for the original model.
-            self._bundle = None
-            self._model = artifact
-            self._feature_mode = feature_mode
-            self._rejection = {"min_confidence": 0.0, "min_margin": 0.0}
-            self.model_name = model_path.stem
-            self.model_version = "legacy"
-            self.feature_schema = feature_mode
-            expected_features = LEGACY_FEATURE_COUNT
+            # Pre-bundle artifacts (rf_bisindo_99.pkl and the v1 candidates)
+            # were trained on raw MediaPipe coordinates, before landmarks were
+            # corrected to isotropic units. Feeding them corrected features
+            # would not raise anything -- the shape still matches -- it would
+            # just return quietly wrong letters, so refuse them outright.
+            raise ValueError(
+                f"{model_path.name} predates feature schema "
+                f"{FEATURE_SCHEMA_VERSION}: it expects uncorrected MediaPipe "
+                "coordinates and would silently mispredict. Point "
+                "BISINDO_MODEL_PATH at a bundle from "
+                "`python -m ai.training.train_production`."
+            )
 
         model_feature_count = getattr(self._model, "n_features_in_", expected_features)
         if model_feature_count != expected_features:
@@ -155,21 +159,32 @@ class BisindoClassifier:
                 "low_confidence" if confidence < min_confidence else "low_margin"
             )
 
+        label = str(self._model.classes_[best_index])
+        # Sixteen BISINDO letters need both hands. Reporting the mismatch lets
+        # the UI say "show both hands" instead of silently scoring a frame
+        # MediaPipe only half saw. It deliberately does not veto the
+        # prediction: masking incompatible classes was measured and cost
+        # accuracy, because the model already recovers from a missed hand more
+        # often than the mask would allow.
+        expected = expected_hand_count(label)
+
         return Prediction(
             detected=True,
             accepted=accepted,
-            label=str(self._model.classes_[best_index]),
+            label=label,
             confidence=confidence,
             hands_detected=hands_detected,
             relevant_hands=relevant_hands,
             hand_span=hand_span,
             probabilities={
-                str(label): float(probability)
-                for label, probability in zip(self._model.classes_, probabilities)
+                str(name): float(probability)
+                for name, probability in zip(self._model.classes_, probabilities)
             },
             second_label=str(self._model.classes_[second_index]),
             margin=margin,
             rejection_reason=rejection_reason,
+            expected_hands=expected,
+            hand_count_mismatch=relevant_hands != expected,
         )
 
     def close(self) -> None:

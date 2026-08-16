@@ -12,11 +12,24 @@ MAX_HANDS = 2
 COORDINATES = 3
 LEGACY_FEATURE_COUNT = MAX_HANDS * LANDMARKS_PER_HAND * COORDINATES
 
-# Geometry v4 keeps each hand's shape in a wrist-centred coordinate system and
+# BISINDO forms sixteen letters with both hands and ten with a single hand.
+# Every corpus in `data/` independently agrees on this partition, so it is a
+# property of the language rather than of one recording session.  Training
+# samples whose detected hand count contradicts the letter are MediaPipe
+# detection failures, not valid examples, and must not be learned from.
+ONE_HANDED_LETTERS = frozenset("CEIJLORUVZ")
+TWO_HANDED_LETTERS = frozenset("ABDFGHKMNPQSTWXY")
+
+
+def expected_hand_count(label: str) -> int:
+    return 1 if label.upper() in ONE_HANDED_LETTERS else 2
+
+# Geometry keeps each hand's shape in a wrist-centred coordinate system and
 # explicitly describes finger articulation and two-hand contact.  Cross-hand
 # distances are important for BISINDO letters that differ by which finger or
 # palm area is touched.  The last three values are two presence masks and a
-# normalised hand count.
+# normalised hand count.  v6 adds nothing to the layout; it records that inputs
+# are now aspect-corrected, which changes every value the model sees.
 LOCAL_FEATURE_COUNT = LEGACY_FEATURE_COUNT
 HAND_CONNECTIONS = tuple(sorted(mp.solutions.hands.HAND_CONNECTIONS))
 BONE_FEATURE_COUNT = MAX_HANDS * len(HAND_CONNECTIONS) * COORDINATES
@@ -33,8 +46,26 @@ GEOMETRY_FEATURE_COUNT = (
     + MAX_HANDS
     + 1
 )
-FEATURE_SCHEMA_VERSION = "bisindo-geometry-v5"
+FEATURE_SCHEMA_VERSION = "bisindo-geometry-v6"
 MAX_INTERACTING_HAND_GAP = 1.5
+
+
+def to_isotropic(points: np.ndarray, aspect: float) -> np.ndarray:
+    """Convert MediaPipe normalised landmarks into square (isotropic) units.
+
+    MediaPipe divides x by the image width and y by the image height, so on a
+    non-square frame the two axes carry different physical units: on 640x480 a
+    circle becomes an ellipse and a 45-degree finger measures 53 degrees.  Every
+    downstream quantity -- palm scale, bone directions, pairwise distances,
+    the passive-hand gap -- mixes the axes, so the distortion never cancels and
+    a model trained on 4:3 footage sees different geometry from a 16:9 webcam.
+
+    Rescaling y by height/width expresses both axes as a fraction of the frame
+    width, which is comparable across every capture device.
+    """
+    isotropic = points.astype(np.float64, copy=True)
+    isotropic[:, 1] *= aspect
+    return isotropic
 
 
 @dataclass(frozen=True)
@@ -53,7 +84,11 @@ class FrameObservation:
 
     @property
     def hand_span(self) -> float:
-        """Largest detected-hand span as a fraction of the input frame."""
+        """Largest detected-hand extent as a fraction of the frame width.
+
+        Landmarks arrive in isotropic units, so this compares across cameras
+        with different aspect ratios.
+        """
         if not self.hands:
             return 0.0
         return max(
@@ -241,6 +276,8 @@ class HandLandmarkExtractor:
         if not results.multi_hand_landmarks:
             return None
 
+        height, width = image.shape[:2]
+        aspect = float(height) / float(width) if width else 1.0
         handedness = results.multi_handedness or []
         observations = []
         for index, hand in enumerate(results.multi_hand_landmarks[:MAX_HANDS]):
@@ -253,7 +290,11 @@ class HandLandmarkExtractor:
                 if index < len(handedness)
                 else ""
             )
-            observations.append(HandObservation(handedness=label, points=points))
+            observations.append(
+                HandObservation(
+                    handedness=label, points=to_isotropic(points, aspect)
+                )
+            )
         return FrameObservation(tuple(observations))
 
     def close(self) -> None:
