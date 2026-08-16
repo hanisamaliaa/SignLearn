@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Button, Badge, Alert } from "../ui/ui";
+import { Button, Alert } from "../ui/ui";
 import { PlusIcon, EditIcon, TrashIcon } from "../ui/Icons";
 import { quizService } from "../../services";
 import {
@@ -36,9 +36,19 @@ const MAX_OPTIONS = 6;
 
 const EMPTY_DRAFT = {
   question: "",
+  questionType: "multiple-choice",
   options: ["", ""],
   correctIndex: 0,
+  answerText: "",
 };
+
+/**
+ * Bentuk baku target ejaan; cerminan `normalizeSpellTarget` di backend.
+ * Server tetap pemutus terakhir — ini hanya agar admin melihat bentuk yang
+ * benar-benar akan tersimpan.
+ */
+const normalizeSpellTarget = (value) =>
+  String(value ?? "").trim().toUpperCase().replace(/\s+/g, " ");
 
 /**
  * ══ TITIK KEPUTUSAN ═══════════════════════════════════════════════════
@@ -92,6 +102,24 @@ function validateDraft(draft) {
   const question = draft.question.trim();
   if (!question) errors.question = "Pertanyaan wajib diisi.";
   else if (question.length > 1000) errors.question = "Pertanyaan maksimal 1000 karakter.";
+
+  // Soal kamera dijawab dengan memperagakan huruf, bukan memilih. Model
+  // pengenal hanya menguasai A-Z, jadi target di luar itu akan menghasilkan
+  // soal yang mustahil diselesaikan peserta.
+  if (draft.questionType === "camera-spell") {
+    const target = normalizeSpellTarget(draft.answerText);
+    if (!target) {
+      errors.answerText = "Kata yang harus dieja wajib diisi.";
+    } else if (!/^[A-Z]+( [A-Z]+)*$/.test(target)) {
+      errors.answerText =
+        "Hanya huruf A-Z dan spasi yang dapat diperagakan; angka, tanda baca, dan huruf beraksen tidak dikenali model.";
+    } else if (target.replace(/ /g, "").length < 2) {
+      errors.answerText = "Kata yang harus dieja minimal 2 huruf.";
+    } else if (target.length > 40) {
+      errors.answerText = "Kata yang harus dieja maksimal 40 karakter.";
+    }
+    return errors;
+  }
 
   const trimmed = draft.options.map((o) => o.trim());
 
@@ -150,7 +178,9 @@ export default function QuestionEditor({ courseId, quizId, quizTitle, onChanged 
     setEditingId(question.id);
     setDraft({
       question: question.question ?? "",
-      options: [...(question.options ?? [])],
+      questionType: question.questionType ?? "multiple-choice",
+      answerText: question.answerText ?? "",
+      options: question.options?.length ? [...question.options] : ["", ""],
       // Endpoint daftar pertanyaan ini khusus admin, jadi `correctIndex`
       // memang ikut. Peran `user` tidak pernah menerimanya (§5.5).
       correctIndex: question.correctIndex ?? 0,
@@ -198,12 +228,19 @@ export default function QuestionEditor({ courseId, quizId, quizTitle, onChanged 
     setSaving(true);
     setErrors({});
 
-    const payload = {
-      question: draft.question.trim(),
-      questionType: "multiple-choice",
-      options: draft.options.map((o) => o.trim()),
-      correctIndex: draft.correctIndex,
-    };
+    const payload =
+      draft.questionType === "camera-spell"
+        ? {
+            question: draft.question.trim(),
+            questionType: "camera-spell",
+            answerText: normalizeSpellTarget(draft.answerText),
+          }
+        : {
+            question: draft.question.trim(),
+            questionType: "multiple-choice",
+            options: draft.options.map((o) => o.trim()),
+            correctIndex: draft.correctIndex,
+          };
 
     const outcome = await runMutation(() =>
       editingId
@@ -376,7 +413,31 @@ export default function QuestionEditor({ courseId, quizId, quizTitle, onChanged 
             <h4 className="font-bold text-sm text-[var(--text)]">
               {editingId ? "Edit Soal" : "Soal Baru"}
             </h4>
-            <Badge variant="primary">Pilihan ganda</Badge>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
+              Jenis soal
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "multiple-choice", label: "Pilihan ganda" },
+                { id: "camera-spell", label: "Peragakan di kamera" },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, questionType: option.id }))}
+                  className={`min-h-11 rounded-xl border-2 px-4 text-sm font-medium transition-colors ${
+                    draft.questionType === option.id
+                      ? "border-[#4F8EF7] bg-[var(--primary-light)] text-[var(--primary)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[#4F8EF7]/40"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -396,6 +457,29 @@ export default function QuestionEditor({ courseId, quizId, quizTitle, onChanged 
             )}
           </div>
 
+          {draft.questionType === "camera-spell" ? (
+            <div>
+              <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
+                Kata yang harus dieja
+              </label>
+              <input
+                value={draft.answerText}
+                onChange={(e) => setDraft((d) => ({ ...d, answerText: e.target.value }))}
+                maxLength={40}
+                placeholder="PAGI"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm uppercase tracking-widest outline-none focus:border-[#4F8EF7]"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-subtle)]">
+                Peserta memperagakan kata ini huruf demi huruf dengan abjad BISINDO.
+                Model pengenal hanya menguasai A-Z, jadi angka dan tanda baca tidak
+                dapat dipakai. Spasi dilewati otomatis, sehingga frasa seperti
+                &ldquo;SELAMAT PAGI&rdquo; tetap bisa dikerjakan.
+              </p>
+              {errors.answerText && (
+                <p className="text-xs text-[#E74C3C] mt-1">{errors.answerText}</p>
+              )}
+            </div>
+          ) : (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-medium text-[var(--text)]">
@@ -479,6 +563,7 @@ export default function QuestionEditor({ courseId, quizId, quizTitle, onChanged 
               </button>
             )}
           </div>
+          )}
 
           <div className="flex gap-3">
             <Button variant="outline" fullWidth size="sm" onClick={closeDraft} disabled={saving}>

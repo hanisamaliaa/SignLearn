@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
 import { query, withTransaction, closePool, testConnection } from "../config/database.js";
 import { validatePassword } from "../validators/passwordPolicy.js";
+import { insertCatalogue } from "./courseCatalogue.js";
 
 /**
  * Seed database.
@@ -61,48 +62,8 @@ function generateStrongPassword() {
 
 // ─── Konten contoh ───────────────────────────────────────────────────────
 // Agar FE dan CMS punya data untuk dikembangkan sejak hari pertama.
-const SAMPLE_COURSES = [
-  {
-    title: "Abjad BISINDO",
-    titleEn: "BISINDO Alphabet",
-    category: "Dasar",
-    level: "Pemula",
-    description: "Mengenal 26 huruf BISINDO dan cara mengejanya.",
-    estimatedHours: 2.0,
-    sortOrder: 1,
-    lessons: [
-      { title: "Huruf A sampai E", duration: "6 menit", sortOrder: 1 },
-      { title: "Huruf F sampai J", duration: "6 menit", sortOrder: 2 },
-      { title: "Huruf K sampai O", duration: "7 menit", sortOrder: 3 },
-    ],
-  },
-  {
-    title: "Sapaan Sehari-hari",
-    titleEn: "Everyday Greetings",
-    category: "Dasar",
-    level: "Pemula",
-    description: "Kosakata sapaan yang paling sering dipakai.",
-    estimatedHours: 2.5,
-    sortOrder: 2,
-    lessons: [
-      { title: "Selamat Pagi, Siang, Malam", duration: "8 menit", sortOrder: 1 },
-      { title: "Apa Kabar dan Terima Kasih", duration: "7 menit", sortOrder: 2 },
-    ],
-  },
-  {
-    title: "Aktivitas Harian",
-    titleEn: "Daily Activities",
-    category: "Menengah",
-    level: "Menengah",
-    description: "Kata kerja untuk kegiatan sehari-hari.",
-    estimatedHours: 3.0,
-    sortOrder: 3,
-    lessons: [
-      { title: "Makan, Minum, Tidur", duration: "9 menit", sortOrder: 1 },
-      { title: "Belajar, Membaca, Menulis", duration: "9 menit", sortOrder: 2 },
-    ],
-  },
-];
+// Katalog kursus tinggal di `courseCatalogue.js` supaya seed dan skrip reset
+// konten tidak pernah menulis daftar yang berbeda.
 
 const SAMPLE_TRANSLATIONS = [
   { word: "Halo", translation: "HALO", category: "Sapaan", aliases: ["hai"] },
@@ -163,35 +124,14 @@ async function seedCourses() {
   const { rows } = await query(`SELECT COUNT(*)::int AS n FROM courses`);
   if (rows[0].n > 0) {
     console.log(`  · courses sudah berisi ${rows[0].n} baris — dilewati`);
+    console.log("    (jalankan `npm run db:reset-content` untuk menimpanya)");
     return;
   }
 
   // Satu transaksi: kursus tanpa pelajarannya lebih buruk daripada tidak ada
   // kursus sama sekali, karena total_lessons akan berbohong.
-  await withTransaction(async (client) => {
-    for (const c of SAMPLE_COURSES) {
-      const { rows: courseRows } = await client.query(
-        `INSERT INTO courses
-           (title, title_en, category, level, description, estimated_hours, sort_order, total_lessons)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id`,
-        [c.title, c.titleEn, c.category, c.level, c.description,
-         c.estimatedHours, c.sortOrder, c.lessons.length],
-      );
-      const courseId = courseRows[0].id;
-
-      for (const l of c.lessons) {
-        await client.query(
-          `INSERT INTO lessons (course_id, title, duration, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [courseId, l.title, l.duration, l.sortOrder],
-        );
-      }
-    }
-  });
-
-  const total = SAMPLE_COURSES.reduce((a, c) => a + c.lessons.length, 0);
-  console.log(`  ✓ ${SAMPLE_COURSES.length} kursus, ${total} pelajaran`);
+  const total = await withTransaction(insertCatalogue);
+  console.log(`  ✓ ${total} kursus, ${total} pelajaran, ${total} kuis`);
 }
 
 async function seedTranslations() {

@@ -11,6 +11,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/database/seed.js",
+    "db:reset-content": "node src/database/resetContent.js",
     "smoke": "node scripts/smoke-auth.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:users": "node scripts/smoke-users.mjs",

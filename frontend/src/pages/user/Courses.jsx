@@ -10,6 +10,7 @@ import {
   SearchIcon,
   TrophyIcon,
 } from "../../components/ui/Icons";
+import { formatEstimatedHours } from "../../features/lesson/courseMeta";
 
 const LEVELS = ["Semua", "Pemula", "Menengah", "Lanjutan"];
 
@@ -31,14 +32,18 @@ export default function Courses() {
     },
     {
       label: "Belajar",
-      value: COURSES.filter((course) => !course.isLocked && course.completedLessons > 0 && course.completedLessons < course.totalLessons).length,
+      // Dibaca dari status yang dihitung server. Rumus lamanya
+      // (`completedLessons > 0 && completedLessons < totalLessons`) tidak
+      // pernah bisa benar untuk kursus berisi satu pelajaran, sehingga angka
+      // ini selalu 0 betapapun banyak video yang sudah dibuka.
+      value: COURSES.filter((course) => course.learningStatus === "in_progress").length,
       helper: "sedang dipelajari",
       tone: "blue",
       icon: <BookIcon size={21} />,
     },
     {
       label: "Selesai",
-      value: COURSES.filter((course) => course.totalLessons > 0 && course.completedLessons === course.totalLessons).length,
+      value: COURSES.filter((course) => course.learningStatus === "completed").length,
       helper: "kursus selesai",
       tone: "green",
       icon: <TrophyIcon size={21} />,
@@ -214,7 +219,9 @@ export default function Courses() {
                         <p>{course.description}</p>
                         <div className="course-kids-meta">
                           <span>{course.totalLessons} Pelajaran</span>
-                          <span>{course.estimatedHours} jam</span>
+                          {formatEstimatedHours(course.estimatedHours) && (
+                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                          )}
                         </div>
                         {progress > 0 && (
                           <div className="course-kids-progress">
@@ -259,7 +266,9 @@ export default function Courses() {
                       <p>{course.description}</p>
                       <div className="course-kids-meta">
                         <span>{course.totalLessons} Pelajaran</span>
-                        <span>{course.estimatedHours} jam</span>
+                        {formatEstimatedHours(course.estimatedHours) && (
+                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                          )}
                       </div>
                       <div className="course-locked-note">
                         <LockIcon size={14} /> Selesaikan kursus sebelumnya
@@ -301,7 +310,9 @@ export default function Courses() {
                     <p>{course.description}</p>
                     <div className="course-kids-meta">
                       <span>{course.totalLessons} Pelajaran</span>
-                      <span>{course.estimatedHours} jam</span>
+                      {formatEstimatedHours(course.estimatedHours) && (
+                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                          )}
                     </div>
                     <div className="course-locked-note">
                       <LockIcon size={14} /> Selesaikan kursus sebelumnya

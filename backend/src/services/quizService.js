@@ -3,6 +3,7 @@ import * as courseRepo from "../repositories/courseRepository.js";
 import * as lessonRepo from "../repositories/lessonRepository.js";
 import { ApiError } from "../utils/ApiError.js";
 import { paginate, meta } from "../utils/pagination.js";
+import { normalizeSpellTarget } from "../validators/quizValidator.js";
 
 /**
  * Quiz service — aturan bisnis kuis, pertanyaan, dan penilaian.
@@ -134,9 +135,22 @@ export async function listQuestions(courseId, quizId) {
   return quizRepo.findQuestions(quizId, true);
 }
 
+/**
+ * Target ejaan dibakukan sekali, di sini, sebelum menyentuh database.
+ *
+ * Kalau normalisasi diserahkan ke pembanding saat penilaian, "Pagi " yang
+ * tersimpan dan "PAGI" yang dikenali kamera akan bergantung pada kedua sisi
+ * memakai aturan yang sama selamanya. Menyimpan bentuk baku membuat satu
+ * sisi saja yang perlu benar.
+ */
+function withNormalizedAnswer(data) {
+  if (data.answerText === undefined) return data;
+  return { ...data, answerText: normalizeSpellTarget(data.answerText) };
+}
+
 export async function createQuestion(courseId, quizId, data) {
   await requireQuizInCourse(courseId, quizId);
-  return quizRepo.createQuestion(quizId, data);
+  return quizRepo.createQuestion(quizId, withNormalizedAnswer(data));
 }
 
 async function requireQuestionInQuiz(quizId, questionId) {
@@ -151,7 +165,7 @@ async function requireQuestionInQuiz(quizId, questionId) {
 export async function updateQuestion(courseId, quizId, questionId, data) {
   await requireQuizInCourse(courseId, quizId);
   await requireQuestionInQuiz(quizId, questionId);
-  return quizRepo.updateQuestion(questionId, data);
+  return quizRepo.updateQuestion(questionId, withNormalizedAnswer(data));
 }
 
 export async function removeQuestion(courseId, quizId, questionId) {
@@ -183,9 +197,15 @@ export async function reorderQuestions(courseId, quizId, orderedIds) {
  * Mengerjakan kuis.
  *
  * PENILAIAN SEPENUHNYA DI SERVER. Jawaban dari klien hanya berisi
- * `selectedIndex`; benar atau salahnya ditentukan dengan membandingkannya
+ * `selectedIndex` (pilihan ganda) atau `answerText` (huruf yang berhasil
+ * dikenali kamera); benar atau salahnya ditentukan dengan membandingkannya
  * ke kunci jawaban yang diambil langsung dari database. Klien tidak pernah
  * mengirim skor, dan tidak pernah menerima kunci jawaban sebelum mengerjakan.
+ *
+ * Catatan jujur untuk soal `camera-spell`: kata targetnya memang terlihat oleh
+ * klien karena ia bagian dari soal, sehingga `answerText` dapat dipalsukan
+ * lewat DevTools. Skor kuis kamera layak untuk latihan, bukan untuk penilaian
+ * resmi. Menutup celah ini menuntut verifikasi frame di sisi server.
  *
  * Rumus (API Contract §8.12), ditetapkan di satu tempat agar BE dan FE
  * tidak pernah berbeda hitungan:
@@ -201,7 +221,7 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
     throw ApiError.conflict("Kuis ini belum memiliki pertanyaan.");
   }
 
-  const submitted = new Map(answers.map((a) => [String(a.questionId), Number(a.selectedIndex)]));
+  const submitted = new Map(answers.map((a) => [String(a.questionId), a]));
 
   // Seluruh pertanyaan wajib dijawab. Membiarkan jawaban parsial berarti
   // peserta dapat menaikkan skor dengan hanya mengirim soal yang ia yakini.
@@ -224,12 +244,30 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
   }
 
   const review = answerKey.map((k) => {
-    const selectedIndex = submitted.get(k.id);
+    const answer = submitted.get(k.id);
+
+    if (k.questionType === "camera-spell") {
+      // Peserta yang melewati soal karena kamera bermasalah mengirim teks
+      // kosong: dinilai salah, tetapi kuisnya tetap dapat diselesaikan.
+      const answerText = normalizeSpellTarget(answer?.answerText ?? "");
+      return {
+        questionId: k.id,
+        questionType: k.questionType,
+        answerText,
+        // Huruf yang sempat keliru diperagakan; dipakai dashboard untuk
+        // menunjukkan apa yang masih perlu dilatih, bukan untuk menskor.
+        mistakes: answer?.mistakes ?? null,
+        isCorrect: answerText.length > 0 && answerText === normalizeSpellTarget(k.answerText ?? ""),
+      };
+    }
+
+    const selectedIndex = Number(answer?.selectedIndex);
     // Indeks di luar jangkauan pilihan dihitung salah, bukan error —
     // klien rusak tidak boleh menggagalkan seluruh pengerjaan.
     const inRange = selectedIndex >= 0 && selectedIndex < k.optionCount;
     return {
       questionId: k.id,
+      questionType: k.questionType,
       selectedIndex,
       correctIndex: k.correctIndex,
       isCorrect: inRange && selectedIndex === k.correctIndex,
@@ -245,9 +283,13 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
     quizId,
     score,
     passed,
-    answers: review.map(({ questionId, selectedIndex, isCorrect }) => ({
-      questionId, selectedIndex, isCorrect,
-    })),
+    // Tiap tipe menyimpan bentuk jawabannya sendiri; `answers` bertipe JSONB
+    // sehingga riwayat soal kamera tetap terbaca tanpa kolom tambahan.
+    answers: review.map(({ questionId, questionType, selectedIndex, answerText, mistakes, isCorrect }) =>
+      questionType === "camera-spell"
+        ? { questionId, questionType, answerText, mistakes, isCorrect }
+        : { questionId, questionType, selectedIndex, isCorrect },
+    ),
   });
 
   return {
