@@ -83,7 +83,40 @@ function FaceAvatar({ id, size = "md", label, className = "", useAsset = true })
   );
 }
 
-export function SignLearnAvatar({ id = "luna", size = "md", className = "", useAsset = true }) {
+export function SignLearnAvatar({
+  id = "luna",
+  size = "md",
+  className = "",
+  useAsset = true,
+  photo = null,
+}) {
+  if (photo) {
+    const sizeClass =
+      size === "xl"
+        ? "w-28 h-28"
+        : size === "lg"
+          ? "w-20 h-20"
+          : size === "sm"
+            ? "w-9 h-9"
+            : "w-12 h-12";
+    return (
+      <div
+        className={`${sizeClass} relative overflow-hidden rounded-full border-2 border-white shadow-sm flex-shrink-0 ${className}`}
+        aria-label="Foto profil"
+        role="img"
+      >
+        <img
+          src={photo}
+          alt="Foto profil"
+          className="h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      </div>
+    );
+  }
+
   return <FaceAvatar id={id} size={size} className={className} useAsset={useAsset} />;
 }
 
