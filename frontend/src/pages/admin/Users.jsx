@@ -108,15 +108,15 @@ export default function AdminUsers() {
   const summary = useMemo(() => {
     if (!stats) return null;
     return [
-      { label: "Total Pengguna", value: stats.users, color: "#4F8EF7" },
-      { label: "Aktif", value: stats.activeUsers, color: "#2ECC71" },
+      { label: "Total Pengguna", value: stats.users, color: "var(--chart-blue)" },
+      { label: "Aktif", value: stats.activeUsers, color: "var(--chart-green)" },
       {
         // `adminTotals` hanya menghitung status='active'; sisanya adalah
         // gabungan `inactive` dan `suspended`. Labelnya menyebut keduanya
         // supaya angkanya tidak dibaca sebagai "nonaktif" saja.
         label: "Nonaktif / Ditangguhkan",
         value: Math.max(0, stats.users - stats.activeUsers),
-        color: "#E74C3C",
+        color: "var(--chart-red)",
       },
     ];
   }, [stats]);
