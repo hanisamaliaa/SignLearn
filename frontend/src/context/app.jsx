@@ -14,6 +14,7 @@ import * as quizService from "../services/quizService";
 import * as userService from "../services/userService";
 import * as subscriptionService from "../services/subscriptionService";
 import { bootstrapSession, onAuthFailure, normalizeError } from "../services/api";
+import { getCourseThumbnail } from "../utils/courseThumbnail";
 
 /**
  * State aplikasi — satu-satunya jembatan antara halaman dan backend.
@@ -50,6 +51,7 @@ function toUiUser(user) {
 function toUiCourse(course) {
   return {
     ...course,
+    thumbnail: getCourseThumbnail(course),
     completedLessons: course.progress?.completedLessons ?? 0,
     startedLessons: course.progress?.startedLessons ?? 0,
     percent: course.progress?.percent ?? 0,
