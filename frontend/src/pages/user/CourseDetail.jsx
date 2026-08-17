@@ -11,7 +11,21 @@ import {
   BookIcon,
 } from "../../components/ui/Icons";
 import { formatEstimatedHours } from "../../features/lesson/courseMeta";
+import { getCourseThumbnail } from "../../utils/courseThumbnail";
 import PremiumModal from "../../components/premium/PremiumModal";
+
+/** Thumbnail dengan fallback untuk halaman detail kursus. */
+function CourseThumbnail({ src, alt, className }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className={`${className} flex items-center justify-center text-5xl bg-[var(--surface-3)]`} aria-hidden="true">
+        📚
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+}
 
 export default function CourseDetail() {
   const { selectedCourse, setSelectedLesson, isPremium } = useApp();
@@ -30,6 +44,7 @@ export default function CourseDetail() {
     : 0;
 
   const courseQuiz = course.quizzes?.[0] ?? null;
+  const kkm = courseQuiz?.minPassingScore ?? 70;
   const currentLesson = course.lessons.find((l) => l.status === "current");
   const allLessonsCompleted =
     course.lessons.length > 0 &&
@@ -60,6 +75,7 @@ export default function CourseDetail() {
   };
 
   const ctaLabel = useMemo(() => {
+    if (course.isLocked) return null;
     if (allLessonsCompleted && courseQuiz) {
       return isPremium ? "Mulai Quiz Akhir" : "Buka Quiz dengan Premium";
     }
@@ -85,8 +101,8 @@ export default function CourseDetail() {
       <div className="course-hero bg-gradient-to-br from-[#1A2332] to-[#2D3748] rounded-2xl overflow-hidden">
         <div className="flex flex-col lg:flex-row">
           <div className="lg:w-2/5 relative">
-            <img
-              src={course.thumbnail}
+            <CourseThumbnail
+              src={getCourseThumbnail(course)}
               alt={course.title}
               className="w-full h-56 lg:h-full object-cover opacity-70"
             />
@@ -105,6 +121,7 @@ export default function CourseDetail() {
               >
                 {course.level}
               </Badge>
+              {course.isLocked && <Badge variant="muted">🔒 Terkunci</Badge>}
             </div>
             <h1 className="text-3xl font-extrabold mb-3">{course.title}</h1>
             <p className="text-white/70 text-sm leading-relaxed mb-5">
@@ -121,29 +138,50 @@ export default function CourseDetail() {
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <span>🎯</span> Nilai KKM: 70
+                <span>🎯</span> Nilai KKM: {kkm}
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-white/70">Progress Belajar</span>
-                <span className="font-semibold">
-                  {course.completedLessons}/{course.totalLessons} selesai (
-                  {pct}%)
-                </span>
+            {!course.isLocked && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-white/70">Progress Belajar</span>
+                  <span className="font-semibold">
+                    {course.completedLessons}/{course.totalLessons} selesai (
+                    {pct}%)
+                  </span>
+                </div>
+                <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#4F8EF7] rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#4F8EF7] rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* ── Locked course notice ──────────────────────────────────────── */}
+      {course.isLocked && (
+        <Card>
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-[var(--surface-3)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <LockIcon size={28} className="text-[var(--text-muted)]" />
+            </div>
+            <h3 className="font-bold text-[var(--text)] mb-2">Kursus ini belum tersedia</h3>
+            <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto">
+              Kursus ini sedang dalam persiapan. Nantikan pembaruan selanjutnya!
+            </p>
+            <Button variant="secondary" className="mt-5" onClick={() => navigate("/courses")}>
+              <ArrowLeftIcon size={14} /> Kembali ke Katalog
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* ── Main grid ────────────────────────────────────────────────── */}
+      {!course.isLocked && (
       <div className="grid lg:grid-cols-3 gap-6">
         {/* ── Left column: Lessons + Quiz ────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
@@ -212,8 +250,8 @@ export default function CourseDetail() {
                 label="Durasi Estimasi"
                 value={formatEstimatedHours(course.estimatedHours) ?? "—"}
               />
-              <InfoRow label="Nilai KKM" value="70 / 100" />
-              <InfoRow label="Tipe Konten" value="Video + Quiz + AI Practice" />
+              <InfoRow label="Nilai KKM" value={`${kkm} / 100`} />
+              <InfoRow label="Tipe Konten" value="Video + Kuis + AI Practice" />
             </div>
           </Card>
 
@@ -256,6 +294,7 @@ export default function CourseDetail() {
           )}
         </div>
       </div>
+      )}
 
       <PremiumModal
         open={premiumOpen}
@@ -389,7 +428,7 @@ function QuizCard({ quiz, isPremium, onAction }) {
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-[var(--text)] mb-1">
-            Quiz Akhir
+            {quiz.title || "Quiz Akhir"}
           </h3>
           <p className="text-sm text-[var(--text-muted)] mb-3">
             {quiz.totalQuestions ?? 5} soal pilihan + praktik bahasa isyarat
