@@ -1,33 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Alert, Badge, Card, Modal } from "../../components/ui/ui";
-import { BookmarkIcon, SearchIcon } from "../../components/ui/Icons";
+import { ArrowLeftIcon, ArrowRightIcon, SearchIcon, XIcon } from "../../components/ui/Icons";
 import { letterImage } from "../../features/bisindo/alphabetImages";
 import { groupByCategory, matchLetters, summarise } from "../../features/bisindo/dictionary";
 import { spellPhrase, toSpellingText } from "../../features/bisindo/spelling";
 import { translationService } from "../../services";
+import { useReducedMotion } from "../../hooks/useLandingMotion";
 
-/**
- * Kamus BISINDO untuk siswa.
- *
- * Halaman ini sebelumnya TIDAK ADA. Bank Kata hanya dapat dibuka admin, jadi
- * seluruh isinya tidak pernah sampai ke anak yang seharusnya mempelajarinya.
- *
- * ── Dua sumber, dua sifat ─────────────────────────────────────────────
- *
- * Abjad dirender dari aset yang ikut dikompilasi: selalu ada, bahkan ketika API
- * mati. Kata datang dari Bank Kata dan boleh kosong. Karena itu kegagalan
- * memuat kata TIDAK mengosongkan halaman — abjadnya tetap tampil, dan itulah
- * bahan belajar utamanya saat ini.
- *
- * ── Kata tanpa berkas media ───────────────────────────────────────────
- *
- * Tidak ada entri kata yang membawa gambar atau video, dan tidak perlu:
- * ejaannya dirangkai dari 26 gambar abjad yang sama. Jadi setiap kata di Bank
- * Kata langsung dapat diperagakan tanpa satu berkas pun ditambahkan.
- */
+const PAGE_SIZE = 12;
+const TYPE_FILTERS = [
+  { key: "all", label: "Semua" },
+  { key: "alphabet", label: "Abjad" },
+  { key: "vocabulary", label: "Kosakata" },
+];
+
 export default function Dictionary() {
+  const reducedMotion = useReducedMotion();
+  const vocabRef = useRef(null);
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [activeType, setActiveType] = useState("all");
+  const [activeCategory, setActiveCategory] = useState("Semua");
+  const [currentPage, setCurrentPage] = useState(1);
   const [words, setWords] = useState([]);
   const [wordsError, setWordsError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,7 +38,7 @@ export default function Dictionary() {
     let cancelled = false;
     setLoading(true);
 
-    const params = { limit: 100 };
+    const params = { limit: 200 };
     if (search) params.q = search;
 
     translationService.getTranslations(params)
@@ -54,8 +50,6 @@ export default function Dictionary() {
       .catch((error) => {
         if (cancelled) return;
         setWords([]);
-        // Dicatat, tetapi tidak menghentikan halaman: abjadnya tidak
-        // bergantung pada jaringan sama sekali.
         setWordsError(error?.message ?? "Daftar kata gagal dimuat.");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -64,98 +58,271 @@ export default function Dictionary() {
   }, [search]);
 
   const letters = useMemo(() => matchLetters(search), [search]);
-  const groups = useMemo(() => groupByCategory(words), [words]);
+  const allGroups = useMemo(() => groupByCategory(words), [words]);
   const summary = useMemo(() => summarise(words), [words]);
   const openLetter = useCallback((letter) => setDetail({ kind: "letter", letter }), []);
 
-  const nothingFound = !letters.length && !groups.length && !loading;
+  const categories = useMemo(() => {
+    const cats = allGroups.map((g) => g.category);
+    return ["Semua", ...cats];
+  }, [allGroups]);
+
+  const filteredGroups = useMemo(() => {
+    if (activeCategory === "Semua") return allGroups;
+    return allGroups.filter((g) => g.category === activeCategory);
+  }, [allGroups, activeCategory]);
+
+  const filteredWords = useMemo(() => {
+    return filteredGroups.flatMap((g) => g.items);
+  }, [filteredGroups]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredWords.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedWords = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredWords.slice(start, start + PAGE_SIZE);
+  }, [filteredWords, safePage]);
+
+  const showAlphabet = activeType === "all" || activeType === "alphabet";
+  const showVocabulary = activeType === "all" || activeType === "vocabulary";
+  const nothingFound = !letters.length && !filteredWords.length && !loading && !wordsError;
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearch("");
+    setCurrentPage(1);
+  };
+
+  const handleTypeChange = (type) => {
+    setActiveType(type);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryChange = (cat) => {
+    setActiveCategory(cat);
+    setCurrentPage(1);
+  };
+
+  const scrollToVocab = () => {
+    if (vocabRef.current) {
+      vocabRef.current.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    setTimeout(scrollToVocab, 50);
+  };
+
+  const pageStart = filteredWords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(safePage * PAGE_SIZE, filteredWords.length);
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="dictionary-page space-y-6">
+      {/* Header */}
+      <header className="dictionary-header">
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--text)]">Kamus BISINDO</h1>
           <p className="mt-1 text-[var(--text-muted)]">
             Abjad lengkap A–Z dan kumpulan kata untuk kamu pelajari.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="dictionary-header-stats">
           <Badge variant="info">{summary.letters} huruf</Badge>
           {summary.words > 0 && <Badge variant="success">{summary.words} kata</Badge>}
         </div>
       </header>
 
-      <Card padding="sm">
-        <label className="relative block">
-          <span className="sr-only">Cari huruf atau kata</span>
-          <SearchIcon size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-subtle)]" />
+      {/* Search */}
+      <div className="dictionary-search-wrap">
+        <div className="dictionary-search-inner">
+          <SearchIcon size={17} className="dictionary-search-icon" aria-hidden="true" />
           <input
-            className="admin-word-input pl-10"
+            className="dictionary-search-input"
             value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Cari huruf atau kata, misalnya: aku"
+            onChange={(event) => { setSearchInput(event.target.value); setCurrentPage(1); }}
+            placeholder="Cari huruf atau kata..."
+            aria-label="Cari huruf atau kata dalam kamus"
           />
-        </label>
-        <p className="mt-2 text-xs text-[var(--text-subtle)]">
-          Mengetik sebuah kata akan menampilkan huruf-huruf yang menyusunnya.
-        </p>
-      </Card>
+          {searchInput && (
+            <button
+              type="button"
+              className="dictionary-search-clear"
+              onClick={handleClearSearch}
+              aria-label="Hapus pencarian"
+            >
+              <XIcon size={16} />
+            </button>
+          )}
+        </div>
+      </div>
 
+      {/* Type filter */}
+      <div className="dictionary-type-filter" role="tablist" aria-label="Tipe konten">
+        {TYPE_FILTERS.map((f) => (
+          <button
+            type="button"
+            key={f.key}
+            role="tab"
+            aria-selected={activeType === f.key}
+            className={`dictionary-type-btn${activeType === f.key ? " is-active" : ""}`}
+            onClick={() => handleTypeChange(f.key)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search info */}
+      {search && (
+        <p className="text-sm text-[var(--text-muted)]">
+          Hasil untuk &ldquo;{search}&rdquo;
+          {filteredWords.length > 0 && ` — ${filteredWords.length} kata ditemukan`}
+        </p>
+      )}
+
+      {/* Nothing found */}
       {nothingFound && (
         <Card>
-          <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-            Tidak ada huruf atau kata yang cocok dengan “{search}”.
-          </p>
+          <div className="dictionary-empty">
+            <p className="text-[var(--text-muted)]">
+              Tidak menemukan hasil untuk &ldquo;{search}&rdquo;
+            </p>
+            <p className="text-xs text-[var(--text-subtle)]">
+              Coba kata lain atau periksa kembali ejaannya.
+            </p>
+            <button type="button" className="dictionary-empty-clear" onClick={handleClearSearch}>
+              Hapus pencarian
+            </button>
+          </div>
         </Card>
       )}
 
-      {letters.length > 0 && (
+      {/* Alphabet section */}
+      {showAlphabet && letters.length > 0 && (
         <section aria-labelledby="dict-alphabet">
           <h2 id="dict-alphabet" className="mb-3 text-lg font-extrabold text-[var(--text)]">
             Abjad BISINDO
           </h2>
           <div className="bisindo-letter-grid">
-            {letters.map((letter) => (
-              <button
+            {letters.map((letter, i) => (
+              <motion.button
                 type="button"
                 key={letter}
                 className="bisindo-letter-card"
                 onClick={() => openLetter(letter)}
                 aria-label={`Lihat isyarat huruf ${letter}`}
+                initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reducedMotion ? 0 : 0.25, delay: reducedMotion ? 0 : i * 0.02 }}
               >
                 <img src={letterImage(letter)} alt="" loading="lazy" draggable="false" />
                 <span>{letter}</span>
-              </button>
+              </motion.button>
             ))}
           </div>
         </section>
       )}
 
+      {/* Vocabulary error */}
       {wordsError && <Alert type="warning" message={`${wordsError} Abjad di atas tetap bisa dipelajari.`} />}
 
-      {groups.map((group) => (
-        <section key={group.category} aria-labelledby={`dict-${group.category}`}>
-          <h2 id={`dict-${group.category}`} className="mb-3 flex items-center gap-2 text-lg font-extrabold text-[var(--text)]">
-            <BookmarkIcon size={18} className="text-[var(--text-subtle)]" />
-            {group.category}
-            <span className="text-sm font-medium text-[var(--text-subtle)]">({group.items.length})</span>
-          </h2>
-          <div className="bisindo-word-grid">
-            {group.items.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className="bisindo-word-card"
-                onClick={() => setDetail({ kind: "word", item })}
-              >
-                <strong>{item.word}</strong>
-                <span className="bisindo-word-spelling">{toSpellingText(item.word) || item.translation}</span>
-                {item.description && <small>{item.description}</small>}
-              </button>
-            ))}
+      {/* Vocabulary section */}
+      {showVocabulary && (
+        <section ref={vocabRef} aria-labelledby="dict-vocabulary" className="dictionary-vocab-section">
+          <div className="dictionary-vocab-header">
+            <h2 id="dict-vocabulary" className="text-lg font-extrabold text-[var(--text)]">
+              Kosakata BISINDO
+            </h2>
           </div>
+
+          {/* Category chips */}
+          {categories.length > 2 && (
+            <div className="dictionary-category-chips" role="tablist" aria-label="Filter kategori">
+              {categories.map((cat) => (
+                <button
+                  type="button"
+                  key={cat}
+                  role="tab"
+                  aria-selected={activeCategory === cat}
+                  className={`dictionary-category-chip${activeCategory === cat ? " is-active" : ""}`}
+                  onClick={() => handleCategoryChange(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Vocabulary grid */}
+          {paginatedWords.length > 0 ? (
+            <div className="bisindo-word-grid">
+              {paginatedWords.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className="bisindo-word-card"
+                  onClick={() => setDetail({ kind: "word", item })}
+                >
+                  <strong>{item.word}</strong>
+                  <span className="bisindo-word-spelling">{toSpellingText(item.word) || item.translation}</span>
+                  {item.description && <small>{item.description}</small>}
+                  {item.category && <span className="bisindo-word-category">{item.category}</span>}
+                </button>
+              ))}
+            </div>
+          ) : !loading && !wordsError ? (
+            <Card>
+              <div className="dictionary-empty">
+                <p className="text-[var(--text-muted)]">Belum ada kata di kategori ini.</p>
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Pagination */}
+          {filteredWords.length > PAGE_SIZE && (
+            <nav className="dictionary-pagination" aria-label="Navigasi halaman kosakata">
+              <p className="dictionary-pagination-info">
+                Menampilkan {pageStart}–{pageEnd} dari {filteredWords.length} kata
+              </p>
+              <div className="dictionary-pagination-controls">
+                <button
+                  type="button"
+                  className="dictionary-pagination-btn"
+                  disabled={safePage <= 1}
+                  onClick={() => handlePageChange(safePage - 1)}
+                  aria-label="Halaman sebelumnya"
+                >
+                  <ArrowLeftIcon size={15} /> Sebelumnya
+                </button>
+                <div className="dictionary-pagination-pages">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      type="button"
+                      key={page}
+                      className={`dictionary-pagination-page${page === safePage ? " is-active" : ""}`}
+                      onClick={() => handlePageChange(page)}
+                      aria-label={`Halaman ${page}`}
+                      aria-current={page === safePage ? "page" : undefined}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="dictionary-pagination-btn"
+                  disabled={safePage >= totalPages}
+                  onClick={() => handlePageChange(safePage + 1)}
+                  aria-label="Halaman berikutnya"
+                >
+                  Berikutnya <ArrowRightIcon size={15} />
+                </button>
+              </div>
+            </nav>
+          )}
         </section>
-      ))}
+      )}
 
       <p className="text-xs leading-5 text-[var(--text-subtle)]">
         Gambar alfabet berasal dari lembar BISINDO yang disetujui proyek dan
@@ -167,10 +334,7 @@ export default function Dictionary() {
   );
 }
 
-/** Satu modal untuk huruf maupun kata: keduanya berakhir sebagai deretan ejaan. */
 function DetailModal({ detail, onClose }) {
-  // `spellPhrase` dipanggil tanpa syarat supaya urutan hook tetap sama pada
-  // setiap render, termasuk saat modalnya tertutup.
   const spelled = useMemo(
     () => spellPhrase(detail?.kind === "word" ? detail.item.word : ""),
     [detail],

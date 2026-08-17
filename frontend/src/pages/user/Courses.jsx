@@ -192,7 +192,7 @@ export default function Courses() {
       <section className="courses-intro">
         <div>
           <p className="courses-kicker">RUANG BELAJARMU</p>
-          <h1>Yuk, belajar BISINDO! 🤟</h1>
+          <h1>Yuk, belajar BISINDO!</h1>
           <p>Pilih materi yang ingin kamu pelajari hari ini.</p>
         </div>
         <div className="courses-intro-progress">

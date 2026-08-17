@@ -2080,7 +2080,6 @@ textarea,
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  justify-content: space-between;
   gap: 20px;
   border: 1px solid #c9e0eb;
   border-radius: 24px;
@@ -2376,7 +2375,9 @@ textarea,
 .kids-translator-field textarea {
   display: block;
   width: 100%;
-  min-height: 126px;
+  min-height: 130px;
+  height: clamp(135px, 16vh, 170px);
+  max-height: 210px;
   flex: 1;
   resize: vertical;
   border: 2px solid #a9bdc9;
@@ -2444,9 +2445,9 @@ textarea,
 .kids-translator-primary:hover:not(:disabled) { background: #ffc94d; box-shadow: 0 13px 26px rgb(225 168 34 / 0.31); transform: translateY(-2px); }
 .kids-translator-primary:hover:not(:disabled) svg { transform: translateX(4px); }
 .kids-translator-primary svg { transition: transform 180ms var(--kids-ease-out); }
-.kids-translator-primary:disabled { cursor: not-allowed; opacity: 0.48; box-shadow: none; }
+.kids-translator-primary:disabled { cursor: not-allowed; opacity: 0.6; box-shadow: none; }
 
-.kids-suggestions { margin-top: 24px; }
+.kids-suggestions { margin-top: 28px; }
 .kids-suggestions > p { color: var(--kids-navy); font-size: 0.82rem; font-weight: var(--kids-font-bold); }
 .kids-suggestions > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .kids-suggestions button {
@@ -8587,10 +8588,283 @@ textarea,
 
 /* ── Kamus BISINDO ────────────────────────────────────────────────────── */
 
+/* Header */
+.dictionary-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dictionary-header-stats {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Search */
+.dictionary-search-wrap {
+  position: relative;
+}
+.dictionary-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  padding: 0 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.dictionary-search-inner:focus-within {
+  border-color: var(--primary, #4f8ef7);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.12);
+}
+.dictionary-search-icon {
+  flex-shrink: 0;
+  color: var(--text-subtle, #94a3b8);
+}
+.dictionary-search-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  border: none;
+  background: transparent;
+  color: var(--text, #1a2332);
+  font-size: 0.95rem;
+  font-weight: 500;
+  outline: none;
+}
+.dictionary-search-input::placeholder {
+  color: var(--text-subtle, #94a3b8);
+}
+.dictionary-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface-3, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dictionary-search-clear:hover {
+  background: var(--border, #e2e8f0);
+  color: var(--text, #1a2332);
+}
+
+/* Type filter */
+.dictionary-type-filter {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  background: var(--surface-2, #f8fafc);
+  width: fit-content;
+}
+.dictionary-type-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.dictionary-type-btn:hover {
+  color: var(--text, #1a2332);
+  background: var(--surface, #fff);
+}
+.dictionary-type-btn.is-active {
+  background: var(--surface, #fff);
+  color: var(--primary, #4f8ef7);
+  border-color: var(--border, #e2e8f0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.dictionary-type-btn:focus-visible {
+  outline: 2px solid var(--primary, #4f8ef7);
+  outline-offset: 2px;
+}
+
+/* Empty state */
+.dictionary-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.dictionary-empty p { margin: 0; }
+.dictionary-empty-clear {
+  margin-top: 4px;
+  padding: 8px 18px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--primary, #4f8ef7);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.dictionary-empty-clear:hover {
+  background: var(--primary-light, #eaf3ff);
+}
+
+/* Vocabulary section */
+.dictionary-vocab-section {
+  scroll-margin-top: 80px;
+}
+.dictionary-vocab-header {
+  margin-bottom: 12px;
+}
+
+/* Category chips */
+.dictionary-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.dictionary-category-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text-muted, #64748b);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.dictionary-category-chip:hover {
+  border-color: var(--primary, #4f8ef7);
+  color: var(--primary, #4f8ef7);
+}
+.dictionary-category-chip.is-active {
+  background: var(--primary, #4f8ef7);
+  border-color: var(--primary, #4f8ef7);
+  color: white;
+}
+.dictionary-category-chip:focus-visible {
+  outline: 2px solid var(--primary, #4f8ef7);
+  outline-offset: 2px;
+}
+
+/* Word card category badge */
+.bisindo-word-category {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3, #f1f5f9);
+  color: var(--text-subtle, #94a3b8);
+  font-size: 0.68rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+/* Pagination */
+.dictionary-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+.dictionary-pagination-info {
+  color: var(--text-subtle, #94a3b8);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.dictionary-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.dictionary-pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text, #1a2332);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.dictionary-pagination-btn:hover:not(:disabled) {
+  background: var(--surface-3, #f1f5f9);
+  border-color: var(--primary, #4f8ef7);
+}
+.dictionary-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dictionary-pagination-btn:focus-visible {
+  outline: 2px solid var(--primary, #4f8ef7);
+  outline-offset: 2px;
+}
+.dictionary-pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+.dictionary-pagination-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.dictionary-pagination-page:hover {
+  background: var(--surface-3, #f1f5f9);
+  color: var(--text, #1a2332);
+}
+.dictionary-pagination-page.is-active {
+  background: var(--primary, #4f8ef7);
+  border-color: var(--primary, #4f8ef7);
+  color: white;
+}
+.dictionary-pagination-page:focus-visible {
+  outline: 2px solid var(--primary, #4f8ef7);
+  outline-offset: 2px;
+}
+
+/* Alphabet grid */
 .bisindo-letter-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 }
 
 .bisindo-letter-card {
@@ -8599,20 +8873,19 @@ textarea,
   justify-items: center;
   border: 1px solid var(--border);
   border-radius: 16px;
-  /* Kartu tetap putih di kedua tema: aset abjadnya berlatar putih padat,
-     jadi kartu gelap hanya menghasilkan persegi putih bertepi keras. */
   background: white;
   padding: 10px 8px 8px;
   cursor: pointer;
   transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
               border-color 160ms ease, box-shadow 160ms ease;
 }
-.bisindo-letter-card img { display: block; width: 100%; max-width: 92px; height: auto; }
+.bisindo-letter-card img { display: block; width: 100%; max-width: 88px; height: auto; }
 .bisindo-letter-card span { color: #46586a; font-size: 0.86rem; font-weight: 800; letter-spacing: 0.04em; }
 .bisindo-letter-card:hover { border-color: var(--primary, #2f6fe4); box-shadow: 0 8px 20px rgb(15 36 80 / 0.12); transform: translateY(-2px); }
 .bisindo-letter-card:focus-visible { outline: 3px solid var(--primary, #2f6fe4); outline-offset: 2px; }
 
-.bisindo-word-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+/* Word grid */
+.bisindo-word-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 
 .bisindo-word-card {
   display: grid;
@@ -8623,9 +8896,9 @@ textarea,
   padding: 14px 16px;
   text-align: left;
   cursor: pointer;
-  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease, box-shadow 160ms ease;
 }
-.bisindo-word-card:hover { border-color: var(--primary, #2f6fe4); transform: translateY(-2px); }
+.bisindo-word-card:hover { border-color: var(--primary, #2f6fe4); transform: translateY(-2px); box-shadow: 0 6px 16px rgb(15 36 80 / 0.08); }
 .bisindo-word-card:focus-visible { outline: 3px solid var(--primary, #2f6fe4); outline-offset: 2px; }
 .bisindo-word-card strong { color: var(--text); font-size: 1rem; }
 .bisindo-word-card small { color: var(--text-subtle); font-size: 0.76rem; line-height: 1.45; }
@@ -8637,6 +8910,7 @@ textarea,
   letter-spacing: 0.06em;
 }
 
+/* Detail modal */
 .bisindo-detail { display: grid; gap: 14px; }
 .bisindo-detail p { margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
 .bisindo-detail-hero {
@@ -8665,7 +8939,73 @@ textarea,
 .bisindo-detail-word figure img { display: block; width: 60px; height: auto; }
 .bisindo-detail-word figcaption { color: #46586a; font-size: 0.7rem; font-weight: 700; }
 
+/* Dark theme */
 [data-theme="dark"] :is(.bisindo-letter-card, .bisindo-detail-hero, .bisindo-detail-word figure) { border-color: #6d8296; }
+[data-theme="dark"] .dictionary-search-inner { border-color: #40536a; background: #18263a; }
+[data-theme="dark"] .dictionary-search-inner:focus-within { border-color: var(--primary, #60a5fa); }
+[data-theme="dark"] .dictionary-search-input { color: #edf5ff; }
+[data-theme="dark"] .dictionary-search-input::placeholder { color: #64748b; }
+[data-theme="dark"] .dictionary-search-clear { background: #334155; color: #94a3b8; }
+[data-theme="dark"] .dictionary-search-clear:hover { background: #475569; color: #e2e8f0; }
+[data-theme="dark"] .dictionary-type-filter { border-color: #33455f; background: #17243a; }
+[data-theme="dark"] .dictionary-type-btn { color: #94a3b8; }
+[data-theme="dark"] .dictionary-type-btn:hover { background: #1d2d46; color: #e2e8f0; }
+[data-theme="dark"] .dictionary-type-btn.is-active { background: #1d2d46; color: var(--primary, #60a5fa); border-color: #33455f; }
+[data-theme="dark"] .dictionary-category-chip { border-color: #40536a; background: #18263a; color: #94a3b8; }
+[data-theme="dark"] .dictionary-category-chip:hover { border-color: var(--primary, #60a5fa); color: var(--primary, #60a5fa); }
+[data-theme="dark"] .dictionary-category-chip.is-active { background: var(--primary, #60a5fa); border-color: var(--primary, #60a5fa); color: white; }
+[data-theme="dark"] .bisindo-word-category { background: #334155; color: #94a3b8; }
+[data-theme="dark"] .dictionary-pagination-btn { border-color: #40536a; background: #18263a; color: #e2e8f0; }
+[data-theme="dark"] .dictionary-pagination-btn:hover:not(:disabled) { background: #1d2d46; }
+[data-theme="dark"] .dictionary-pagination-page { border-color: #40536a; background: #18263a; color: #94a3b8; }
+[data-theme="dark"] .dictionary-pagination-page:hover { background: #1d2d46; color: #e2e8f0; }
+[data-theme="dark"] .dictionary-pagination-page.is-active { background: var(--primary, #60a5fa); border-color: var(--primary, #60a5fa); color: white; }
+[data-theme="dark"] .dictionary-empty-clear { border-color: #40536a; background: #18263a; color: var(--primary, #60a5fa); }
+[data-theme="dark"] .dictionary-empty-clear:hover { background: #1d2d46; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .dictionary-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dictionary-type-filter {
+    width: 100%;
+  }
+  .dictionary-type-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  .bisindo-letter-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
+  }
+  .bisindo-letter-card {
+    padding: 8px 6px 6px;
+  }
+  .bisindo-letter-card img {
+    max-width: 68px;
+  }
+  .bisindo-word-grid {
+    grid-template-columns: 1fr;
+  }
+  .dictionary-pagination-controls {
+    gap: 4px;
+  }
+  .dictionary-pagination-btn {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+  .dictionary-pagination-page {
+    width: 34px;
+    height: 34px;
+    font-size: 0.78rem;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    USER PORTAL ENHANCEMENTS — SignLearn Kids
@@ -9370,6 +9710,223 @@ textarea,
 }
 .courses-filter-btn.is-active {
   transform: scale(1.02);
+}
+
+/* ─── Translator Actions Wrapper ─────────────────────────────────────── */
+.translator-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+/* Voice button as secondary action */
+.translator-actions .kids-voice-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 2px solid var(--primary, #4f8ef7);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px 18px;
+  color: #1a2332;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.translator-actions .kids-voice-button:hover {
+  background: #eaf3ff;
+  border-color: #3a7de0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 142, 247, 0.15);
+}
+.translator-actions .kids-voice-button:active {
+  transform: scale(0.98);
+}
+.translator-actions .kids-voice-button.is-listening {
+  border-color: var(--kids-coral, #e74c3c);
+  background: #fdeced;
+  color: #a8262c;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.12);
+}
+.translator-actions .kids-voice-button.is-listening svg {
+  animation: kids-mic-pulse 1.15s ease-in-out infinite;
+}
+
+/* Translate button as primary CTA */
+.translator-actions .kids-translator-primary {
+  min-height: 52px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+}
+
+/* ─── Account Status Badge ───────────────────────────────────────────── */
+.user-sidebar-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.user-sidebar-plan-badge.is-free {
+  background: var(--surface-3, #f1f5f9);
+  color: var(--text-muted, #64748b);
+}
+.user-sidebar-plan-badge.is-premium {
+  background: linear-gradient(135deg, #fff9e6, #fff4cc);
+  color: #7a5a00;
+  border: 1px solid rgba(244, 180, 0, 0.25);
+}
+
+/* ─── Header Premium Indicator ───────────────────────────────────────── */
+.user-header-premium-star {
+  font-size: 14px;
+  line-height: 1;
+}
+.user-header-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.user-header-plan-badge.is-free {
+  background: var(--surface-3, #f1f5f9);
+  color: var(--text-muted, #64748b);
+}
+.user-header-plan-badge.is-premium {
+  background: linear-gradient(135deg, #fff9e6, #fff4cc);
+  color: #7a5a00;
+  border: 1px solid rgba(244, 180, 0, 0.25);
+}
+
+/* ─── Premium Nav Badge ──────────────────────────────────────────────── */
+.user-nav-premium-badge {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #2ecc71;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+}
+
+/* ─── Translator Page Premium Badge ──────────────────────────────────── */
+.user-translator-premium-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff9e6, #fff4cc);
+  color: #7a5a00;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border: 1px solid rgba(244, 180, 0, 0.25);
+  vertical-align: middle;
+}
+
+/* ─── Hand Wave Animation ────────────────────────────────────────────── */
+.kids-player-hand-wave {
+  animation: handWave 3s ease-in-out infinite;
+}
+@keyframes handWave {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(2deg); }
+  75% { transform: translateY(2px) rotate(-1deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kids-player-hand-wave { animation: none; }
+}
+
+/* ─── Focus States (consistent blue) ────────────────────────────────── */
+.kids-translator-field textarea:focus,
+.translator-actions .kids-voice-button:focus-visible,
+.kids-translator-primary:focus-visible,
+.kids-suggestions button:focus-visible,
+.kids-mode-switch button:focus-visible {
+  outline: 2px solid var(--primary, #4f8ef7);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(79, 142, 247, 0.15);
+}
+.kids-translator-field textarea:focus {
+  border-color: var(--kids-blue);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.12);
+}
+
+/* ─── Responsive Translator Actions ──────────────────────────────────── */
+@media (max-width: 600px) {
+  .translator-actions {
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .translator-actions .kids-voice-button {
+    min-height: 42px;
+    font-size: 0.85rem;
+  }
+  .translator-actions .kids-translator-primary {
+    min-height: 48px;
+  }
+  .kids-suggestions {
+    margin-top: 24px;
+  }
+}
+
+/* ─── Dark Theme Additions ───────────────────────────────────────────── */
+[data-theme="dark"] .translator-actions .kids-voice-button {
+  background: #18263a;
+  border-color: #40536a;
+  color: #edf5ff;
+}
+[data-theme="dark"] .translator-actions .kids-voice-button:hover {
+  background: #1d2d46;
+  border-color: #60a5fa;
+}
+[data-theme="dark"] .translator-actions .kids-voice-button.is-listening {
+  background: #3d1f22;
+  border-color: #e74c3c;
+  color: #ffb9bd;
+}
+[data-theme="dark"] .user-sidebar-plan-badge.is-free {
+  background: var(--surface-3, #334155);
+  color: var(--text-muted, #94a3b8);
+}
+[data-theme="dark"] .user-sidebar-plan-badge.is-premium {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.08));
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
+}
+[data-theme="dark"] .user-header-plan-badge.is-free {
+  background: var(--surface-3, #334155);
+  color: var(--text-muted, #94a3b8);
+}
+[data-theme="dark"] .user-header-plan-badge.is-premium {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.08));
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
+}
+[data-theme="dark"] .user-nav-premium-badge {
+  background: #27ae60;
+  color: white;
+}
+[data-theme="dark"] .user-translator-premium-badge {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.08));
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
 }
 
 /* ─── Dark Mode Adjustments ───────────────────────────────────────────── */

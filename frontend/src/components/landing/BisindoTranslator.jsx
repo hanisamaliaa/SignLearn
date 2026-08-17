@@ -74,7 +74,7 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef,
         <span className="kids-translator-card-icon" aria-hidden="true"><GridIcon size={22} /></span>
         <div>
           <h3>Apa yang ingin kamu katakan?</h3>
-          <p>Ketik kata atau kalimat pendek{speech.supported ? ", atau ucapkan lewat mikrofon" : ""}.</p>
+          <p>Tulis sesuatu atau coba ucapkan lewat mikrofon</p>
         </div>
       </div>
 
@@ -85,8 +85,8 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef,
           id="bisindo-text-input"
           value={value}
           maxLength={MAX_PHRASE_LENGTH}
-          rows={4}
-          placeholder="Ketik di sini..."
+          rows={3}
+          placeholder='Coba tulis "Halo teman!"'
           onChange={(event) => onChange(event.target.value)}
         />
         <div className="kids-translator-field-meta">
@@ -97,11 +97,8 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef,
         </div>
       </div>
 
-      {/* Tombol mikrofon HANYA muncul bila perambannya benar-benar mendukung.
-          Firefox tidak punya Web Speech API sama sekali; menampilkan tombol
-          yang pasti gagal lebih buruk daripada tidak menampilkannya. */}
-      {speech.supported && (
-        <div className="kids-voice-row">
+      <div className="translator-actions">
+        {speech.supported && (
           <button
             type="button"
             className={`kids-voice-button${speech.listening ? " is-listening" : ""}`}
@@ -109,30 +106,31 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef,
             aria-pressed={speech.listening}
           >
             <MicIcon size={18} />
-            {speech.listening ? "Mendengarkan… ketuk untuk berhenti" : "Ucapkan"}
+            {speech.listening ? "● Sedang mendengarkan…" : "Ucapkan"}
           </button>
-          {speech.listening && (
-            <span className="kids-voice-interim" role="status">
-              {speech.interim || "Silakan bicara…"}
-            </span>
-          )}
-        </div>
-      )}
+        )}
 
-      {!speech.supported && (
-        <p className="kids-voice-unavailable">{speech.unavailableReason}</p>
-      )}
+        {!speech.supported && (
+          <p className="kids-voice-unavailable">{speech.unavailableReason}</p>
+        )}
 
-      {speech.error && (
-        <p className="kids-voice-error" role="alert">
-          {speech.error}
-          <button type="button" onClick={speech.clearError} aria-label="Tutup pesan">×</button>
-        </p>
-      )}
+        {speech.error && (
+          <p className="kids-voice-error" role="alert">
+            {speech.error}
+            <button type="button" onClick={speech.clearError} aria-label="Tutup pesan">×</button>
+          </p>
+        )}
 
-      <button type="submit" className="kids-translator-primary" disabled={!value.trim()}>
-        Terjemahkan ke BISINDO <ArrowRightIcon size={18} />
-      </button>
+        <button type="submit" className="kids-translator-primary" disabled={!value.trim()}>
+          Terjemahkan ke BISINDO <ArrowRightIcon size={18} />
+        </button>
+      </div>
+
+      {speech.listening && (
+        <span className="kids-voice-interim" role="status">
+          {speech.interim || "Silakan bicara…"}
+        </span>
+      )}
 
       <div className="kids-suggestions" aria-labelledby="translator-suggestions">
         <p id="translator-suggestions" tabIndex="-1">Coba kata populer</p>
@@ -149,9 +147,9 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef,
 function SpellEmptyState() {
   return (
     <div className="kids-player-state kids-player-empty">
-      <span className="kids-player-hand" aria-hidden="true"><HandSignIcon size={62} /></span>
-      <h4>Ejaan BISINDO akan tampil di sini</h4>
-      <p>Ketik atau ucapkan kalimat, lalu tekan Terjemahkan.</p>
+      <span className="kids-player-hand kids-player-hand-wave" aria-hidden="true"><HandSignIcon size={62} /></span>
+      <h4>Siap belajar BISINDO?</h4>
+      <p>Tulis atau ucapkan sesuatu, lalu lihat ejaan isyaratnya di sini.</p>
     </div>
   );
 }
