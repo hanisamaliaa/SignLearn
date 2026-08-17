@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { success, created } from "../utils/apiResponse.js";
 import * as service from "../services/translationService.js";
+import * as mediaService from "../services/mediaService.js";
 
 export const list = asyncHandler(async (req, res) => {
   const result = await service.list(
@@ -29,6 +30,14 @@ export const createItem = asyncHandler(async (req, res) => {
 
 export const updateItem = asyncHandler(async (req, res) => {
   success(res, { translation: await service.update(req.params.id, req.body) }, "Kata BISINDO berhasil diperbarui.");
+});
+
+export const uploadImage = asyncHandler(async (req, res) => {
+  const { resource: translation, asset } = await mediaService.replaceTranslationImage(
+    req.params.id,
+    req.file,
+  );
+  success(res, { translation, asset }, "Gambar bank kata berhasil diunggah.");
 });
 
 export const deleteItem = asyncHandler(async (req, res) => {

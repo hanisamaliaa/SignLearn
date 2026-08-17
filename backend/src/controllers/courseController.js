@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { success, created } from "../utils/apiResponse.js";
 import * as courseService from "../services/courseService.js";
+import * as mediaService from "../services/mediaService.js";
 
 /**
  * Course controller — HTTP saja.
@@ -67,6 +68,14 @@ export const updateCourse = asyncHandler(async (req, res) => {
 
   const course = await courseService.update(req.params.id, patch);
   success(res, { course }, "Kursus berhasil diperbarui.");
+});
+
+export const uploadThumbnail = asyncHandler(async (req, res) => {
+  const { resource: course, asset } = await mediaService.replaceCourseThumbnail(
+    req.params.id,
+    req.file,
+  );
+  success(res, { course, asset }, "Thumbnail kursus berhasil diunggah.");
 });
 
 // ─── DELETE /courses/:id ─────────────────────────────────────────────────

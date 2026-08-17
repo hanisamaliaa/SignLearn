@@ -112,11 +112,36 @@ export async function update(id, data) {
     if (data[key] !== undefined) {
       values.push(data[key]);
       sets.push(`${column} = $${values.length}`);
+      if (key === "signImage") sets.push("sign_image_public_id = NULL");
     }
   }
+  if (sets.length === 0) return findById(id);
   const { rows } = await query(
     `UPDATE translations SET ${sets.join(", ")} WHERE id = $1 RETURNING ${COLUMNS}`,
     values,
+  );
+  return toDto(rows[0]);
+}
+
+export async function findImageMedia(id) {
+  const { rows } = await query(
+    "SELECT sign_image, sign_image_public_id FROM translations WHERE id = $1 LIMIT 1",
+    [id],
+  );
+  if (!rows[0]) return null;
+  return {
+    url: rows[0].sign_image ?? null,
+    publicId: rows[0].sign_image_public_id ?? null,
+  };
+}
+
+export async function updateImageMedia(id, url, publicId, expectedPublicId) {
+  const { rows } = await query(
+    `UPDATE translations
+        SET sign_image = $2, sign_image_public_id = $3
+      WHERE id = $1 AND sign_image_public_id IS NOT DISTINCT FROM $4
+      RETURNING ${COLUMNS}`,
+    [id, url, publicId, expectedPublicId],
   );
   return toDto(rows[0]);
 }

@@ -5,6 +5,8 @@ import avatar3 from "../../assets/avatars/avatar-3.png";
 
 const AVATARS = {
   luna: {
+    name: "Luna",
+    role: "Teman belajar",
     bg: "#DFF4FF",
     accent: "#4F8EF7",
     hair: "#7A4E2D",
@@ -13,6 +15,8 @@ const AVATARS = {
     asset: avatar1,
   },
   bimo: {
+    name: "Bimo",
+    role: "Teman belajar",
     bg: "#FFF2C7",
     accent: "#F4B400",
     hair: "#2E2A26",
@@ -21,6 +25,8 @@ const AVATARS = {
     asset: avatar2,
   },
   tara: {
+    name: "Tara",
+    role: "Teman belajar",
     bg: "#E5F8ED",
     accent: "#2E9B65",
     hair: "#1F5B4A",
@@ -32,6 +38,8 @@ const AVATARS = {
 
 function FaceAvatar({ id, size = "md", label, className = "", useAsset = true }) {
   const a = AVATARS[id] || AVATARS.luna;
+  const remoteAsset = typeof id === "string" && /^(https:\/\/|blob:)/i.test(id);
+  const assetSource = remoteAsset ? id : a.asset;
   const [assetFailed, setAssetFailed] = useState(false);
 
   useEffect(() => {
@@ -55,7 +63,7 @@ function FaceAvatar({ id, size = "md", label, className = "", useAsset = true })
     >
       {useAsset && !assetFailed ? (
         <img
-          src={a.asset}
+          src={assetSource}
           alt={label || "Avatar SignLearn"}
           className="h-full w-full object-cover"
           onError={() => setAssetFailed(true)}
@@ -90,34 +98,15 @@ export function SignLearnAvatar({
   useAsset = true,
   photo = null,
 }) {
-  if (photo) {
-    const sizeClass =
-      size === "xl"
-        ? "w-28 h-28"
-        : size === "lg"
-          ? "w-20 h-20"
-          : size === "sm"
-            ? "w-9 h-9"
-            : "w-12 h-12";
-    return (
-      <div
-        className={`${sizeClass} relative overflow-hidden rounded-full border-2 border-white shadow-sm flex-shrink-0 ${className}`}
-        aria-label="Foto profil"
-        role="img"
-      >
-        <img
-          src={photo}
-          alt="Foto profil"
-          className="h-full w-full object-cover"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-        />
-      </div>
-    );
-  }
-
-  return <FaceAvatar id={id} size={size} className={className} useAsset={useAsset} />;
+  return (
+    <FaceAvatar
+      id={photo || id}
+      size={size}
+      label={photo ? "Foto profil" : undefined}
+      className={className}
+      useAsset={useAsset}
+    />
+  );
 }
 
 export const SIGNLEARN_AVATARS = Object.entries(AVATARS).map(([id, data]) => ({
@@ -126,6 +115,7 @@ export const SIGNLEARN_AVATARS = Object.entries(AVATARS).map(([id, data]) => ({
 }));
 
 export function resolveAvatarId(value) {
+  if (typeof value === "string" && /^https:\/\//i.test(value)) return value;
   return AVATARS[value] ? value : "luna";
 }
 

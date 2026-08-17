@@ -28,7 +28,7 @@ const err = (field, message) => ({ field, message });
  * Batas kolom adalah soal integritas; batas di sini adalah soal pesan error
  * yang bisa dimengerti.
  */
-const MAX = Object.freeze({ name: 120, phone: 30, avatar: 20 });
+const MAX = Object.freeze({ name: 120, phone: 30, avatar: 500 });
 
 /**
  * Memvalidasi field teks opsional.
@@ -55,6 +55,20 @@ function optionalName(value) {
   return [];
 }
 
+function optionalAvatar(value) {
+  const errors = optionalText(value, "avatar", MAX.avatar, "Avatar");
+  if (errors.length || value === undefined || value === null) return errors;
+  if (/^[a-zA-Z0-9_-]{1,20}$/.test(value)) return [];
+
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:") return [];
+  } catch {
+    // Ditangani oleh pesan validasi tunggal di bawah.
+  }
+  return [err("avatar", "Avatar harus berupa pilihan bawaan atau URL HTTPS yang valid.")];
+}
+
 function optionalEnum(value, field, allowed, label) {
   if (value === undefined) return [];
   if (!allowed.includes(value)) {
@@ -79,7 +93,7 @@ export function validateUpdateProfile(body = {}) {
   const errors = [
     ...optionalName(body.name),
     ...optionalText(body.phone, "phone", MAX.phone, "Nomor telepon"),
-    ...optionalText(body.avatar, "avatar", MAX.avatar, "Avatar"),
+    ...optionalAvatar(body.avatar),
     ...optionalEnum(body.profile, "profile", PROFILES, "Profil"),
   ];
 
@@ -105,7 +119,7 @@ export function validateAdminUpdateUser(body = {}) {
   const errors = [
     ...optionalName(body.name),
     ...optionalText(body.phone, "phone", MAX.phone, "Nomor telepon"),
-    ...optionalText(body.avatar, "avatar", MAX.avatar, "Avatar"),
+    ...optionalAvatar(body.avatar),
     ...optionalEnum(body.profile, "profile", PROFILES, "Profil"),
     ...optionalEnum(body.role, "role", ROLES, "Peran"),
     ...optionalEnum(body.status, "status", STATUSES, "Status"),

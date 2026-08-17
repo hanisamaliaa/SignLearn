@@ -161,8 +161,7 @@ export default function UserDashboard() {
           <div className="dashboard-hero-mascot">
             <div className="mascot-character">
               <SignLearnAvatar
-                id={currentUser?.profile?.avatar ?? currentUser?.avatar}
-                photo={currentUser?.profilePhoto}
+                id={currentUser?.avatar ?? currentUser?.profile?.avatar}
                 size="xl"
               />
             </div>

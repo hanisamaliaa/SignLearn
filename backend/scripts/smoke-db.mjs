@@ -43,6 +43,30 @@ async function readHash(userId) {
 async function main() {
   console.log(`\n${c.b("SignLearn — smoke test repository & transaksi")}`);
 
+  console.log(c.b("\n  Skema media Cloudinary"));
+  const mediaColumns = await query(`
+    SELECT table_name, column_name, character_maximum_length
+      FROM information_schema.columns
+     WHERE (table_name, column_name) IN (
+       ('users', 'avatar'),
+       ('users', 'avatar_public_id'),
+       ('courses', 'thumbnail_public_id'),
+       ('translations', 'sign_image_public_id')
+     )
+  `);
+  const byColumn = new Map(
+    mediaColumns.rows.map((row) => [`${row.table_name}.${row.column_name}`, row]),
+  );
+  check("kolom public ID tersedia untuk seluruh jenis upload", [
+    "users.avatar_public_id",
+    "courses.thumbnail_public_id",
+    "translations.sign_image_public_id",
+  ].every((key) => byColumn.has(key)));
+  check(
+    "kolom avatar cukup panjang untuk URL Cloudinary",
+    byColumn.get("users.avatar")?.character_maximum_length === 500,
+  );
+
   const user = await createThrowawayUser();
   const originalHash = await readHash(user.id);
 

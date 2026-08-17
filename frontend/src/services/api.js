@@ -90,7 +90,6 @@ export function onAuthFailure(handler) {
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT_MS,
-  headers: { "Content-Type": "application/json" },
 
   /**
    * WAJIB. Tanpa ini browser tidak mengirim cookie `slr_rt`, sehingga
@@ -228,6 +227,7 @@ export async function request({
   data = null,
   params = null,
   headers = {},
+  timeout = undefined,
   mockData = null,
 }) {
   if (API_MOCK_MODE) {
@@ -286,6 +286,7 @@ export async function request({
    * membersihkan sesi dan berpindah halaman.
    */
   const config = { method, url, headers };
+  if (timeout !== undefined) config.timeout = timeout;
   if (data !== null && data !== undefined) config.data = data;
   if (params !== null && params !== undefined) config.params = params;
 

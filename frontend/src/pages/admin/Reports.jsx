@@ -3,6 +3,7 @@ import { Card, Badge, Button, Alert } from "../../components/ui/ui";
 import { DownloadIcon, ChartIcon } from "../../components/ui/Icons";
 import { adminService, userService } from "../../services";
 import { useAdminResource, useFlash } from "../../hooks/useAdminResource";
+import { SignLearnAvatar } from "../../components/common/SignLearnAvatar";
 
 /**
  * Laporan & analitik admin — API Contract §10.4-10.6.
@@ -389,9 +390,7 @@ export default function AdminReports() {
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                          {(user.avatar || user.name || "?").slice(0, 2).toUpperCase()}
-                        </div>
+                        <SignLearnAvatar id={user.avatar} size="sm" />
                         <div>
                           <p className="text-sm font-semibold text-[var(--text)]">{user.name}</p>
                           <p className="text-xs text-[var(--text-subtle)]">{user.email}</p>

@@ -15,6 +15,10 @@ import {
 } from "../../components/common/SignLearnAvatar";
 import * as authService from "../../services/authService";
 import { normalizeError } from "../../services/api";
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  validateImageFile,
+} from "../../features/media/imageUpload";
 
 const PROFILE_OPTIONS = [
   { id: "parent", label: "Orang Tua", emoji: "👨‍👩‍👧" },
@@ -38,35 +42,6 @@ function formatJoinDate(value) {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
-  });
-}
-
-function resizeImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Foto tidak dapat dibaca."));
-    reader.onload = () => {
-      const image = new Image();
-      image.onerror = () => reject(new Error("Format foto tidak dapat digunakan."));
-      image.onload = () => {
-        const maxSize = 512;
-        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-        const width = Math.max(1, Math.round(image.width * scale));
-        const height = Math.max(1, Math.round(image.height * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          reject(new Error("Foto tidak dapat diproses."));
-          return;
-        }
-        context.drawImage(image, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.84));
-      };
-      image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
   });
 }
 
@@ -102,17 +77,22 @@ function ProfileRow({ icon, title, description, onClick, active, disabled, trail
 }
 
 export default function Profile() {
-  const { currentUser, updateProfile, logout, stats } = useApp();
+  const { currentUser, updateProfile, uploadProfileAvatar, logout, stats } = useApp();
   const fileInputRef = useRef(null);
+  const persistedAvatar = currentUser?.avatar ?? currentUser?.profile?.avatar;
+  const persistedPhoto =
+    typeof persistedAvatar === "string" && /^https:\/\//i.test(persistedAvatar)
+      ? persistedAvatar
+      : null;
 
   const [name, setName] = useState(currentUser?.name || "");
   const [email] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.phone ?? currentUser?.profile?.phone ?? "");
   const [profile, setProfile] = useState(currentUser?.profileType || "general");
   const [avatar, setAvatar] = useState(
-    resolveAvatarId(currentUser?.profile?.avatar ?? currentUser?.avatar),
+    persistedPhoto ? "luna" : resolveAvatarId(persistedAvatar),
   );
-  const [profilePhoto, setProfilePhoto] = useState(currentUser?.profilePhoto || null);
+  const [profilePhoto, setProfilePhoto] = useState(persistedPhoto);
 
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -144,12 +124,13 @@ export default function Profile() {
       profileType: profile,
     });
 
-    setSaving(false);
-
     if (!outcome?.success) {
+      setSaving(false);
       setSaveError(outcome?.message || "Gagal menyimpan perubahan.");
       return;
     }
+
+    setSaving(false);
     flash("Perubahan berhasil disimpan! Informasi Anda telah diperbarui.");
   }
 
@@ -159,27 +140,29 @@ export default function Profile() {
     if (!file) return;
 
     setPhotoError("");
-    if (!file.type.startsWith("image/")) {
-      setPhotoError("Pilih file foto dengan format gambar.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setPhotoError("Ukuran foto maksimal 5 MB.");
+    try {
+      validateImageFile(file);
+    } catch (error) {
+      setPhotoError(error.message);
       return;
     }
 
     setUploadingPhoto(true);
     try {
-      const photo = await resizeImage(file);
-      const outcome = await updateProfile({ profilePhoto: photo });
+      const outcome = await uploadProfileAvatar(file);
       if (!outcome?.success) {
-        setPhotoError(outcome?.message || "Foto belum dapat disimpan.");
+        setPhotoError(outcome?.message || "Foto belum dapat diunggah.");
         return;
       }
-      setProfilePhoto(photo);
+      const uploadedUrl = outcome.user?.avatar;
+      if (typeof uploadedUrl !== "string" || !/^https:\/\//i.test(uploadedUrl)) {
+        setPhotoError("Provider media tidak mengembalikan URL foto yang valid.");
+        return;
+      }
+      setProfilePhoto(uploadedUrl);
       flash("Foto profil berhasil diperbarui.");
     } catch (error) {
-      setPhotoError(error.message || "Foto belum dapat diproses.");
+      setPhotoError(error.message || "Foto belum dapat diunggah.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -188,7 +171,7 @@ export default function Profile() {
   async function handleRemovePhoto() {
     setPhotoError("");
     setUploadingPhoto(true);
-    const outcome = await updateProfile({ profilePhoto: null });
+    const outcome = await updateProfile({ avatar });
     setUploadingPhoto(false);
     if (!outcome?.success) {
       setPhotoError(outcome?.message || "Foto belum dapat dihapus.");
@@ -197,7 +180,6 @@ export default function Profile() {
     setProfilePhoto(null);
     flash("Foto profil dihapus. Avatar menjadi pilihan profil kamu.");
   }
-
   async function handleChangePassword(e) {
     e.preventDefault();
     setPassError("");
@@ -443,7 +425,7 @@ export default function Profile() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept={IMAGE_UPLOAD_ACCEPT}
                     className="sr-only"
                     onChange={handlePhotoChange}
                   />

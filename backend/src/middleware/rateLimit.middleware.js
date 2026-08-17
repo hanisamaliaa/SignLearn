@@ -124,3 +124,13 @@ export const refreshLimiter = make({
   max: 30,
   message: "Terlalu banyak permintaan penyegaran sesi.",
 });
+
+/** Upload gambar mahal dalam bandwidth dan transformasi; batasi per akun. */
+export const imageUploadLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  // Middleware ini selalu dipasang setelah `authenticate`, jadi id tersedia
+  // dan tidak memerlukan parsing IPv6 khusus milik limiter berbasis IP.
+  keyGenerator: (req) => `upload:${req.user.id}`,
+  message: "Terlalu banyak upload gambar. Coba lagi dalam 15 menit.",
+});
