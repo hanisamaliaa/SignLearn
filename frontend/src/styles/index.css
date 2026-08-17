@@ -8593,7 +8593,8 @@ textarea,
   outline: 3px solid var(--primary, #4f8ef7);
   outline-offset: 2px;
 }
-.dictionary-page .dictionary-search-inner:focus-within {
+/* Search input handles focus via parent container, suppress individual outline */
+.dictionary-search-input:focus-visible {
   outline: none;
 }
 
@@ -8618,20 +8619,22 @@ textarea,
 .dictionary-search-inner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border: 2px solid var(--border, #e2e8f0);
+  gap: 10px;
+  border: 1.5px solid var(--border, #d7e1ec);
   border-radius: 16px;
   background: var(--surface, #fff);
-  padding: 0 14px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  padding: 0 16px;
+  min-height: 52px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .dictionary-search-inner:focus-within {
   border-color: var(--primary, #4f8ef7);
-  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1);
 }
 .dictionary-search-icon {
   flex-shrink: 0;
   color: var(--text-subtle, #94a3b8);
+  pointer-events: none;
 }
 .dictionary-search-input {
   flex: 1;
@@ -8640,30 +8643,39 @@ textarea,
   border: none;
   background: transparent;
   color: var(--text, #1a2332);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 500;
   outline: none;
 }
 .dictionary-search-input::placeholder {
   color: var(--text-subtle, #94a3b8);
 }
+.dictionary-search-input::-webkit-search-cancel-button,
+.dictionary-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .dictionary-search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   flex-shrink: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-3, #f1f5f9);
   color: var(--text-muted, #64748b);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 .dictionary-search-clear:hover {
   background: var(--border, #e2e8f0);
   color: var(--text, #1a2332);
+}
+.dictionary-search-clear:active {
+  transform: scale(0.92);
 }
 .dictionary-search-hint {
   margin-top: 6px;
@@ -8676,33 +8688,36 @@ textarea,
   font-size: 0.85rem;
   font-weight: 600;
 }
-.dictionary-search-info span {
+.dictionary-search-info strong {
   color: var(--primary, #4f8ef7);
+  font-weight: 700;
 }
 
-/* Type filter */
+/* Type filter — polished segmented control */
 .dictionary-type-filter {
-  display: flex;
-  gap: 6px;
+  display: inline-flex;
+  gap: 4px;
   padding: 4px;
   border: 1px solid var(--border, #e2e8f0);
   border-radius: 14px;
   background: var(--surface-2, #f8fafc);
-  width: fit-content;
 }
 .dictionary-type-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 40px;
-  padding: 8px 18px;
-  border: 1px solid transparent;
+  padding: 8px 20px;
+  border: none;
   border-radius: 11px;
   background: transparent;
   color: var(--text-muted, #64748b);
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  white-space: nowrap;
 }
 .dictionary-type-btn:hover {
   color: var(--text, #1a2332);
@@ -8711,8 +8726,7 @@ textarea,
 .dictionary-type-btn.is-active {
   background: var(--surface, #fff);
   color: var(--primary, #4f8ef7);
-  border-color: var(--border, #e2e8f0);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(79, 142, 247, 0.08);
 }
 
 /* Empty state */
@@ -8897,8 +8911,9 @@ textarea,
 /* Alphabet grid */
 .bisindo-letter-grid {
   display: grid;
-  gap: clamp(8px, 1.2vw, 12px);
+  gap: clamp(8px, 1.2vw, 14px);
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  max-width: 1100px;
 }
 
 .bisindo-letter-card {
@@ -8907,7 +8922,7 @@ textarea,
   justify-items: center;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: white;
+  background: var(--surface, white);
   padding: 10px 8px 8px;
   cursor: pointer;
   transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -8915,7 +8930,15 @@ textarea,
 }
 .bisindo-letter-card img { display: block; width: 100%; max-width: 88px; height: auto; }
 .bisindo-letter-card span { color: #46586a; font-size: 0.86rem; font-weight: 800; letter-spacing: 0.04em; }
-.bisindo-letter-card:hover { border-color: var(--primary, #2f6fe4); box-shadow: 0 8px 20px rgb(15 36 80 / 0.12); transform: translateY(-2px); }
+.bisindo-letter-card:hover {
+  border-color: var(--primary, #2f6fe4);
+  box-shadow: 0 8px 20px rgb(15 36 80 / 0.1);
+  transform: translateY(-3px);
+}
+.bisindo-letter-card:active {
+  transform: translateY(-1px) scale(0.98);
+  transition-duration: 80ms;
+}
 
 /* Word grid */
 .bisindo-word-grid {
@@ -8935,15 +8958,32 @@ textarea,
   cursor: pointer;
   transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease, box-shadow 160ms ease;
 }
-.bisindo-word-card:hover { border-color: var(--primary, #2f6fe4); transform: translateY(-2px); box-shadow: 0 6px 16px rgb(15 36 80 / 0.08); }
-.bisindo-word-card strong { color: var(--text); font-size: 1rem; }
+.bisindo-word-card:hover {
+  border-color: var(--primary, #2f6fe4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgb(15 36 80 / 0.08);
+}
+.bisindo-word-card:active {
+  transform: translateY(0) scale(0.99);
+  transition-duration: 80ms;
+}
+.bisindo-word-card strong { color: var(--text); font-size: 1rem; font-weight: 700; }
 .bisindo-word-card small { color: var(--text-subtle); font-size: 0.76rem; line-height: 1.45; }
 
 .bisindo-word-spelling {
   color: var(--primary, #2f6fe4);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+
+/* Search result animation */
+@keyframes dictionaryFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dictionary-result-enter {
+  animation: dictionaryFadeIn 0.2s ease both;
 }
 
 /* Detail modal */
@@ -8978,22 +9018,24 @@ textarea,
 /* Dark theme */
 [data-theme="dark"] :is(.bisindo-letter-card, .bisindo-detail-hero, .bisindo-detail-word figure) { border-color: #6d8296; }
 [data-theme="dark"] .dictionary-search-inner { border-color: #40536a; background: #18263a; }
-[data-theme="dark"] .dictionary-search-inner:focus-within { border-color: var(--primary, #60a5fa); }
+[data-theme="dark"] .dictionary-search-inner:focus-within { border-color: var(--primary, #60a5fa); box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1); }
 [data-theme="dark"] .dictionary-search-input { color: #edf5ff; }
 [data-theme="dark"] .dictionary-search-input::placeholder { color: #64748b; }
+[data-theme="dark"] .dictionary-search-icon { color: #64748b; }
 [data-theme="dark"] .dictionary-search-clear { background: #334155; color: #94a3b8; }
 [data-theme="dark"] .dictionary-search-clear:hover { background: #475569; color: #e2e8f0; }
 [data-theme="dark"] .dictionary-search-hint { color: #64748b; }
 [data-theme="dark"] .dictionary-search-info { color: #94a3b8; }
-[data-theme="dark"] .dictionary-search-info span { color: var(--primary, #60a5fa); }
+[data-theme="dark"] .dictionary-search-info strong { color: var(--primary, #60a5fa); }
 [data-theme="dark"] .dictionary-type-filter { border-color: #33455f; background: #17243a; }
 [data-theme="dark"] .dictionary-type-btn { color: #94a3b8; }
 [data-theme="dark"] .dictionary-type-btn:hover { background: #1d2d46; color: #e2e8f0; }
-[data-theme="dark"] .dictionary-type-btn.is-active { background: #1d2d46; color: var(--primary, #60a5fa); border-color: #33455f; }
+[data-theme="dark"] .dictionary-type-btn.is-active { background: #1d2d46; color: var(--primary, #60a5fa); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(96, 165, 250, 0.1); }
 [data-theme="dark"] .dictionary-category-chip { border-color: #40536a; background: #18263a; color: #94a3b8; }
 [data-theme="dark"] .dictionary-category-chip:hover { border-color: var(--primary, #60a5fa); color: var(--primary, #60a5fa); }
 [data-theme="dark"] .dictionary-category-chip.is-active { background: var(--primary, #60a5fa); border-color: var(--primary, #60a5fa); color: white; }
 [data-theme="dark"] .bisindo-word-category { background: #334155; color: #94a3b8; }
+[data-theme="dark"] .bisindo-letter-card { background: #1e293b; }
 [data-theme="dark"] .dictionary-pagination-btn { border-color: #40536a; background: #18263a; color: #e2e8f0; }
 [data-theme="dark"] .dictionary-pagination-btn:hover:not(:disabled) { background: #1d2d46; }
 [data-theme="dark"] .dictionary-pagination-ellipsis { color: #64748b; }
@@ -9010,12 +9052,14 @@ textarea,
     flex-direction: column;
     align-items: flex-start;
   }
+  .dictionary-header-stats {
+    margin-top: 2px;
+  }
   .dictionary-type-filter {
     width: 100%;
   }
   .dictionary-type-btn {
     flex: 1;
-    justify-content: center;
     min-height: 38px;
     padding: 6px 10px;
     font-size: 0.8rem;
@@ -9048,6 +9092,13 @@ textarea,
   }
 }
 
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .bisindo-letter-grid {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .bisindo-letter-card,
@@ -9060,7 +9111,15 @@ textarea,
   .dictionary-pagination-page {
     transition: none;
   }
+  .bisindo-letter-card:active,
+  .bisindo-word-card:active,
+  .dictionary-search-clear:active {
+    transform: none;
+  }
   .dictionary-skeleton-line {
+    animation: none;
+  }
+  .dictionary-result-enter {
     animation: none;
   }
 }
