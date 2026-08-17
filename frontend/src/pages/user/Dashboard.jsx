@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { SignLearnAvatar } from "../../components/common/SignLearnAvatar";
+import FirstTimeChecklist from "../../components/common/FirstTimeChecklist";
 import {
   Card,
   StatCard,
@@ -155,16 +156,15 @@ export default function UserDashboard() {
     <div className="user-dashboard space-y-6 animate-fade-in">
       <FloatingShapes count={5} />
 
+      {/* ================= FIRST-TIME GUIDE ================= */}
+      <FirstTimeChecklist userId={currentUser?.id} summary={stats} quizHistory={QUIZ_HISTORY} />
+
       {/* ================= GREETING HERO ================= */}
-      <section className="dashboard-hero-section">
+      <section className="dashboard-hero-section" data-tour-target="dashboard-progress">
         <div className="dashboard-hero-content">
           <div className="dashboard-hero-mascot">
             <div className="mascot-character">
-              <SignLearnAvatar
-                id={currentUser?.profile?.avatar ?? currentUser?.avatar}
-                photo={currentUser?.profilePhoto}
-                size="xl"
-              />
+              <SignLearnAvatar id={currentUser?.avatar} size="xl" />
             </div>
             <MascotBubble message={mascotGreeting} />
           </div>
@@ -258,7 +258,7 @@ export default function UserDashboard() {
       )}
 
       {/* ================= STATS ================= */}
-      <section>
+      <section data-tour-target="course-progress">
         <div className="dashboard-section-label">STATISTIK BELAJAR</div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
           <div className="dashboard-stat-card animate-slide-up" style={{ animationDelay: "0ms" }}>

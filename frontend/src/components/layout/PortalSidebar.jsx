@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
-import { MenuIcon } from "../ui/Icons";
+import { LogoutIcon, MenuIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
+import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
 export default function PortalSidebar({
   variant,
@@ -10,13 +11,16 @@ export default function PortalSidebar({
   sidebarOpen,
   onClose,
   onToggleSidebar,
+  onLogout,
   isPremium,
+  subscriptionLoading,
 }) {
   const isAdmin = variant === "admin";
   const isUser = variant === "user";
 
   return (
     <aside
+      data-tour-target="sidebar"
       className={`portal-sidebar ${isAdmin ? "admin-sidebar" : "user-sidebar"} fixed lg:relative z-30 flex h-full w-72 flex-col transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         sidebarOpen
           ? "translate-x-0 user-sidebar-desktop-open lg:w-72 lg:min-w-0 lg:overflow-visible"
@@ -66,9 +70,20 @@ export default function PortalSidebar({
                       .map((item) => {
                         const Icon = item.icon;
                         const isPremiumItem = item.premiumEntry;
+                        const tourTarget =
+                          item.label === "Kursus" || item.label === "Progress Belajar"
+                            ? "nav-course-progress"
+                            : item.label === "Penerjemah" || item.label === "Kamus BISINDO"
+                              ? "nav-tools"
+                              : item.label === "Jadi Premium"
+                                ? "nav-premium"
+                                : item.label === "Profil" || item.label === "Pengaturan"
+                                  ? "nav-account"
+                                  : undefined;
                         return (
                           <NavLink
                             key={item.page}
+                            data-tour-target={tourTarget}
                             to={item.path}
                             onClick={() => {
                               if (typeof window !== "undefined" && window.innerWidth < 1024) {
@@ -122,6 +137,34 @@ export default function PortalSidebar({
         )}
       </nav>
 
+      <div className="user-sidebar-footer shrink-0">
+        <div
+          className="user-sidebar-profile"
+          aria-label="Profil pengguna"
+        >
+          {isAdmin ? (
+            <span className="admin-header-avatar" aria-hidden="true">A</span>
+          ) : (
+            <SignLearnAvatar id={currentUser?.profile?.avatar} size="md" />
+          )}
+          <div className="min-w-0">
+            <p className="user-sidebar-profile-name truncate">{currentUser?.name || "Pengguna"}</p>
+            {!isAdmin && !subscriptionLoading && (
+              <span className={`user-sidebar-plan-badge ${isPremium ? "is-premium" : "is-free"}`}>
+                {isPremium ? "⭐ Premium" : "Paket Gratis"}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-3 text-sm font-extrabold transition-colors user-sidebar-logout"
+        >
+          <LogoutIcon size={17} className="shrink-0" />
+          <span>Keluar</span>
+        </button>
+      </div>
     </aside>
   );
 }
