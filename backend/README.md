@@ -383,6 +383,7 @@ Smoke suites menembak server dan PostgreSQL nyata:
 
 ```bash
 npm --prefix backend run smoke:auth
+npm --prefix backend run smoke:password-reset
 npm --prefix backend run smoke:users
 npm --prefix backend run smoke:content
 npm --prefix backend run smoke:dashboard
@@ -390,9 +391,16 @@ npm --prefix backend run smoke:db
 npm --prefix backend run smoke:all
 ```
 
+`smoke:password-reset` menyalakan aplikasi pada port acak, membuat akun uji,
+memastikan kode tidak bocor lewat HTTP, mengganti hash di PostgreSQL, menguji
+login lama/baru dan replay kode, lalu menghapus akun uji. `smoke:db` menguji
+transaksi repository secara langsung. Keduanya tidak memerlukan server yang
+sudah berjalan, tetapi tetap menulis sementara ke database yang dikonfigurasi.
+
 Prasyarat:
 
-1. Server berjalan dengan `NODE_ENV=test`.
+1. Untuk suite selain `smoke:password-reset` dan `smoke:db`, server berjalan
+   dengan `NODE_ENV=test`.
 2. Database test sudah mendapat schema/migration dan seed.
 3. `SEED_ADMIN_PASSWORD` tersedia pada environment proses test.
 

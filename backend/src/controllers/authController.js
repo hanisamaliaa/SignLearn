@@ -7,7 +7,6 @@ import {
 } from "../config/cookies.js";
 import * as authService from "../services/authService.js";
 import * as tokenService from "../services/tokenService.js";
-import { env } from "../config/env.js";
 
 /**
  * Auth controller — HTTP saja.
@@ -120,13 +119,13 @@ export const listSessions = asyncHandler(async (req, res) => {
 
 // ─── POST /auth/forgot-password ──────────────────────────────────────────
 export const forgotPassword = asyncHandler(async (req, res) => {
-  const result = await authService.requestPasswordReset(req.body.email);
+  await authService.requestPasswordReset(req.body.email);
 
   // Respons IDENTIK baik email terdaftar maupun tidak, dan juga entah email
   // berhasil terkirim atau gagal. Membedakannya membocorkan email mana yang
-  // memiliki akun.
-  const payload = env.isProduction ? null : { devCode: result.code };
-  success(res, payload, "Bila email terdaftar, kode reset telah dikirim.");
+  // memiliki akun. Kode tidak pernah dikirim ke frontend; pengembangan tanpa
+  // SMTP membacanya dari log backend yang tidak dapat diakses pengguna.
+  success(res, null, "Bila email terdaftar, kode reset telah dikirim.");
 });
 
 // ─── POST /auth/reset-password ───────────────────────────────────────────

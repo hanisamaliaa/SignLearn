@@ -18,11 +18,9 @@ export default function AccessibilityMenu({ open, onClose }) {
   const {
     textSize,
     highContrast,
-    reduceMotion,
     theme,
     setTextSize,
     setHighContrast,
-    setReduceMotion,
     setTheme,
     resetAccessibility,
   } = useAccessibility();
@@ -72,7 +70,6 @@ export default function AccessibilityMenu({ open, onClose }) {
 
   const toggles = [
     { label: "Kontras tinggi", checked: highContrast, onChange: setHighContrast },
-    { label: "Kurangi animasi", checked: reduceMotion, onChange: setReduceMotion },
   ];
 
   return createPortal(

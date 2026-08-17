@@ -14,6 +14,7 @@
     "db:reset-content": "node src/database/resetContent.js",
     "smoke": "node scripts/smoke-auth.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:password-reset": "node scripts/smoke-password-reset.mjs",
     "smoke:users": "node scripts/smoke-users.mjs",
     "smoke:content": "node scripts/smoke-content.mjs",
     "smoke:dashboard": "node scripts/smoke-dashboard.mjs",

@@ -5,20 +5,21 @@ Date: 2026-08-17
 This report records tests that were actually run. Cases outside the current
 feature scope remain marked blocked/not run and are never counted as passed.
 
-## Automated verification — Bank Kata, Kamus, and text/speech spelling
+## Automated verification
 
 | Check | Result |
 |---|---|
 | Backend unit/contract tests | 50/50 passed |
-| Frontend behavior tests | 85/85 passed |
+| Frontend behavior tests | 87/87 passed |
 | Camera/AI service tests | 13/13 passed |
-| Live PostgreSQL + HTTP smoke test | 11/11 passed; temporary row deleted |
+| Live PostgreSQL + HTTP smoke test | Word bank 11/11; password-reset DB 12/12 and HTTP 6/6; temporary rows deleted |
+| SMTP transport verification | Gmail STARTTLS transport authenticated and ready; secrets not logged |
 | Frontend lint | 0 errors and 0 warnings |
-| Vite production build | Passed; 605 modules transformed |
+| Vite production build | Passed; 614 modules transformed |
 | BISINDO assets in production output | Exactly A–Z (26 lossless 1024×1024 WebP files); audit sheet excluded |
 | Dependency audit | 0 known vulnerabilities in root, backend, and frontend |
 | Approved-canvas reproduction | Passed via `npm run assets:bisindo`; source hash locked |
-| Production preview smoke | `/`, `/translator`, `/dictionary`, JS, and CSS return HTTP 200 |
+| Production preview smoke | `/forgot-password` and `/reset-password` return HTTP 200; previous public/user route smoke remains passed |
 
 ## Black-box cases
 
@@ -31,6 +32,10 @@ feature scope remain marked blocked/not run and are never counted as passed.
 | AUTH-004 | Auth | Wrong password | Generic 401 | Not executed without database | Blocked | Timing-safe dummy bcrypt path inspected |
 | AUTH-005 | Auth | Session refresh | HttpOnly cookie rotates and restores user | Not executed without database | Blocked | Single-flight frontend refresh present |
 | AUTH-006 | Auth | Admin authorization | Non-admin receives 403 | Not executed without database | Blocked | RBAC middleware covers mutations |
+| AUTH-007 | Password reset | Request code while SMTP is configured | Code is delivered by email and never exposed in the API/UI | SMTP ready; HTTP envelope contains `data: null` and no `devCode` | Pass | Sender credentials remained masked during verification |
+| AUTH-008 | Password reset | Submit valid code and a new password | Persist new hash, consume code, revoke old sessions | PostgreSQL and HTTP smoke tests pass | Pass | All three mutations are atomic |
+| AUTH-009 | Password reset | Login after reset | Old password fails and new password succeeds | HTTP 401 for old and 200 for new | Pass | Temporary account deleted |
+| AUTH-010 | Password reset | Submit invalid/expired code | Show an error without crashing or getting stuck | Alert type is normalized and regression-tested | Pass | Backend message is displayed to the user |
 | NAV-001 | Navigation | Footer links from non-landing route | Navigate to `/` and target section | Navigation unit tests pass | Pass | Absolute landing URLs verified |
 | A11Y-001 | Accessibility | Reset preferences | Normal, light, motion/subtitle/focus off | Unit test confirms sanitized defaults | Pass | Reset gives live confirmation |
 | A11Y-002 | Accessibility | Dialog overlay and Escape | No reflow, trapped focus, focus restored | Portal/focus behavior code verified | Pass | Browser visual test still recommended |

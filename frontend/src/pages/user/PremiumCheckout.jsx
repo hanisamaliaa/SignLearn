@@ -83,7 +83,7 @@ export default function PremiumCheckout() {
           <div className="flex items-center gap-3 mt-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
-              style={{ background: "#4f8ef7" }}
+              style={{ background: "var(--primary-solid)" }}
             >
               {currentUser?.name
                 ? currentUser.name

@@ -223,13 +223,13 @@ export default function AdminQuizzes() {
 
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total Kuis", value: quizzes.length, color: "#4F8EF7" },
+          { label: "Total Kuis", value: quizzes.length, color: "var(--chart-blue)" },
           {
             label: "Siap Dikerjakan",
             value: quizzes.length - withoutQuestions,
-            color: "#2ECC71",
+            color: "var(--chart-green)",
           },
-          { label: "Belum Ada Soal", value: withoutQuestions, color: "#F4B400" },
+          { label: "Belum Ada Soal", value: withoutQuestions, color: "var(--chart-yellow)" },
         ].map((s) => (
           <div
             key={s.label}

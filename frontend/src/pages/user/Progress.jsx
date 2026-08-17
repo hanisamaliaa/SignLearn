@@ -20,10 +20,10 @@ const TABS = [
 
 const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 const SCORE_DISTRIBUTION = [
-  { range: "90 – 100", color: "#2ECC71" },
-  { range: "70 – 89", color: "#4F8EF7" },
-  { range: "50 – 69", color: "#F4B400" },
-  { range: "< 50", color: "#E74C3C" },
+  { range: "90 – 100", color: "var(--chart-green)" },
+  { range: "70 – 89", color: "var(--chart-blue)" },
+  { range: "50 – 69", color: "var(--chart-yellow)" },
+  { range: "< 50", color: "var(--chart-red)" },
 ];
 
 const BADGE_ICONS = {
@@ -202,16 +202,16 @@ export default function Progress() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "0ms" }}>
-          <StatCard interactive label="Kursus Aktif" value={<AnimatedCounter value={activeCourses} />} icon={<ChartIcon size={20} />} color="#4F8EF7" />
+          <StatCard interactive label="Kursus Aktif" value={<AnimatedCounter value={activeCourses} />} icon={<ChartIcon size={20} />} color="var(--chart-blue)" />
         </div>
         <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "60ms" }}>
-          <StatCard interactive label="Kuis Terbaru" value={<AnimatedCounter value={QUIZ_HISTORY.length} />} icon={<TrophyIcon size={20} />} color="#F4B400" />
+          <StatCard interactive label="Kuis Terbaru" value={<AnimatedCounter value={QUIZ_HISTORY.length} />} icon={<TrophyIcon size={20} />} color="var(--chart-yellow)" />
         </div>
         <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "120ms" }}>
-          <StatCard interactive label="Rata-rata Skor" value={<><AnimatedCounter value={avgScore} suffix="%" /></>} icon={<StarIcon size={20} />} color="#2ECC71" />
+          <StatCard interactive label="Rata-rata Skor" value={<><AnimatedCounter value={avgScore} suffix="%" /></>} icon={<StarIcon size={20} />} color="var(--chart-green)" />
         </div>
         <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "180ms" }}>
-          <StatCard interactive label="Streak Belajar" value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-sm">hari</span></>} icon={<FireIcon size={20} />} color="#E74C3C" />
+          <StatCard interactive label="Streak Belajar" value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-sm">hari</span></>} icon={<FireIcon size={20} />} color="var(--chart-red)" />
         </div>
       </div>
 
@@ -264,7 +264,7 @@ export default function Progress() {
                         className={`w-full max-w-12 rounded-lg transition-all duration-300 ease-out ${isHovered ? "scale-x-110 brightness-105" : ""}`}
                         style={{
                           height: `${weekActivity[i].percent}%`,
-                          background: weekActivity[i].count > 0 ? "#4F8EF7" : "#EAF3FF",
+                          background: weekActivity[i].count > 0 ? "var(--chart-blue)" : "var(--primary-light)",
                           opacity: isHovered ? 1 : 0.9,
                         }}
                       />

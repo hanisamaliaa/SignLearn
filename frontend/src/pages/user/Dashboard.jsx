@@ -262,7 +262,7 @@ export default function UserDashboard() {
               label="Kursus Aktif"
               value={<AnimatedCounter value={activeCourses} />}
               icon={<BookIcon size={20} />}
-              color="#4F8EF7"
+              color="var(--chart-blue)"
             />
           </div>
           <div className="dashboard-stat-card animate-slide-up" style={{ animationDelay: "60ms" }}>
@@ -270,7 +270,7 @@ export default function UserDashboard() {
               label="Pelajaran Selesai"
               value={<AnimatedCounter value={completedLessons} />}
               icon={<CheckCircleIcon size={20} />}
-              color="#2ECC71"
+              color="var(--chart-green)"
             />
           </div>
           <div className="dashboard-stat-card animate-slide-up" style={{ animationDelay: "120ms" }}>
@@ -278,7 +278,7 @@ export default function UserDashboard() {
               label="Rata-rata Kuis"
               value={<AnimatedCounter value={avgScore} suffix="%" />}
               icon={<TrophyIcon size={20} />}
-              color="#F4B400"
+              color="var(--chart-yellow)"
             />
           </div>
           <div className="dashboard-stat-card animate-slide-up" style={{ animationDelay: "180ms" }}>
@@ -286,7 +286,7 @@ export default function UserDashboard() {
               label="Streak Belajar"
               value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-base">hari</span></>}
               icon={<FireIcon size={20} />}
-              color="#E74C3C"
+              color="var(--chart-red)"
             />
           </div>
         </div>

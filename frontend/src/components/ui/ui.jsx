@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { normalizeAlertType } from "./alertType";
 
 // ─── Button ─────────────────────────────────────────────────────────────────
 export function Button({
@@ -13,17 +14,17 @@ export function Button({
     "inline-flex min-w-0 max-w-full h-auto items-center justify-center gap-2 whitespace-normal text-center font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
   const variants = {
     primary:
-      "bg-[#4F8EF7] hover:bg-[#3A7DE0] active:bg-[#2F6BC4] text-white focus:ring-[#4F8EF7] shadow-sm",
+      "bg-[var(--primary-solid)] hover:bg-[var(--primary-solid-hover)] active:bg-[var(--primary-solid-active)] text-white focus:ring-[var(--primary)] shadow-sm",
     secondary:
-      "bg-[var(--primary-light)] hover:bg-[#D4E9FF] active:bg-[#C0DFFF] text-[var(--primary)] focus:ring-[#4F8EF7]",
+      "bg-[var(--primary-light)] hover:bg-[var(--primary-secondary-hover)] active:bg-[var(--primary-secondary-active)] text-[var(--primary)] focus:ring-[var(--primary)]",
     ghost:
       "hover:bg-[var(--surface-3)] active:bg-[var(--surface-2)] text-[var(--text-muted)] focus:ring-[var(--primary)]",
     danger:
-      "bg-[#E74C3C] hover:bg-[#C0392B] text-white focus:ring-[#E74C3C] shadow-sm",
+      "bg-[var(--danger-solid)] hover:bg-[var(--danger-solid-hover)] text-white focus:ring-[var(--danger)] shadow-sm",
     success:
-      "bg-[#2ECC71] hover:bg-[#27AE60] text-white focus:ring-[#2ECC71] shadow-sm",
+      "bg-[var(--success-solid)] hover:bg-[var(--success-solid-hover)] text-white focus:ring-[var(--success)] shadow-sm",
     outline:
-      "border-2 border-[var(--border)] hover:border-[#4F8EF7] hover:text-[var(--primary)] text-[var(--text-muted)] bg-[var(--surface)]",
+      "border-2 border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-muted)] bg-[var(--surface)]",
   };
   const sizes = {
     sm: "px-3 py-1.5 text-sm",
@@ -92,8 +93,8 @@ export function Input({
         )}
         <input
           id={inputId}
-          className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] outline-none transition-all duration-150 focus:border-[#4F8EF7] focus:ring-2 focus:ring-[#4F8EF7]/20 ${
-            error ? "border-[#E74C3C] focus:ring-[#E74C3C]/20" : ""
+          className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text-subtle)] outline-none transition-all duration-150 focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 ${
+            error ? "border-[var(--danger)] focus:ring-[var(--danger)]/20" : ""
           } ${icon ? "pl-10" : ""} ${rightElement ? "pr-10" : ""} ${className}`}
           {...props}
         />
@@ -104,7 +105,7 @@ export function Input({
         )}
       </div>
       {error && (
-        <p className="text-xs text-[#E74C3C] flex items-center gap-1">
+        <p className="text-xs text-[var(--danger)] flex items-center gap-1">
           {error}
         </p>
       )}
@@ -131,8 +132,8 @@ export function Select({
       <select
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
-        className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-150 focus:border-[#4F8EF7] focus:ring-2 focus:ring-[#4F8EF7]/20 ${
-          error ? "border-[#E74C3C]" : ""
+        className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-150 focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 ${
+          error ? "border-[var(--danger)]" : ""
         }`}
       >
         {placeholder && <option value="">{placeholder}</option>}
@@ -142,7 +143,7 @@ export function Select({
           </option>
         ))}
       </select>
-      {error && <p className="text-xs text-[#E74C3C]">{error}</p>}
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
     </div>
   );
 }
@@ -174,7 +175,7 @@ export function Badge({
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
-export function Avatar({ initials, size = "md", color = "#4F8EF7", src }) {
+export function Avatar({ initials, size = "md", color = "var(--primary)", src }) {
   const sizes = {
     sm: "w-7 h-7 text-xs",
     md: "w-9 h-9 text-sm",
@@ -204,7 +205,7 @@ export function Avatar({ initials, size = "md", color = "#4F8EF7", src }) {
 export function ProgressBar({
   value,
   max = 100,
-  color = "#4F8EF7",
+  color = "var(--primary)",
   className = "",
   showLabel,
 }) {
@@ -231,7 +232,7 @@ export function StatCard({
   label,
   value,
   icon,
-  color = "#4F8EF7",
+  color = "var(--primary)",
   trend,
   className = "",
 }) {
@@ -243,7 +244,7 @@ export function StatCard({
           <p className="text-2xl font-bold text-[var(--text)]">{value}</p>
           {trend && (
             <p
-              className={`text-xs mt-1 ${trend.value >= 0 ? "text-[#2ECC71]" : "text-[#E74C3C]"}`}
+              className={`text-xs mt-1 ${trend.value >= 0 ? "text-[#2ECC71]" : "text-[var(--danger)]"}`}
             >
               {trend.value >= 0 ? "↑" : "↓"} {Math.abs(trend.value)}%{" "}
               {trend.label}
@@ -252,7 +253,7 @@ export function StatCard({
         </div>
         <div
           className="w-11 h-11 flex-none rounded-xl flex items-center justify-center"
-          style={{ background: `${color}18`, color }}
+          style={{ background: `color-mix(in srgb, ${color} 9.4%, transparent)`, color }}
         >
           {icon}
         </div>
@@ -287,29 +288,30 @@ export function Alert({ type, message, onClose }) {
     success: {
       bg: "bg-[var(--success-light)]",
       text: "text-[var(--success)]",
-      border: "border-[#2ECC71]/30",
+      border: "border-[var(--success)]/30",
       icon: "✓",
     },
     warning: {
       bg: "bg-[var(--warning-light)]",
       text: "text-[var(--warning)]",
-      border: "border-[#F4B400]/30",
+      border: "border-[var(--warning)]/30",
       icon: "⚠",
     },
     danger: {
       bg: "bg-[var(--danger-light)]",
       text: "text-[var(--danger)]",
-      border: "border-[#E74C3C]/30",
+      border: "border-[var(--danger)]/30",
       icon: "✕",
     },
     info: {
       bg: "bg-[var(--primary-light)]",
       text: "text-[var(--primary)]",
-      border: "border-[#4F8EF7]/30",
+      border: "border-[var(--primary)]/30",
       icon: "ℹ",
     },
   };
-  const s = styles[type];
+  // Normalisasi menjaga tipe tak dikenal agar tidak merobohkan seluruh halaman.
+  const s = styles[normalizeAlertType(type)];
   return (
     <div
       className={`flex items-center gap-3 p-3.5 rounded-xl border ${s.bg} ${s.border} ${s.text} text-sm`}

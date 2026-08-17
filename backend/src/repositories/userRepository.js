@@ -128,10 +128,10 @@ export async function create({ name, email, passwordHash, profile = "general", r
  *
  * ── Kenapa parameter ini penting ──────────────────────────────────────
  *
- * `authService.resetPassword` membungkus fungsi ini dan `resetRepo.markUsed`
+ * `authService.resetPassword` membungkus fungsi ini dan `resetRepo.consume`
  * dalam satu `withTransaction`. Selama fungsi ini mengabaikan `client`, ia
  * berjalan di koneksi LAIN dari pool — di luar transaksi. Transaksinya tetap
- * ada, tetapi tidak memuat apa yang dikira: bila `markUsed` gagal, ROLLBACK
+ * ada, tetapi tidak memuat apa yang dikira: bila `consume` gagal, ROLLBACK
  * hanya membatalkan penandaan token, sementara kata sandi sudah terlanjur
  * berubah. Pengguna berakhir dengan kata sandi baru DAN token reset yang
  * masih sah untuk dipakai ulang.
@@ -142,14 +142,17 @@ export async function create({ name, email, passwordHash, profile = "general", r
  */
 export async function updatePassword(userId, passwordHash, client) {
   const run = client ? client.query.bind(client) : query;
-  await run(
+  const { rowCount } = await run(
     `UPDATE users
         SET password_hash = $2,
             failed_login_attempts = 0,
-            locked_until = NULL
-      WHERE id = $1`,
+            locked_until = NULL,
+            updated_at = NOW()
+      WHERE id = $1
+      RETURNING id`,
     [userId, passwordHash],
   );
+  return rowCount === 1;
 }
 
 /**
