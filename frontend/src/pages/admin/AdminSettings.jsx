@@ -8,11 +8,9 @@ import {
 import {
   ShieldIcon,
   GlobeIcon,
-  LockIcon,
   EyeIcon,
 } from "../../components/ui/Icons";
 import { useTheme } from "../../context/ThemeContext";
-import { useAccessibility } from "../../context/AccessibilityContext";
 
 const GENERAL_OPTIONS = [{ value: "id", label: "Bahasa Indonesia" }];
 
@@ -20,9 +18,6 @@ export default function AdminSettings() {
   const [general, setGeneral] = useState({
     appName: "SignLearn",
     language: "id",
-  });
-  const [security, setSecurity] = useState({
-    passwordPolicy: "medium",
   });
   const {
     theme,
@@ -36,12 +31,6 @@ export default function AdminSettings() {
     setHighContrast,
     setReducedMotion,
   } = useTheme();
-  const {
-    subtitles,
-    focusMode,
-    setSubtitles,
-    setFocusMode,
-  } = useAccessibility();
 
 
   return (
@@ -56,8 +45,7 @@ export default function AdminSettings() {
       </div>
 
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* General */}
+      {/* General */}
         <Card>
           <div className="flex items-center gap-3 mb-5">
             <div className="w-9 h-9 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)]">
@@ -70,7 +58,7 @@ export default function AdminSettings() {
               </p>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <Input
               label="Nama Aplikasi"
               value={general.appName}
@@ -87,34 +75,6 @@ export default function AdminSettings() {
 
           </div>
         </Card>
-
-        {/* Security */}
-        <Card>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--danger-light)] rounded-xl flex items-center justify-center text-[#E74C3C]">
-              <LockIcon size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-[var(--text)]">Keamanan</h2>
-              <p className="text-xs text-[var(--text-subtle)]">Kebijakan keamanan akun</p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <Select
-              label="Kebijakan Kata Sandi"
-              value={security.passwordPolicy}
-              onChange={(v) =>
-                setSecurity((p) => ({ ...p, passwordPolicy: v }))
-              }
-              options={[
-                { value: "low", label: "Rendah (min. 6 karakter)" },
-                { value: "medium", label: "Sedang (min. 8 karakter)" },
-                { value: "high", label: "Tinggi (min. 12 karakter)" },
-              ]}
-            />
-          </div>
-        </Card>
-      </div>
 
       {/* Appearance */}
       <Card>
@@ -214,34 +174,6 @@ export default function AdminSettings() {
                   checked={highContrast}
                   onChange={setHighContrast}
                   ariaLabel="Kontras tinggi"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
-                <div>
-                  <p className="text-sm font-bold text-[var(--text)]">Subtitle</p>
-                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
-                    Menampilkan subtitle pada video yang mendukungnya.
-                  </p>
-                </div>
-                <Toggle
-                  checked={subtitles}
-                  onChange={setSubtitles}
-                  ariaLabel="Subtitle"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
-                <div>
-                  <p className="text-sm font-bold text-[var(--text)]">Mode fokus</p>
-                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
-                    Mengurangi elemen dekoratif agar perhatian lebih terarah pada konten utama.
-                  </p>
-                </div>
-                <Toggle
-                  checked={focusMode}
-                  onChange={setFocusMode}
-                  ariaLabel="Mode fokus"
                 />
               </div>
 
