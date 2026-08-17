@@ -12,6 +12,7 @@ import * as courseService from "../services/courseService";
 import * as progressService from "../services/progressService";
 import * as quizService from "../services/quizService";
 import * as userService from "../services/userService";
+import * as subscriptionService from "../services/subscriptionService";
 import { bootstrapSession, onAuthFailure, normalizeError } from "../services/api";
 
 /**
@@ -74,21 +75,20 @@ function mergeCourseAccess(detail, access) {
   const lessons = (detail.lessons ?? []).map((lesson) => {
     const a = byId.get(lesson.id);
     const status = a?.status ?? lesson.status ?? "not_started";
-    const isAccessible = a?.isAccessible ?? true;
 
     let uiStatus = status;
-    if (!isAccessible) {
-      uiStatus = "locked";
-    } else if (!currentAssigned && status !== "completed") {
+    if (!currentAssigned && status !== "completed") {
       uiStatus = "current";
       currentAssigned = true;
+    } else if (status !== "completed") {
+      uiStatus = "available";
     }
 
     return {
       ...lesson,
       status: uiStatus,
       rawStatus: status,
-      isAccessible,
+      isAccessible: true,
       lockReason: a?.lockReason ?? null,
       lockMessage: a?.lockMessage ?? null,
     };
@@ -111,6 +111,8 @@ export function AppProvider({ children }) {
   const [selectedCourse, setSelectedCourseDetail] = useState(null);
   const [quizScore, setQuizScore] = useState(null);
   const [quizPassed, setQuizPassed] = useState(null);
+  const [subscriptionState,setSubscriptionState]=useState(null);
+  const [subscriptionLoading,setSubscriptionLoading]=useState(false);
 
   // ─── Pemuatan data ─────────────────────────────────────────────────────
 
@@ -135,13 +137,15 @@ export function AppProvider({ children }) {
     setUsers(userList?.items ?? []);
   }, []);
 
+  const refreshSubscription=useCallback(async()=>{setSubscriptionLoading(true);try{const result=await subscriptionService.getSubscription();setSubscriptionState(result);return result;}catch{setSubscriptionState({isPremium:false,subscription:null,plans:[]});return null;}finally{setSubscriptionLoading(false);}},[]);
+
   const loadFor = useCallback(
     async (user) => {
       if (!user) return;
       if (user.role === "admin") await loadAdminData();
-      else await loadLearnerData();
+      else await Promise.all([loadLearnerData(),refreshSubscription()]);
     },
-    [loadAdminData, loadLearnerData],
+    [loadAdminData, loadLearnerData, refreshSubscription],
   );
 
   /**
@@ -242,6 +246,7 @@ export function AppProvider({ children }) {
     setUsers([]);
     setDashboard(null);
     setProgress(null);
+    setSubscriptionState(null);
     navigate("/login");
   }, [navigate]);
 
@@ -365,10 +370,10 @@ export function AppProvider({ children }) {
    * jawaban dan tidak pernah menentukan lulus atau tidak.
    */
   const submitQuiz = useCallback(
-    async (courseId, quizId, answers, durationSeconds) => {
+    async (courseId, quizId, sessionId, answers, durationSeconds) => {
       try {
         const result = await quizService.submitQuiz(
-          courseId, quizId, answers, durationSeconds,
+          courseId, quizId, sessionId, answers, durationSeconds,
         );
         setQuizScore(result.score);
         setQuizPassed(result.passed);
@@ -417,6 +422,9 @@ export function AppProvider({ children }) {
       selectedCourse,
       quizScore,
       quizPassed,
+      subscriptionState,
+      subscriptionLoading,
+      isPremium:Boolean(subscriptionState?.isPremium),
       navigate,
       login,
       logout,
@@ -430,13 +438,14 @@ export function AppProvider({ children }) {
       setSelectedLesson: selectLesson,
       setQuizResult,
       refresh: loadLearnerData,
+      refreshSubscription,
     }),
     [
       currentUser, booting, users, courses, quizHistory, badges, stats, dashboard,
       progress, selectedCourseId, selectedLessonId, selectedCourse, quizScore,
-      quizPassed, navigate, login, logout, register, updateProfile,
+      quizPassed, subscriptionState, subscriptionLoading, navigate, login, logout, register, updateProfile,
       updateUserSettings, startLesson, completeLesson, submitQuiz, selectCourse, selectLesson,
-      setQuizResult, loadLearnerData,
+      setQuizResult, loadLearnerData, refreshSubscription,
     ],
   );
 

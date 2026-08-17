@@ -6,62 +6,93 @@ import {
   HandSignIcon,
   HomeIcon,
   SettingsIcon,
+  StarIcon,
   UserIcon,
   UsersIcon,
   VideoIcon,
 } from "../components/ui/Icons";
 
-export const userNavItems = [
+export const userNavSections = [
   {
-    label: "Dashboard",
-    page: "user/dashboard",
-    path: "/dashboard",
-    icon: HomeIcon,
-    roles: ["user"],
+    label: "BELAJAR",
+    items: [
+      {
+        label: "Dashboard",
+        page: "user/dashboard",
+        path: "/dashboard",
+        icon: HomeIcon,
+        roles: ["user"],
+      },
+      {
+        label: "Kursus",
+        page: "user/courses",
+        path: "/courses",
+        icon: BookIcon,
+        roles: ["user"],
+      },
+      {
+        label: "Progress Belajar",
+        page: "user/progress",
+        path: "/progress",
+        icon: ChartIcon,
+        roles: ["user"],
+      },
+    ],
   },
   {
-    label: "Kursus",
-    page: "user/courses",
-    path: "/courses",
-    icon: BookIcon,
-    roles: ["user"],
+    label: "ALAT BISINDO",
+    items: [
+      {
+        label: "Penerjemah",
+        page: "user/translator",
+        path: "/translator",
+        icon: HandSignIcon,
+        roles: ["user"],
+      },
+      {
+        label: "Kamus BISINDO",
+        page: "user/dictionary",
+        path: "/dictionary",
+        icon: AlphabetBlocksIcon,
+        roles: ["user"],
+      },
+    ],
   },
   {
-    label: "Penerjemah",
-    page: "user/translator",
-    path: "/translator",
-    icon: HandSignIcon,
-    roles: ["user"],
+    label: "PREMIUM",
+    items: [
+      {
+        label: "Jadi Premium",
+        page: "user/premium",
+        path: "/premium",
+        icon: StarIcon,
+        roles: ["user"],
+        premiumEntry: true,
+      },
+    ],
   },
   {
-    label: "Kamus BISINDO",
-    page: "user/dictionary",
-    path: "/dictionary",
-    icon: AlphabetBlocksIcon,
-    roles: ["user"],
-  },
-  {
-    label: "Progress Belajar",
-    page: "user/progress",
-    path: "/progress",
-    icon: ChartIcon,
-    roles: ["user"],
-  },
-  {
-    label: "Profil",
-    page: "user/profile",
-    path: "/profile",
-    icon: UserIcon,
-    roles: ["user"],
-  },
-  {
-    label: "Pengaturan",
-    page: "user/settings",
-    path: "/settings",
-    icon: SettingsIcon,
-    roles: ["user"],
+    label: "AKUN",
+    items: [
+      {
+        label: "Profil",
+        page: "user/profile",
+        path: "/profile",
+        icon: UserIcon,
+        roles: ["user"],
+      },
+      {
+        label: "Pengaturan",
+        page: "user/settings",
+        path: "/settings",
+        icon: SettingsIcon,
+        roles: ["user"],
+      },
+    ],
   },
 ];
+
+export const userNavItems = userNavSections.flatMap((s) => s.items);
 
 export const adminNavItems = [
   {

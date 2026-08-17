@@ -103,7 +103,9 @@ export const submitQuiz = asyncHandler(async (req, res) => {
     req.params.courseId,
     req.params.quizId,
     req.user.id,
-    { answers: req.body.answers, durationSeconds: req.body.durationSeconds },
+    { sessionId:req.body.sessionId, answers: req.body.answers, durationSeconds: req.body.durationSeconds },
   );
   created(res, { result }, result.passed ? "Selamat, Anda lulus!" : "Belum lulus. Coba lagi.");
 });
+
+export const startQuiz=asyncHandler(async(req,res)=>{const result=await quizService.start(req.params.courseId,req.params.quizId,req.user.id);created(res,result,"Quiz Premium siap dimulai.");});

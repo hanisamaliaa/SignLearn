@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Toggle, Button, Alert } from "../../components/ui/ui";
+import { Card, Toggle, Button, Alert, FloatingShapes } from "../../components/ui/ui";
 import {
   BellIcon,
   EyeIcon,
@@ -64,8 +64,11 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <FloatingShapes count={2} />
+
       <div>
+        <p className="mb-1 text-sm font-bold text-[#2e86bf]">PENGATURAN</p>
         <h1 className="text-2xl font-extrabold text-[var(--text)]">
           {t("settings.title")}
         </h1>
@@ -84,9 +87,9 @@ export default function Settings() {
 
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-6">
         {/* Appearance */}
-        <Card>
+        <Card className="settings-card">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)]">
+            <div className="w-10 h-10 bg-[var(--primary-light)] rounded-xl flex items-center justify-center text-[var(--primary)]">
               <EyeIcon size={18} />
             </div>
             <div>
@@ -107,31 +110,31 @@ export default function Settings() {
                 {t("settings.theme")}
               </label>
               <div
-                className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+                className="grid grid-cols-2 gap-2"
                 role="radiogroup"
                 aria-labelledby="theme-label"
               >
-                {THEMES.map((t) => (
+                {THEMES.map((th) => (
                   <button
-                    key={t.id}
+                    key={th.id}
                     role="radio"
-                    aria-checked={theme === t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`p-3 rounded-xl border-2 text-center transition-all ${
-                      theme === t.id
+                    aria-checked={theme === th.id}
+                    onClick={() => setTheme(th.id)}
+                    className={`settings-theme-btn p-3 rounded-xl border-2 text-center transition-all ${
+                      theme === th.id
                         ? "border-[#4F8EF7] bg-[var(--primary-light)]"
                         : "border-[var(--border)] hover:border-[#4F8EF7]/40"
                     }`}
                   >
-                    <div className="text-xl mb-1">{t.icon}</div>
+                    <div className="text-xl mb-1">{th.icon}</div>
                     <p
                       className={`text-xs font-medium ${
-                        theme === t.id
+                        theme === th.id
                           ? "text-[var(--primary)]"
                           : "text-[var(--text-muted)]"
                       }`}
                     >
-                      {t.label}
+                      {th.label}
                     </p>
                   </button>
                 ))}
@@ -210,9 +213,9 @@ export default function Settings() {
         </Card>
 
         {/* Notifications */}
-        <Card>
+        <Card className="settings-card">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 bg-[var(--warning-light)] rounded-xl flex items-center justify-center text-[#F4B400]">
+            <div className="w-10 h-10 bg-[var(--warning-light)] rounded-xl flex items-center justify-center text-[#F4B400]">
               <BellIcon size={18} />
             </div>
             <div>
@@ -228,7 +231,7 @@ export default function Settings() {
             {NOTIFICATION_ITEMS.map((item) => (
               <div
                 key={item.key}
-                className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
+                className="settings-notification-item flex min-w-0 flex-wrap items-center justify-between gap-3 py-2 border-b border-[var(--border-light)] last:border-0"
               >
                 <div>
                   <p className="text-sm font-medium text-[var(--text)]">
@@ -247,7 +250,6 @@ export default function Settings() {
             ))}
           </div>
         </Card>
-
       </div>
 
       <div className="flex justify-end">

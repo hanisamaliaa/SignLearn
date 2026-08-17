@@ -1,0 +1,80 @@
+import { useNavigate } from "react-router-dom";
+import { Badge, Button, Card, FloatingShapes, MascotBubble } from "../../components/ui/ui";
+import { useApp } from "../../context/app";
+
+const money = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+export default function Premium() {
+  const navigate = useNavigate();
+  const { isPremium, subscriptionState } = useApp();
+  const plan = subscriptionState?.plans?.[0];
+
+  return (
+    <div className="premium-page space-y-6 animate-fade-in">
+      <FloatingShapes count={4} />
+
+      <section className="premium-page-hero">
+        <div className="premium-hero-mascot">
+          <MascotBubble message={isPremium ? "Kamu sudah Premium! 🌟" : "Lebih banyak latihan menunggumu!"} />
+        </div>
+        <Badge variant="warning">SignLearn Premium ⭐</Badge>
+        <h1>Belajar tetap gratis.<br />Evaluasi menjadi lebih personal.</h1>
+        <p>Semua course, lesson, dan video tetap gratis. Premium membuka quiz 5 soal setelah lesson, pembahasan, dan riwayat hasil.</p>
+        <Button size="lg" onClick={() => navigate(isPremium ? "/subscription" : "/premium/checkout")}>
+          {isPremium ? "Lihat Langganan Saya" : "Jadi Premium"}
+        </Button>
+      </section>
+
+      <div className="premium-value-grid">
+        <Card className="premium-value-card">
+          <span>📖</span>
+          <h2>Materi gratis</h2>
+          <p>Course, lesson, dan video tidak dikunci.</p>
+        </Card>
+        <Card className="premium-value-card">
+          <span>📝</span>
+          <h2>Quiz 5 soal</h2>
+          <p>Evaluasi singkat setelah setiap lesson.</p>
+        </Card>
+        <Card className="premium-value-card">
+          <span>🎯</span>
+          <h2>Progress terarah</h2>
+          <p>Lihat nilai, pembahasan, dan bagian yang perlu dilatih.</p>
+        </Card>
+      </div>
+
+      <Card className="premium-plan-card">
+        <div>
+          <Badge variant="warning">{plan?.durationDays ?? 30} Hari</Badge>
+          <h2>SignLearn Premium</h2>
+          <p>Pembayaran satu kali, tidak diperpanjang otomatis.</p>
+        </div>
+        <div className="premium-plan-price">
+          <strong>{money.format(plan?.price ?? 29000)}</strong>
+          <span>/ {plan?.durationDays ?? 30} hari</span>
+        </div>
+        <ul>
+          <li>✓ Quiz setelah lesson</li>
+          <li>✓ Riwayat hasil quiz</li>
+          <li>✓ Pembahasan jawaban</li>
+          <li>✓ Analisis progress</li>
+        </ul>
+        <Button size="lg" disabled={!plan} onClick={() => navigate(isPremium ? "/subscription" : "/premium/checkout")}>
+          {isPremium ? "Kelola Premium" : "Pilih Premium 30 Hari"}
+        </Button>
+      </Card>
+
+      <Card className="premium-compare-card">
+        <h2 className="font-extrabold">Free vs Premium</h2>
+        <div className="premium-compare">
+          <p><strong>Free:</strong> semua materi dan video BISINDO.</p>
+          <p><strong>Premium:</strong> seluruh fitur Free + quiz, nilai, pembahasan, dan riwayat.</p>
+        </div>
+      </Card>
+    </div>
+  );
+}

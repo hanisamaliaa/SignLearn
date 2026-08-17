@@ -220,12 +220,15 @@ export function validateUpdateQuestion(body = {}) {
 export function validateSubmitQuiz(body = {}) {
   const errors = [];
 
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.sessionId??""))){errors.push(err("sessionId","sessionId quiz tidak valid."));}
+
   if (!Array.isArray(body.answers)) {
     return [err("answers", "answers harus berupa array.")];
   }
   if (body.answers.length === 0) {
     return [err("answers", "answers tidak boleh kosong.")];
   }
+  if(body.answers.length!==5)errors.push(err("answers","Quiz Premium harus berisi tepat 5 jawaban."));
 
   for (const [i, a] of body.answers.entries()) {
     if (!a || typeof a !== "object") {

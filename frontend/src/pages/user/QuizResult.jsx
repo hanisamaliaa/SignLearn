@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Button } from "../../components/ui/ui";
+import { Button, FloatingShapes } from "../../components/ui/ui";
 import {
   StarIcon,
   ArrowRightIcon,
@@ -28,34 +28,46 @@ const TIPS = [
   "Fokus pada bagian yang masih membingungkan",
 ];
 
+const PASS_MESSAGES = [
+  "Kamu hebat! 🌟",
+  "Luar biasa! Kamu juara! 🏆",
+  "Nilai yang membanggakan! ⭐",
+];
+
+const FAIL_MESSAGES = [
+  "Hampir benar, coba lagi! 💪",
+  "Kamu pasti bisa lebih baik! 🌱",
+  "Terus semangat ya! 🔥",
+];
+
 function ScoreRing({ score, color }) {
   return (
-    <div className="relative inline-flex items-center justify-center w-28 h-28 mb-3">
-      <svg className="absolute" width="112" height="112" viewBox="0 0 112 112">
+    <div className="relative inline-flex items-center justify-center w-32 h-32 mb-3">
+      <svg className="absolute" width="128" height="128" viewBox="0 0 128 128">
         <circle
-          cx="56"
-          cy="56"
-          r="48"
+          cx="64"
+          cy="64"
+          r="56"
           fill="none"
           stroke="#E2E8F0"
           strokeWidth="8"
         />
         <circle
-          cx="56"
-          cy="56"
-          r="48"
+          cx="64"
+          cy="64"
+          r="56"
           fill="none"
           stroke={color}
           strokeWidth="8"
           strokeLinecap="round"
-          strokeDasharray={`${2 * Math.PI * 48}`}
-          strokeDashoffset={`${2 * Math.PI * 48 * (1 - score / 100)}`}
-          transform="rotate(-90 56 56)"
-          className="transition-all duration-1000"
+          strokeDasharray={`${2 * Math.PI * 56}`}
+          strokeDashoffset={`${2 * Math.PI * 56 * (1 - score / 100)}`}
+          transform="rotate(-90 64 64)"
+          className="transition-all duration-1000 ease-out"
         />
       </svg>
       <div className="text-center">
-        <p className="text-3xl font-extrabold text-[var(--text)]">{score}</p>
+        <p className="text-4xl font-extrabold text-[var(--text)] animate-count-up">{score}</p>
         <p className="text-xs text-[var(--text-muted)]">dari 100</p>
       </div>
     </div>
@@ -64,12 +76,13 @@ function ScoreRing({ score, color }) {
 
 function Stars({ stars }) {
   return (
-    <div className="flex items-center justify-center gap-1 mb-3">
+    <div className="flex items-center justify-center gap-1.5 mb-3">
       {[1, 2, 3].map((s) => (
         <StarIcon
           key={s}
-          size={28}
-          className={s <= stars ? "text-[#F4B400]" : "text-[#E2E8F0]"}
+          size={32}
+          className={`${s <= stars ? "text-[#F4B400]" : "text-[#E2E8F0]"} transition-all duration-300`}
+          style={s <= stars ? { animationDelay: `${s * 200}ms` } : {}}
           filled={s <= stars}
         />
       ))}
@@ -80,10 +93,11 @@ function Stars({ stars }) {
 function MetricGrid({ items, score }) {
   return (
     <div className="grid grid-cols-3 gap-3 mb-6">
-      {items.map((s) => (
+      {items.map((s, i) => (
         <div
           key={s.label}
-          className="text-center p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)]"
+          className="text-center p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] animate-slide-up"
+          style={{ animationDelay: `${i * 100}ms` }}
         >
           <p className="text-lg font-extrabold" style={{ color: s.color }}>
             {s.label === "Nilai Anda"
@@ -114,29 +128,25 @@ export default function QuizResult() {
   const score = quizScore;
   const passed = quizPassed ?? score >= 70;
   const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0;
+  const messages = passed ? PASS_MESSAGES : FAIL_MESSAGES;
+  const mascotMessage = messages[Math.floor(Math.random() * messages.length)];
 
   return (
-    <div className="min-h-screen bg-[var(--surface-2)] flex items-center justify-center p-6">
-      <div className="w-full max-w-lg animate-scale-in">
+    <div className="min-h-screen bg-[var(--surface-2)] flex items-center justify-center p-6 relative overflow-hidden">
+      <FloatingShapes count={passed ? 8 : 4} />
+      <div className="w-full max-w-lg animate-scale-in relative z-10">
         {passed ? (
           /* PASSED */
           <div className="bg-[var(--surface)] rounded-3xl shadow-lg border border-[var(--border)] overflow-hidden">
-            <div className="bg-gradient-to-br from-[#2ECC71] to-[#27AE60] p-8 text-center text-white relative overflow-hidden">
-              <div
-                className="absolute inset-0 opacity-10"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 30% 30%, white 1px, transparent 1px)",
-                  backgroundSize: "24px 24px",
-                }}
-              />
+            <div className="quiz-result-hero-passed p-8 text-center text-white relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10 quiz-result-dots" />
               <div className="relative">
-                <div className="text-6xl mb-3">🎉</div>
+                <div className="text-6xl mb-3 animate-bounce-in">🎉</div>
                 <h1 className="text-2xl font-extrabold mb-1">
-                  Selamat! Anda Lulus!
+                  Selamat! Kamu Lulus!
                 </h1>
                 <p className="text-white/80 text-sm">
-                  Pelajaran berikutnya telah terbuka untuk Anda
+                  Pelajaran berikutnya telah terbuka untukmu
                 </p>
               </div>
             </div>
@@ -144,25 +154,26 @@ export default function QuizResult() {
               <div className="text-center mb-6">
                 <ScoreRing score={score} color="#2ECC71" />
                 <Stars stars={stars} />
-                <p className="text-sm text-[var(--text-muted)]">
+                <p className="text-sm text-[var(--text-muted)] font-medium">
                   {stars === 3
                     ? "Luar Biasa! Nilai sempurna!"
                     : stars === 2
                       ? "Bagus! Pertahankan semangat belajar!"
-                      : "Lulus! Terus tingkatkan kemampuan Anda!"}
+                      : "Lulus! Terus tingkatkan kemampuanmu!"}
                 </p>
+                <p className="text-xs text-[var(--text-subtle)] mt-1">{mascotMessage}</p>
               </div>
 
               <MetricGrid items={PASS_METRICS} score={score} />
 
-              <div className="bg-[var(--primary-light)] rounded-xl p-4 mb-6 flex items-center gap-3">
+              <div className="quiz-result-unlock-card bg-[var(--primary-light)] rounded-xl p-4 mb-6 flex items-center gap-3">
                 <div className="text-2xl">🔓</div>
                 <div>
                   <p className="font-semibold text-[var(--primary)] text-sm">
                     Pelajaran Berikutnya Terbuka!
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    "Latihan Komprehensif Alfabet" sudah bisa diakses
+                    Kamu bisa melanjutkan ke pelajaran berikutnya
                   </p>
                 </div>
               </div>
@@ -188,36 +199,30 @@ export default function QuizResult() {
         ) : (
           /* FAILED */
           <div className="bg-[var(--surface)] rounded-3xl shadow-lg border border-[var(--border)] overflow-hidden">
-            <div className="bg-gradient-to-br from-[#E74C3C] to-[#C0392B] p-8 text-center text-white relative overflow-hidden">
-              <div
-                className="absolute inset-0 opacity-10"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 30% 30%, white 1px, transparent 1px)",
-                  backgroundSize: "24px 24px",
-                }}
-              />
+            <div className="quiz-result-hero-failed p-8 text-center text-white relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10 quiz-result-dots" />
               <div className="relative">
                 <div className="text-6xl mb-3">💪</div>
                 <h1 className="text-2xl font-extrabold mb-1">
                   Semangat Terus!
                 </h1>
                 <p className="text-white/80 text-sm">
-                  Anda bisa mencoba lagi setelah me-review pelajaran
+                  Kamu bisa mencoba lagi setelah me-review pelajaran
                 </p>
               </div>
             </div>
             <div className="p-8">
               <div className="text-center mb-6">
                 <ScoreRing score={score} color="#E74C3C" />
-                <p className="text-sm text-[var(--text-muted)]">
+                <p className="text-sm text-[var(--text-muted)] font-medium">
                   Jangan menyerah! Pelajari kembali materinya dan coba lagi.
                 </p>
+                <p className="text-xs text-[var(--text-subtle)] mt-1">{mascotMessage}</p>
               </div>
 
               <MetricGrid items={FAIL_METRICS} score={score} />
 
-              <div className="bg-[var(--warning-light)] border border-[#F4B400]/30 rounded-xl p-4 mb-5 flex items-start gap-3">
+              <div className="quiz-result-locked-card bg-[var(--warning-light)] border border-[#F4B400]/30 rounded-xl p-4 mb-5 flex items-start gap-3">
                 <div className="text-xl">🔒</div>
                 <div>
                   <p className="font-semibold text-[#7A5A00] text-sm">
@@ -226,12 +231,12 @@ export default function QuizResult() {
                   <p className="text-xs text-[#9A7300] mt-0.5">
                     Nilai minimum yang dibutuhkan adalah <strong>70</strong>.
                     Pelajari kembali materi pelajaran ini dan coba kuis lagi.
-                    Anda pasti bisa!
+                    Kamu pasti bisa!
                   </p>
                 </div>
               </div>
 
-              <div className="bg-[var(--primary-light)] rounded-xl p-4 mb-5">
+              <div className="quiz-result-tips bg-[var(--primary-light)] rounded-xl p-4 mb-5">
                 <p className="text-sm font-semibold text-[var(--primary)] mb-2">
                   💡 Tips untuk Mencoba Lagi:
                 </p>

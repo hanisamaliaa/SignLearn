@@ -130,6 +130,11 @@ export const env = Object.freeze({
   isTest: process.env.NODE_ENV === "test",
   port: port(process.env.PORT, 4000),
   apiPrefix: process.env.API_PREFIX || "/api/v1",
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:4789",
+  midtrans: {
+    serverKey: process.env.MIDTRANS_SERVER_KEY || "",
+    isProduction: bool(process.env.MIDTRANS_IS_PRODUCTION, false),
+  },
 
   database: {
     url: process.env.DATABASE_URL,

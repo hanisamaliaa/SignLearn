@@ -30,6 +30,10 @@ import AdminQuizzes from "../pages/admin/Quizzes";
 import AdminReports from "../pages/admin/Reports";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminTranslations from "../pages/admin/Translations";
+import Premium from "../pages/user/Premium";
+import PremiumCheckout from "../pages/user/PremiumCheckout";
+import PaymentResult from "../pages/user/PaymentResult";
+import Subscription from "../pages/user/Subscription";
 
 export default function AppRoutes() {
   const { currentUser } = useApp();
@@ -73,6 +77,11 @@ export default function AppRoutes() {
             <Route path="/progress" element={<Progress />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<UserSettings />} />
+            <Route path="/premium" element={<Premium />} />
+            <Route path="/premium/checkout" element={<PremiumCheckout />} />
+            <Route path="/premium/payment" element={<PaymentResult />} />
+            <Route path="/subscription" element={<Subscription />} />
+            <Route path="/payments" element={<Subscription />} />
           </Route>
         </Route>
       </Route>

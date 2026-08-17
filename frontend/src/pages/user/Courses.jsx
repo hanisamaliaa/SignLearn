@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Badge, Button, ProgressBar } from "../../components/ui/ui";
+import { useDebounce } from "../../hooks/useDebounce";
+import { useReducedMotion } from "../../hooks/useLandingMotion";
+import { Badge, Button, ProgressBar, FloatingShapes } from "../../components/ui/ui";
 import {
   ArrowRightIcon,
   BookIcon,
@@ -9,78 +11,122 @@ import {
   LockIcon,
   SearchIcon,
   TrophyIcon,
+  XIcon,
 } from "../../components/ui/Icons";
 import { formatEstimatedHours } from "../../features/lesson/courseMeta";
+import Pagination from "../../components/common/Pagination";
 
 const LEVELS = ["Semua", "Pemula", "Menengah", "Lanjutan"];
+const ITEMS_PER_PAGE = 6;
+const DEBOUNCE_MS = 350;
 
 export default function Courses() {
   const { setSelectedCourse, courses } = useApp();
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("Semua");
+  const reducedMotion = useReducedMotion();
+  const sectionRef = useRef(null);
+
+  // URL-synced state
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [filter, setFilter] = useState(() => searchParams.get("level") ?? "Semua");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const p = parseInt(searchParams.get("page"), 10);
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  });
+
+  const debouncedSearch = useDebounce(search, DEBOUNCE_MS);
+  const inputRef = useRef(null);
+
+  // Sync state to URL
+  const updateParams = useCallback(
+    (next) => {
+      setSearchParams((prev) => {
+        const params = new URLSearchParams(prev);
+        if (next.search !== undefined) {
+          if (next.search) params.set("search", next.search);
+          else params.delete("search");
+        }
+        if (next.level !== undefined) {
+          if (next.level && next.level !== "Semua") params.set("level", next.level);
+          else params.delete("level");
+        }
+        if (next.page !== undefined) {
+          if (next.page > 1) params.set("page", String(next.page));
+          else params.delete("page");
+        }
+        return params;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
 
   const COURSES = courses || [];
 
-  const summary = useMemo(() => [
-    {
-      label: "Kursus",
-      value: COURSES.filter((course) => !course.isLocked).length,
-      helper: "tersedia untukmu",
-      tone: "pink",
-      icon: <BookIcon size={21} />,
-    },
-    {
-      label: "Belajar",
-      // Dibaca dari status yang dihitung server. Rumus lamanya
-      // (`completedLessons > 0 && completedLessons < totalLessons`) tidak
-      // pernah bisa benar untuk kursus berisi satu pelajaran, sehingga angka
-      // ini selalu 0 betapapun banyak video yang sudah dibuka.
-      value: COURSES.filter((course) => course.learningStatus === "in_progress").length,
-      helper: "sedang dipelajari",
-      tone: "blue",
-      icon: <BookIcon size={21} />,
-    },
-    {
-      label: "Selesai",
-      value: COURSES.filter((course) => course.learningStatus === "completed").length,
-      helper: "kursus selesai",
-      tone: "green",
-      icon: <TrophyIcon size={21} />,
-    },
-  ], [COURSES]);
+  const summary = useMemo(
+    () => [
+      {
+        label: "Kursus",
+        value: COURSES.filter((course) => !course.isLocked).length,
+        helper: "tersedia untukmu",
+        tone: "pink",
+        icon: <BookIcon size={21} />,
+      },
+      {
+        label: "Belajar",
+        value: COURSES.filter((course) => course.learningStatus === "in_progress").length,
+        helper: "sedang dipelajari",
+        tone: "blue",
+        icon: <BookIcon size={21} />,
+      },
+      {
+        label: "Selesai",
+        value: COURSES.filter((course) => course.learningStatus === "completed").length,
+        helper: "kursus selesai",
+        tone: "green",
+        icon: <TrophyIcon size={21} />,
+      },
+    ],
+    [COURSES],
+  );
 
-  // Keep filtering compatible with the original course data.
-  // Some course records can omit optional text fields, so normalize them
-  // before calling toLowerCase(). This prevents the filter buttons from
-  // crashing the page when a record is incomplete.
+  // Filter: level → search
   const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("id-ID");
-
+    const query = debouncedSearch.trim().toLocaleLowerCase("id-ID");
     return COURSES.filter((course) => {
       const title = String(course?.title ?? "").toLocaleLowerCase("id-ID");
       const category = String(course?.category ?? "").toLocaleLowerCase("id-ID");
       const description = String(course?.description ?? "").toLocaleLowerCase("id-ID");
       const level = String(course?.level ?? "").trim();
-
       const matchSearch =
         !query ||
         title.includes(query) ||
         category.includes(query) ||
-        description.includes(query);
-
-      // Preserve the original behavior: a selected level only shows
-      // courses that actually belong to that level.
+        description.includes(query) ||
+        level.toLocaleLowerCase("id-ID").includes(query);
       const matchLevel = filter === "Semua" || level === filter;
-
       return matchSearch && matchLevel;
     });
-  }, [COURSES, search, filter]);
+  }, [COURSES, debouncedSearch, filter]);
 
-  const available = filtered.filter((course) => !course.isLocked);
-  const locked = filtered.filter((course) => course.isLocked);
+  // Pagination derived from filtered results
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
 
-  const getProgress = (course) => course.totalLessons ? Math.round((course.completedLessons / course.totalLessons) * 100) : 0;
+  // Clamp current page if it exceeds total
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedCourses = useMemo(() => {
+    const start = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, safeCurrentPage]);
+
+  const available = paginatedCourses.filter((course) => !course.isLocked);
+  const locked = paginatedCourses.filter((course) => course.isLocked);
+
+  const getProgress = (course) =>
+    course.totalLessons
+      ? Math.round((course.completedLessons / course.totalLessons) * 100)
+      : 0;
 
   const openCourse = async (course) => {
     if (course.isLocked) return;
@@ -88,13 +134,52 @@ export default function Courses() {
     navigate("/course-detail");
   };
 
+  const handleSearchChange = (event) => {
+    setSearch(event.target.value);
+    setCurrentPage(1);
+    updateParams({ search: event.target.value, page: 1 });
+  };
+
+  const handleClearSearch = () => {
+    setSearch("");
+    setCurrentPage(1);
+    updateParams({ search: "", page: 1 });
+    inputRef.current?.focus();
+  };
+
+  const handleFilterChange = (level) => {
+    setFilter(level);
+    setCurrentPage(1);
+    updateParams({ level, page: 1 });
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    updateParams({ page });
+    sectionRef.current?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  };
+
+  const handleReset = () => {
+    setSearch("");
+    setFilter("Semua");
+    setCurrentPage(1);
+    updateParams({ search: "", level: "Semua", page: 1 });
+    inputRef.current?.focus();
+  };
+
   return (
     <div className="courses-page space-y-7 animate-fade-in">
+      <FloatingShapes count={4} />
+
+      {/* Intro Section */}
       <section className="courses-intro">
         <div>
           <p className="courses-kicker">RUANG BELAJARMU</p>
-          <h1>Pilih pembelajaranmu!</h1>
-          <p>Temukan kursus BISINDO yang ingin kamu pelajari hari ini.</p>
+          <h1>Yuk, belajar BISINDO! 🤟</h1>
+          <p>Pilih materi yang ingin kamu pelajari hari ini.</p>
         </div>
         <div className="courses-intro-progress">
           <span>Progress keseluruhan</span>
@@ -106,14 +191,8 @@ export default function Courses() {
             <span
               style={{
                 width: `${(() => {
-                  const total = COURSES.reduce(
-                    (sum, course) => sum + (course.totalLessons ?? 0),
-                    0
-                  );
-                  const completed = COURSES.reduce(
-                    (sum, course) => sum + (course.completedLessons ?? 0),
-                    0
-                  );
+                  const total = COURSES.reduce((sum, course) => sum + (course.totalLessons ?? 0), 0);
+                  const completed = COURSES.reduce((sum, course) => sum + (course.completedLessons ?? 0), 0);
                   return total ? Math.round((completed / total) * 100) : 0;
                 })()}%`,
               }}
@@ -122,17 +201,28 @@ export default function Courses() {
         </div>
       </section>
 
+      {/* Search & Filters */}
       <section className="courses-tools" aria-label="Cari dan filter kursus">
-        <label className="courses-search">
+        <label className="courses-search" htmlFor="course-search-input">
           <SearchIcon size={19} aria-hidden="true" />
           <input
+            ref={inputRef}
+            id="course-search-input"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari kursus..."
-            aria-label="Cari kursus"
+            onChange={handleSearchChange}
+            placeholder="Cari pelajaran..."
+            aria-label="Cari pelajaran"
+            autoComplete="off"
           />
           {search && (
-            <button type="button" onClick={() => setSearch("")} aria-label="Hapus pencarian">×</button>
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              aria-label="Hapus pencarian"
+              className="courses-search-clear"
+            >
+              <XIcon size={16} aria-hidden="true" />
+            </button>
           )}
         </label>
         <div className="courses-filters" role="group" aria-label="Filter tingkat kursus">
@@ -140,11 +230,8 @@ export default function Courses() {
             <button
               key={level}
               type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                setFilter(level);
-              }}
-              className={filter === level ? "is-active" : ""}
+              onClick={() => handleFilterChange(level)}
+              className={`courses-filter-btn ${filter === level ? "is-active" : ""}`}
               aria-pressed={filter === level}
             >
               {level}
@@ -153,6 +240,7 @@ export default function Courses() {
         </div>
       </section>
 
+      {/* Summary Cards */}
       <section className="courses-summary-grid" aria-label="Ringkasan kursus">
         {summary.map((item) => (
           <article key={item.label} className={`courses-summary-card ${item.tone}`}>
@@ -166,26 +254,34 @@ export default function Courses() {
         ))}
       </section>
 
-      <section>
+      {/* Course Cards */}
+      <section ref={sectionRef} className="courses-cards-section">
         <div className="courses-section-heading">
           <div>
             <h2>Pelajaran Untukmu</h2>
-            <p>{filtered.length} pilihan belajar ditemukan</p>
+            <p>
+              {filtered.length} pilihan belajar ditemukan
+            </p>
           </div>
-          <button type="button" onClick={() => { setSearch(""); setFilter("Semua"); }} className="courses-reset">Lihat semua <ArrowRightIcon size={15} /></button>
+          {(search || filter !== "Semua") && (
+            <button type="button" onClick={handleReset} className="courses-reset">
+              Lihat semua <ArrowRightIcon size={15} />
+            </button>
+          )}
         </div>
 
         {filtered.length > 0 ? (
           <>
-            {available.length > 0 ? (
+            {available.length > 0 && (
               <div className="courses-card-grid">
-                {available.map((course) => {
+                {available.map((course, i) => {
                   const progress = getProgress(course);
                   const finished = progress === 100;
                   return (
                     <article
                       key={course.id}
-                      className="course-kids-card"
+                      className="course-kids-card animate-slide-up"
+                      style={{ animationDelay: reducedMotion ? undefined : `${i * 60}ms` }}
                       tabIndex={0}
                       onClick={() => openCourse(course)}
                       onKeyDown={(event) => {
@@ -238,11 +334,7 @@ export default function Courses() {
                             openCourse(course);
                           }}
                         >
-                          {finished
-                            ? "Lihat Detail"
-                            : progress > 0
-                              ? "Lanjutkan"
-                              : "Mulai"}
+                          {finished ? "Lihat Detail" : progress > 0 ? "Lanjutkan" : "Mulai"}
                           <ArrowRightIcon size={14} />
                         </Button>
                       </div>
@@ -250,7 +342,9 @@ export default function Courses() {
                   );
                 })}
               </div>
-            ) : (
+            )}
+
+            {available.length === 0 && locked.length > 0 && (
               <div className="courses-card-grid">
                 {locked.map((course) => (
                   <article key={course.id} className="course-kids-card is-locked">
@@ -267,8 +361,8 @@ export default function Courses() {
                       <div className="course-kids-meta">
                         <span>{course.totalLessons} Pelajaran</span>
                         {formatEstimatedHours(course.estimatedHours) && (
-                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
-                          )}
+                          <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                        )}
                       </div>
                       <div className="course-locked-note">
                         <LockIcon size={14} /> Selesaikan kursus sebelumnya
@@ -278,50 +372,65 @@ export default function Courses() {
                 ))}
               </div>
             )}
-          </>
-        ) : (
-          <div className="courses-empty">
-            <SearchIcon size={28} />
-            <strong>Kursus tidak ditemukan</strong>
-            <span>Coba kata kunci lain atau pilih tingkat yang berbeda.</span>
-          </div>
-        )}
 
-        {available.length > 0 && locked.length > 0 && (
-          <section className="mt-7">
-            <div className="courses-section-heading">
-              <div>
-                <h2>Kursus Terkunci</h2>
-                <p>Selesaikan kursus sebelumnya untuk membukanya.</p>
-              </div>
-            </div>
-            <div className="courses-card-grid">
-              {locked.map((course) => (
-                <article key={course.id} className="course-kids-card is-locked">
-                  <div className="course-kids-art">
-                    <img src={course.thumbnail} alt="" />
-                    <Badge variant="muted">{course.level}</Badge>
-                    <span className="course-lock">
-                      <LockIcon size={20} />
-                    </span>
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+
+            {available.length > 0 && locked.length > 0 && (
+              <section className="mt-7">
+                <div className="courses-section-heading">
+                  <div>
+                    <h2>Kursus Terkunci</h2>
+                    <p>Selesaikan kursus sebelumnya untuk membukanya.</p>
                   </div>
-                  <div className="course-kids-body">
-                    <h3>{course.title}</h3>
-                    <p>{course.description}</p>
-                    <div className="course-kids-meta">
-                      <span>{course.totalLessons} Pelajaran</span>
-                      {formatEstimatedHours(course.estimatedHours) && (
+                </div>
+                <div className="courses-card-grid">
+                  {locked.map((course) => (
+                    <article key={course.id} className="course-kids-card is-locked">
+                      <div className="course-kids-art">
+                        <img src={course.thumbnail} alt="" />
+                        <Badge variant="muted">{course.level}</Badge>
+                        <span className="course-lock">
+                          <LockIcon size={20} />
+                        </span>
+                      </div>
+                      <div className="course-kids-body">
+                        <h3>{course.title}</h3>
+                        <p>{course.description}</p>
+                        <div className="course-kids-meta">
+                          <span>{course.totalLessons} Pelajaran</span>
+                          {formatEstimatedHours(course.estimatedHours) && (
                             <span>{formatEstimatedHours(course.estimatedHours)}</span>
                           )}
-                    </div>
-                    <div className="course-locked-note">
-                      <LockIcon size={14} /> Selesaikan kursus sebelumnya
-                    </div>
-                  </div>
-                </article>
-              ))}
+                        </div>
+                        <div className="course-locked-note">
+                          <LockIcon size={14} /> Selesaikan kursus sebelumnya untuk membuka
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        ) : (
+          <div className="courses-empty animate-fade-in">
+            <div className="courses-empty-icon">
+              <SearchIcon size={48} />
             </div>
-          </section>
+            <strong>Pelajaran belum ditemukan</strong>
+            <span>Coba gunakan kata kunci lain atau ubah tingkat pembelajaran.</span>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="courses-empty-reset"
+            >
+              Reset pencarian
+            </button>
+          </div>
         )}
       </section>
     </div>

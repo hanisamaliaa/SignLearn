@@ -33,6 +33,10 @@ BEGIN;
 -- Urutan tidak penting karena CASCADE, tetapi ditulis dari yang paling
 -- bergantung ke yang paling dasar agar mudah dibaca.
 DROP TABLE IF EXISTS quiz_results          CASCADE;
+DROP TABLE IF EXISTS lesson_quiz_sessions  CASCADE;
+DROP TABLE IF EXISTS payments              CASCADE;
+DROP TABLE IF EXISTS subscriptions         CASCADE;
+DROP TABLE IF EXISTS subscription_plans    CASCADE;
 DROP TABLE IF EXISTS lesson_progress       CASCADE;
 DROP TABLE IF EXISTS quiz_questions        CASCADE;
 DROP TABLE IF EXISTS quizzes               CASCADE;
@@ -263,6 +267,50 @@ CREATE TABLE quiz_results (
 );
 
 CREATE INDEX idx_results_user ON quiz_results (user_id, taken_at DESC);
+
+CREATE TABLE lesson_quiz_sessions (
+  id UUID PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quiz_id BIGINT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  question_ids BIGINT[] NOT NULL CHECK(array_length(question_ids,1)=5),
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','submitted','expired')),
+  expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),submitted_at TIMESTAMPTZ
+);
+CREATE INDEX idx_lesson_quiz_sessions_user ON lesson_quiz_sessions(user_id,created_at DESC);
+
+-- ─── Premium & Midtrans ───────────────────────────────────────
+CREATE TABLE subscription_plans (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  price NUMERIC(12,2) NOT NULL CHECK (price >= 0),
+  duration_days INT NOT NULL CHECK (duration_days > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE subscriptions (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_id BIGINT NOT NULL REFERENCES subscription_plans(id),
+  start_date TIMESTAMPTZ, end_date TIMESTAMPTZ,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','expired','cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE payments (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subscription_id BIGINT NOT NULL REFERENCES subscriptions(id),
+  order_id VARCHAR(100) NOT NULL UNIQUE, amount NUMERIC(12,2) NOT NULL,
+  payment_method VARCHAR(80), transaction_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  transaction_id VARCHAR(120), snap_token TEXT, redirect_url TEXT,
+  paid_at TIMESTAMPTZ, processed_at TIMESTAMPTZ, raw_notification JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_subscriptions_user ON subscriptions(user_id,end_date DESC);
+CREATE INDEX idx_payments_user ON payments(user_id,created_at DESC);
+CREATE TRIGGER trg_plans_updated_at BEFORE UPDATE ON subscription_plans FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+INSERT INTO subscription_plans(name,price,duration_days,status) VALUES('Premium',29000,30,'active');
 
 -- ─── BISINDO Translation Bank ──────────────────────────────────
 CREATE TABLE translations (
