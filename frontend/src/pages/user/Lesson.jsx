@@ -7,8 +7,6 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   ClockIcon,
-  LockIcon,
-  PlayIcon,
 } from "../../components/ui/Icons";
 import YouTubeLesson from "../../features/lesson/YouTubeLesson";
 import { formatDuration } from "../../features/lesson/youtube";
@@ -93,244 +91,183 @@ export default function Lesson() {
         </div>
 
         <div className="lesson-header-info">
-          <h1 className="lesson-course-title">{course.title}</h1>
-          <h2 className="lesson-title">{lesson.title}</h2>
+          <span className="lesson-course-title">{course.title}</span>
+          <h1 className="lesson-title">{lesson.title}</h1>
           {course.description && (
             <p className="lesson-subtitle">{course.description}</p>
           )}
         </div>
-
-        {totalLessons > 1 && (
-          <div className="lesson-progress-bar-wrap">
-            <div className="lesson-progress-bar-track">
-              <div
-                className="lesson-progress-bar-fill"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <span className="lesson-progress-bar-label">{progressPct}% selesai</span>
-          </div>
-        )}
       </header>
 
-      {/* ── Workspace grid ──────────────────────────────────────────────── */}
-      <div className="lesson-workspace">
-        {/* ── Main content ──────────────────────────────────────────────── */}
-        <div className="lesson-main">
-          {/* Video card */}
-          <Card padding="none" className="lesson-video-card">
-            <YouTubeLesson
-              videoUrl={lesson.videoUrl}
-              title={lesson.title}
-              onDurationKnown={setDuration}
-              onStarted={markStarted}
-              onEnded={markComplete}
-            />
+      {/* ── Video ──────────────────────────────────────────────────────── */}
+      <div className="lesson-video-section">
+        <Card padding="none" className="lesson-video-card">
+          <YouTubeLesson
+            videoUrl={lesson.videoUrl}
+            title={lesson.title}
+            onDurationKnown={setDuration}
+            onStarted={markStarted}
+            onEnded={markComplete}
+          />
 
-            <div className="lesson-video-meta">
-              <div className="lesson-video-info">
-                <h3 className="lesson-video-title">{lesson.title}</h3>
-                <p className="lesson-video-sub">
-                  {course.title}
-                  {shownDuration && (
-                    <>
-                      <span aria-hidden="true"> · </span>
-                      <ClockIcon size={12} />
-                      {' '}{shownDuration}
-                    </>
-                  )}
-                </p>
+          <div className="lesson-video-meta">
+            <div className="lesson-video-info">
+              <h2 className="lesson-video-title">{lesson.title}</h2>
+              <p className="lesson-video-sub">
+                {course.title}
+                {shownDuration && (
+                  <>
+                    <span aria-hidden="true"> · </span>
+                    <ClockIcon size={12} />
+                    {' '}{shownDuration}
+                  </>
+                )}
+              </p>
+            </div>
+
+            {isCompleted ? (
+              <div className="lesson-completion-badge">
+                <CheckCircleIcon size={16} />
+                <span>Pelajaran selesai</span>
               </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={markComplete}
+                disabled={saving}
+                className="lesson-complete-btn"
+              >
+                <CheckCircleIcon size={15} />
+                {saving ? "Menyimpan…" : "Tandai selesai"}
+              </Button>
+            )}
+          </div>
+        </Card>
 
-              {isCompleted ? (
-                <div className="lesson-completion-badge">
-                  <CheckCircleIcon size={16} />
-                  <span>Pelajaran selesai</span>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={markComplete}
-                  disabled={saving}
-                  className="lesson-complete-btn"
-                >
-                  <CheckCircleIcon size={15} />
-                  {saving ? "Menyimpan…" : "Tandai selesai"}
-                </Button>
-              )}
-            </div>
-          </Card>
+        {error && (
+          <Alert type="error" message={error} onClose={() => setError("")} />
+        )}
+      </div>
 
-          {error && (
-            <Alert type="error" message={error} onClose={() => setError("")} />
-          )}
-
-          {/* Completion celebration */}
+      {/* ── Course Progress ────────────────────────────────────────────── */}
+      <Card className="lesson-progress-card">
+        <div className="lesson-progress-card-header">
+          <h2 className="lesson-progress-card-title">Progres Kursus</h2>
           {isCompleted && (
-            <div className="lesson-completion-msg animate-fade-in">
-              <CheckCircleIcon size={18} className="text-[var(--success,#15A66E)]" />
-              <p>Bagus! Kamu sudah menyelesaikan pelajaran ini.</p>
-            </div>
+            <span className="lesson-progress-complete-badge">
+              <CheckCircleIcon size={14} />
+              {allLessonsDone ? "Kursus selesai" : `${progressPct}%`}
+            </span>
           )}
+        </div>
 
-          {/* About lesson */}
-          {(lesson.description || course.description) && (
-            <Card className="lesson-about-card">
-              <h2 className="lesson-section-title">Tentang pelajaran ini</h2>
-              {lesson.description && (
-                <p className="lesson-about-text">
-                  {lesson.description}
-                </p>
-              )}
-              {course.description && lesson.description && course.description !== lesson.description && (
-                <p className="lesson-about-text lesson-about-secondary">
-                  {course.description}
-                </p>
-              )}
-            </Card>
-          )}
-
-          {/* Bottom navigation */}
-          <div className="lesson-nav-row">
-            {prevLesson ? (
-              <Button variant="outline" size="sm" onClick={() => goTo(prevLesson)}>
-                <ArrowLeftIcon size={14} /> Pelajaran sebelumnya
-              </Button>
-            ) : <div />}
-            {nextLesson ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => goTo(nextLesson)}
-                disabled={nextLesson.status === "locked"}
-              >
-                Pelajaran berikutnya <ArrowRightIcon size={14} />
-              </Button>
-            ) : allLessonsDone && courseQuiz ? (
-              <Button
-                size="sm"
-                onClick={() => {
-                  if (!isPremium) {
-                    navigate("/course-detail");
-                    return;
-                  }
-                  selectLesson(null);
-                  navigate("/quiz");
-                }}
-              >
-                {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
-              </Button>
-            ) : null}
+        <div className="lesson-progress-card-body">
+          <div className="lesson-progress-card-text">
+            <span className="lesson-progress-card-stat">
+              {completedCount} dari {totalLessons} pelajaran selesai
+            </span>
+            <span className="lesson-progress-card-pct">{progressPct}%</span>
+          </div>
+          <div className="lesson-progress-card-track">
+            <div
+              className="lesson-progress-card-fill"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </div>
 
-        {/* ── Companion panel ─────────────────────────────────────────── */}
-        <aside className="lesson-companion">
-          {/* Course progress */}
-          <Card className="lesson-companion-card">
-            <h2 className="lesson-companion-title">Progres Kursus</h2>
-            <div className="lesson-companion-progress">
-              <div className="lesson-companion-progress-track">
-                <div
-                  className="lesson-companion-progress-fill"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <span className="lesson-companion-progress-text">
-                {completedCount} dari {totalLessons} pelajaran · {progressPct}%
-              </span>
+        {allLessonsDone && isCompleted && (
+          <p className="lesson-progress-done-msg">
+            Hebat! Kursus ini sudah selesai.
+          </p>
+        )}
+      </Card>
+
+      {/* ── Next Step ──────────────────────────────────────────────────── */}
+      <Card className="lesson-next-step-card">
+        {isCompleted ? (
+          <div className="lesson-next-step-content">
+            <div className="lesson-next-step-text">
+              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+              {nextLesson ? (
+                <p className="lesson-next-step-desc">
+                  Yuk, lanjut ke pelajaran berikutnya untuk terus belajar.
+                </p>
+              ) : allLessonsDone && courseQuiz ? (
+                <p className="lesson-next-step-desc">
+                  Pelajaran sudah selesai. Sekarang waktunya mencoba quiz untuk menguji apa yang sudah dipelajari.
+                </p>
+              ) : (
+                <p className="lesson-next-step-desc">
+                  Semua pelajaran sudah selesai!
+                </p>
+              )}
             </div>
-
-            {/* Lesson list */}
-            {totalLessons > 1 && (
-              <nav className="lesson-companion-list" aria-label="Daftar pelajaran">
-                {lessons.map((item) => {
-                  const active = item.id === lesson.id;
-                  const completed = item.status === "completed" || (item.id === lessonId && isCompleted);
-                  const locked = item.status === "locked";
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => !locked && goTo(item)}
-                      disabled={locked}
-                      aria-current={active ? "step" : undefined}
-                      className={`lesson-companion-item ${active ? "is-active" : ""} ${completed ? "is-completed" : ""} ${locked ? "is-locked" : ""}`}
-                    >
-                      <span className="lesson-companion-dot">
-                        {completed ? (
-                          <CheckCircleIcon size={14} />
-                        ) : active ? (
-                          <span className="lesson-companion-dot-active" />
-                        ) : locked ? (
-                          <LockIcon size={12} />
-                        ) : (
-                          <span className="lesson-companion-dot-empty" />
-                        )}
-                      </span>
-                      <span className="lesson-companion-label">{item.title}</span>
-                    </button>
-                  );
-                })}
-
-                {/* Quiz entry */}
-                {courseQuiz && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isPremium) return;
-                      selectLesson(null);
-                      navigate("/quiz");
-                    }}
-                    disabled={!isPremium && !allLessonsDone}
-                    className={`lesson-companion-item ${allLessonsDone ? "is-active" : ""} ${!isPremium && allLessonsDone ? "is-locked" : ""}`}
-                  >
-                    <span className="lesson-companion-dot">
-                      {allLessonsDone && isPremium ? (
-                        <PlayIcon size={12} />
-                      ) : (
-                        <LockIcon size={12} />
-                      )}
-                    </span>
-                    <span className="lesson-companion-label">
-                      Quiz Akhir
-                      {!isPremium && allLessonsDone && <span className="lesson-companion-badge">Premium</span>}
-                    </span>
-                  </button>
-                )}
-              </nav>
-            )}
-          </Card>
-
-          {/* Next step CTA */}
-          <Card className="lesson-companion-card lesson-next-card">
-            {isCompleted ? (
-              <>
-                <p className="lesson-next-label">Langkah berikutnya</p>
-                {nextLesson ? (
-                  <Button fullWidth size="sm" onClick={() => goTo(nextLesson)}>
-                    Lanjut ke pelajaran berikutnya <ArrowRightIcon size={14} />
-                  </Button>
-                ) : allLessonsDone && courseQuiz ? (
-                  <Button fullWidth size="sm" onClick={() => {
-                    if (!isPremium) { navigate("/course-detail"); return; }
+            <div className="lesson-next-step-action">
+              {nextLesson ? (
+                <Button size="sm" onClick={() => goTo(nextLesson)}>
+                  Lanjut ke pelajaran berikutnya <ArrowRightIcon size={14} />
+                </Button>
+              ) : allLessonsDone && courseQuiz ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!isPremium) {
+                      navigate("/course-detail");
+                      return;
+                    }
                     selectLesson(null);
                     navigate("/quiz");
-                  }}>
-                    {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"}
-                  </Button>
-                ) : (
-                  <p className="lesson-next-done">Semua pelajaran selesai!</p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="lesson-next-label">Setelah menonton</p>
-                <p className="lesson-next-hint">Tandai pelajaran ini selesai untuk melanjutkan ke pelajaran berikutnya.</p>
-              </>
-            )}
-          </Card>
-        </aside>
+                  }}
+                >
+                  {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="lesson-next-step-content">
+            <div className="lesson-next-step-text">
+              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+              <p className="lesson-next-step-desc">
+                Tandai pelajaran ini selesai untuk melanjutkan ke pelajaran berikutnya.
+              </p>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Bottom Navigation ──────────────────────────────────────────── */}
+      <div className="lesson-nav-row">
+        {prevLesson ? (
+          <Button variant="outline" size="sm" onClick={() => goTo(prevLesson)}>
+            <ArrowLeftIcon size={14} /> Pelajaran sebelumnya
+          </Button>
+        ) : <div />}
+        {nextLesson ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goTo(nextLesson)}
+            disabled={nextLesson.status === "locked"}
+          >
+            Pelajaran berikutnya <ArrowRightIcon size={14} />
+          </Button>
+        ) : allLessonsDone && courseQuiz ? (
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!isPremium) {
+                navigate("/course-detail");
+                return;
+              }
+              selectLesson(null);
+              navigate("/quiz");
+            }}
+          >
+            {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
