@@ -27,9 +27,7 @@ export default function AdminSettings() {
     minFontSize,
     maxFontSize,
     highContrast,
-    reducedMotion,
     setHighContrast,
-    setReducedMotion,
   } = useTheme();
 
 
@@ -177,19 +175,6 @@ export default function AdminSettings() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-light)] p-3">
-                <div>
-                  <p className="text-sm font-bold text-[var(--text)]">Kurangi animasi</p>
-                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
-                    Mengurangi gerakan dan transisi agar lebih nyaman.
-                  </p>
-                </div>
-                <Toggle
-                  checked={reducedMotion}
-                  onChange={setReducedMotion}
-                  ariaLabel="Kurangi animasi"
-                />
-              </div>
             </div>
           </div>
         </div>

@@ -23,7 +23,7 @@ function readStoredSidebarVisibility(key) {
 
 export default function PortalLayout({ variant }) {
   const { pathname } = useLocation();
-  const { logout, currentUser, isPremium } = useApp();
+  const { logout, currentUser, isPremium, subscriptionLoading } = useApp();
   const isUserPortal = variant === "user";
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(DESKTOP_QUERY).matches : false,
@@ -92,7 +92,7 @@ export default function PortalLayout({ variant }) {
     .filter((item) => !item.roles || item.roles.includes(currentUser?.role))
     .map((item) =>
       item.premiumEntry && isPremium
-        ? { ...item, label: "⭐ Premium", path: "/subscription" }
+        ? { ...item, label: "Premium", path: "/subscription" }
         : item,
     );
   const visibleUserNavSections = userNavSections
@@ -133,6 +133,8 @@ export default function PortalLayout({ variant }) {
         onToggleSidebar={toggleSidebar}
         onLogout={handleLogout}
         currentUser={currentUser}
+        isPremium={isPremium}
+        subscriptionLoading={subscriptionLoading}
       />
 
       {!sidebarOpen && (
@@ -158,6 +160,7 @@ export default function PortalLayout({ variant }) {
           title={title}
           subtitle={subtitle}
           currentUser={currentUser}
+          isPremium={isPremium}
           onAccessibility={() => setAccessibilityOpen(true)}
           onLogout={handleLogout}
         />

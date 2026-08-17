@@ -91,8 +91,22 @@ function FaceAvatar({ id, size = "md", label, className = "", useAsset = true })
   );
 }
 
-export function SignLearnAvatar({ id = "luna", size = "md", className = "", useAsset = true }) {
-  return <FaceAvatar id={id} size={size} className={className} useAsset={useAsset} />;
+export function SignLearnAvatar({
+  id = "luna",
+  size = "md",
+  className = "",
+  useAsset = true,
+  photo = null,
+}) {
+  return (
+    <FaceAvatar
+      id={photo || id}
+      size={size}
+      label={photo ? "Foto profil" : undefined}
+      className={className}
+      useAsset={useAsset}
+    />
+  );
 }
 
 export const SIGNLEARN_AVATARS = Object.entries(AVATARS).map(([id, data]) => ({

@@ -38,7 +38,10 @@ const AppContext = createContext(null);
  */
 function toUiUser(user) {
   if (!user) return null;
-  return { ...user, profileType: user.profile ?? "general" };
+  return {
+    ...user,
+    profileType: user.profile ?? "general",
+  };
 }
 
 /**
@@ -254,14 +257,14 @@ export function AppProvider({ children }) {
 
   const updateProfile = useCallback(async (data) => {
     try {
-      // Halaman Profile mengirim `profileType`; API menamainya `profile`.
       const avatar = data.avatar ?? data.profile?.avatar;
       const phone = data.phone ?? data.profile?.phone;
+      // Halaman Profile mengirim `profileType`; API menamainya `profile`.
       const user = await userService.updateProfile({
-        name: data.name,
-        phone,
-        avatar,
-        profile: data.profileType ?? undefined,
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(avatar !== undefined ? { avatar } : {}),
+        ...(data.profileType !== undefined ? { profile: data.profileType } : {}),
       });
 
       // DTO profil memakai field datar (`phone`, `avatar`, `profile`). Gabungkan

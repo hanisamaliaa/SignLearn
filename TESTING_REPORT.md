@@ -1,6 +1,6 @@
 # SignLearn Kids — Verification Report
 
-Date: 2026-08-17
+Date: 2026-08-18
 
 This report records tests that were actually run. Cases outside the current
 feature scope remain marked blocked/not run and are never counted as passed.
@@ -15,7 +15,7 @@ feature scope remain marked blocked/not run and are never counted as passed.
 | Live PostgreSQL + HTTP smoke test | Media schema + repository DB 14/14; multipart auth/format/size/RBAC paths passed; word bank 11/11; password-reset DB 12/12 and HTTP 6/6; real Cloudinary upload/replace/delete lifecycle passed; temporary rows and assets deleted |
 | SMTP transport verification | Gmail STARTTLS transport authenticated and ready; secrets not logged |
 | Frontend lint | 0 errors and 0 warnings |
-| Vite production build | Passed; 616 modules transformed |
+| Vite production build | Passed after merging current `main`; 621 modules transformed |
 | BISINDO assets in production output | Exactly A–Z (26 lossless 1024×1024 WebP files); audit sheet excluded |
 | Dependency audit | 0 known vulnerabilities in root, backend, and frontend |
 | Cloudinary configuration | Production fail-fast and real provider smoke passed for profile avatar, course thumbnail, and word-bank image; persisted `secure_url`/`public_id` and CDN responses verified |

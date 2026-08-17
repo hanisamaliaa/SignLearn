@@ -160,15 +160,17 @@ export default function UserDashboard() {
         <div className="dashboard-hero-content">
           <div className="dashboard-hero-mascot">
             <div className="mascot-character">
-              <SignLearnAvatar id={currentUser?.avatar} size="xl" />
-              <span className="mascot-wave">👋</span>
+              <SignLearnAvatar
+                id={currentUser?.avatar ?? currentUser?.profile?.avatar}
+                size="xl"
+              />
             </div>
             <MascotBubble message={mascotGreeting} />
           </div>
 
           <div className="dashboard-hero-text">
             <h1 className="dashboard-greeting">
-              Halo, {firstName}! <span className="dashboard-greeting-wave">👋</span>
+              Halo, {firstName}!
             </h1>
             <p className="dashboard-subtitle">
               Siap belajar BISINDO hari ini?
@@ -432,7 +434,6 @@ export default function UserDashboard() {
                 </p>
                 <p className="text-xs text-white/70 mt-1">Hari berturut-turut</p>
               </div>
-              <div className="text-5xl opacity-30">🔥</div>
             </div>
             <div className="flex gap-1 mt-3">
               {Array.from({ length: 7 }).map((_, index) => (
@@ -556,7 +557,7 @@ export default function UserDashboard() {
             <div className="user-panel-heading">
               <div>
                 <h3>Riwayat Kuis Terbaru</h3>
-                <p>Nilai terbaikmu layak dirayakan 🎉</p>
+                <p>Nilai terbaikmu layak dirayakan</p>
               </div>
               <span className="user-count-pill">{QUIZ_HISTORY.length} kuis</span>
             </div>

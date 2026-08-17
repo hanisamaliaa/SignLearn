@@ -1,29 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Card, Button, Badge, Alert } from "../../components/ui/ui";
+import { Card, Button, Alert } from "../../components/ui/ui";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   ClockIcon,
-  LockIcon,
 } from "../../components/ui/Icons";
 import YouTubeLesson from "../../features/lesson/YouTubeLesson";
 import { formatDuration } from "../../features/lesson/youtube";
 
-/**
- * Halaman pelajaran.
- *
- * Isinya sepenuhnya berasal dari database. Versi sebelumnya menampilkan daftar
- * kosakata dan tujuan belajar yang ditulis langsung di berkas ini — semuanya
- * tentang abjad, dan karena itu muncul sama persis pada pelajaran buah maupun
- * transportasi. Untuk aplikasi bahasa isyarat, deskripsi isyarat yang tidak
- * dapat diverifikasi lebih berbahaya daripada halaman yang lebih sepi:
- * mengajarkan isyarat yang keliru lebih buruk daripada tidak mengajarkannya.
- */
 export default function Lesson() {
-  const { selectedCourse, selectedLessonId, selectLesson, startLesson, completeLesson } =
+  const { selectedCourse, selectedLessonId, selectLesson, startLesson, completeLesson, isPremium } =
     useApp();
   const navigate = useNavigate();
 
@@ -41,15 +30,11 @@ export default function Lesson() {
 
   const lessonId = lesson?.id;
   useEffect(() => {
-    // Pelajaran berganti berarti durasi dan pesan milik pelajaran sebelumnya
-    // tidak lagi berlaku.
     setDuration(null);
     setError("");
     setJustCompleted(false);
   }, [lessonId]);
 
-  // Menonton menandai kursus "sedang dipelajari"; tanpa ini ringkasan di
-  // /courses tidak pernah tahu ada kursus yang sudah dibuka.
   const markStarted = useCallback(() => {
     if (lessonId) startLesson(lessonId);
   }, [lessonId, startLesson]);
@@ -75,6 +60,13 @@ export default function Lesson() {
   const isCompleted = justCompleted || lesson.status === "completed";
   const shownDuration = formatDuration(duration) ?? lesson.duration ?? null;
 
+  const completedCount = lessons.filter((l) => l.status === "completed" || l.id === lessonId && isCompleted).length;
+  const totalLessons = lessons.length;
+  const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+  const courseQuiz = course.quizzes?.[0] ?? null;
+  const allLessonsDone = totalLessons > 0 && lessons.every((l) => l.status === "completed" || l.id === lessonId && isCompleted);
+
   const goTo = (target) => {
     if (!target) return;
     selectLesson(target.id);
@@ -82,141 +74,201 @@ export default function Lesson() {
   };
 
   return (
-    <div className="lesson-page space-y-5 animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={() => navigate("/course-detail")}
-          className="flex min-h-11 items-center gap-2 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-        >
-          <ArrowLeftIcon size={16} />
-          Kembali ke {course.title}
-        </button>
-        <Badge variant="primary">
-          Pelajaran {index + 1} dari {lessons.length}
-        </Badge>
-      </div>
+    <div className="lesson-page animate-fade-in">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <header className="lesson-header">
+        <div className="lesson-header-top">
+          <button
+            onClick={() => navigate("/course-detail")}
+            className="lesson-back-link"
+          >
+            <ArrowLeftIcon size={16} />
+            <span>Kembali ke {course.title}</span>
+          </button>
+          <span className="lesson-counter">
+            Pelajaran {index + 1} dari {totalLessons}
+          </span>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          <Card padding="none" className="overflow-hidden">
-            <YouTubeLesson
-              videoUrl={lesson.videoUrl}
-              title={lesson.title}
-              onDurationKnown={setDuration}
-              onStarted={markStarted}
-              onEnded={markComplete}
-            />
-
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] p-4">
-              <div className="min-w-0">
-                <h1 className="truncate font-bold text-[var(--text)]">{lesson.title}</h1>
-                <p className="flex items-center gap-1.5 text-xs text-[var(--text-subtle)]">
-                  {course.title}
-                  {shownDuration && (
-                    <>
-                      <span aria-hidden="true">•</span>
-                      <ClockIcon size={12} />
-                      {shownDuration}
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {isCompleted ? (
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--success,#15A66E)]">
-                  <CheckCircleIcon size={16} /> Selesai
-                </span>
-              ) : (
-                <Button size="sm" onClick={markComplete} disabled={saving}>
-                  <CheckCircleIcon size={15} />
-                  {saving ? "Menyimpan…" : "Tandai selesai"}
-                </Button>
-              )}
-            </div>
-          </Card>
-
-          {error && <Alert type="error" message={error} onClose={() => setError("")} />}
-
-          {(lesson.description || course.description) && (
-            <Card>
-              <h2 className="mb-3 text-base font-bold text-[var(--text)]">
-                Tentang pelajaran ini
-              </h2>
-              {lesson.description && (
-                <p className="mb-3 text-sm leading-relaxed text-[var(--text-muted)]">
-                  {lesson.description}
-                </p>
-              )}
-              {course.description && (
-                <p className="text-sm leading-relaxed text-[var(--text-subtle)]">
-                  {course.description}
-                </p>
-              )}
-            </Card>
+        <div className="lesson-header-info">
+          <span className="lesson-course-title">{course.title}</span>
+          <h1 className="lesson-title">{lesson.title}</h1>
+          {course.description && (
+            <p className="lesson-subtitle">{course.description}</p>
           )}
+        </div>
+      </header>
 
-          <div className="flex flex-wrap gap-3">
-            {prevLesson && (
-              <Button variant="outline" size="sm" onClick={() => goTo(prevLesson)}>
-                <ArrowLeftIcon size={14} /> Pelajaran sebelumnya
-              </Button>
-            )}
-            {nextLesson && (
+      {/* ── Video ──────────────────────────────────────────────────────── */}
+      <div className="lesson-video-section">
+        <Card padding="none" className="lesson-video-card">
+          <YouTubeLesson
+            videoUrl={lesson.videoUrl}
+            title={lesson.title}
+            onDurationKnown={setDuration}
+            onStarted={markStarted}
+            onEnded={markComplete}
+          />
+
+          <div className="lesson-video-meta">
+            <div className="lesson-video-info">
+              <h2 className="lesson-video-title">{lesson.title}</h2>
+              <p className="lesson-video-sub">
+                {course.title}
+                {shownDuration && (
+                  <>
+                    <span aria-hidden="true"> · </span>
+                    <ClockIcon size={12} />
+                    {' '}{shownDuration}
+                  </>
+                )}
+              </p>
+            </div>
+
+            {isCompleted ? (
+              <div className="lesson-completion-badge">
+                <CheckCircleIcon size={16} />
+                <span>Pelajaran selesai</span>
+              </div>
+            ) : (
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => goTo(nextLesson)}
-                disabled={nextLesson.status === "locked"}
+                onClick={markComplete}
+                disabled={saving}
+                className="lesson-complete-btn"
               >
-                Pelajaran berikutnya <ArrowRightIcon size={14} />
+                <CheckCircleIcon size={15} />
+                {saving ? "Menyimpan…" : "Tandai selesai"}
               </Button>
             )}
           </div>
-        </div>
+        </Card>
 
-        <div className="space-y-4">
-          {lessons.length > 1 && (
-            <Card>
-              <h2 className="mb-4 font-bold text-[var(--text)]">Navigasi pelajaran</h2>
-              <div className="space-y-2">
-                {lessons.map((item, i) => {
-                  const active = item.id === lesson.id;
-                  const locked = item.status === "locked";
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => !locked && goTo(item)}
-                      disabled={locked}
-                      aria-current={active ? "true" : undefined}
-                      className={`flex w-full min-h-11 items-center gap-3 rounded-xl p-2.5 text-left text-sm transition-colors ${
-                        active
-                          ? "bg-[var(--primary-light)]"
-                          : locked
-                            ? "cursor-not-allowed opacity-50"
-                            : "hover:bg-[var(--surface-3)]"
-                      }`}
-                    >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-3)] text-xs font-semibold text-[var(--text-muted)]">
-                        {item.status === "completed" ? <CheckIconMark /> : i + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[var(--text)]">
-                        {item.title}
-                      </span>
-                      {locked && <LockIcon size={14} className="text-[var(--text-subtle)]" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
+        {error && (
+          <Alert type="error" message={error} onClose={() => setError("")} />
+        )}
+      </div>
+
+      {/* ── Course Progress ────────────────────────────────────────────── */}
+      <Card className="lesson-progress-card">
+        <div className="lesson-progress-card-header">
+          <h2 className="lesson-progress-card-title">Progres Kursus</h2>
+          {isCompleted && (
+            <span className="lesson-progress-complete-badge">
+              <CheckCircleIcon size={14} />
+              {allLessonsDone ? "Kursus selesai" : `${progressPct}%`}
+            </span>
           )}
-
         </div>
+
+        <div className="lesson-progress-card-body">
+          <div className="lesson-progress-card-text">
+            <span className="lesson-progress-card-stat">
+              {completedCount} dari {totalLessons} pelajaran selesai
+            </span>
+            <span className="lesson-progress-card-pct">{progressPct}%</span>
+          </div>
+          <div className="lesson-progress-card-track">
+            <div
+              className="lesson-progress-card-fill"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
+        {allLessonsDone && isCompleted && (
+          <p className="lesson-progress-done-msg">
+            Hebat! Kursus ini sudah selesai.
+          </p>
+        )}
+      </Card>
+
+      {/* ── Next Step ──────────────────────────────────────────────────── */}
+      <Card className="lesson-next-step-card">
+        {isCompleted ? (
+          <div className="lesson-next-step-content">
+            <div className="lesson-next-step-text">
+              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+              {nextLesson ? (
+                <p className="lesson-next-step-desc">
+                  Yuk, lanjut ke pelajaran berikutnya untuk terus belajar.
+                </p>
+              ) : allLessonsDone && courseQuiz ? (
+                <p className="lesson-next-step-desc">
+                  Pelajaran sudah selesai. Sekarang waktunya mencoba quiz untuk menguji apa yang sudah dipelajari.
+                </p>
+              ) : (
+                <p className="lesson-next-step-desc">
+                  Semua pelajaran sudah selesai!
+                </p>
+              )}
+            </div>
+            <div className="lesson-next-step-action">
+              {nextLesson ? (
+                <Button size="sm" onClick={() => goTo(nextLesson)}>
+                  Lanjut ke pelajaran berikutnya <ArrowRightIcon size={14} />
+                </Button>
+              ) : allLessonsDone && courseQuiz ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!isPremium) {
+                      navigate("/course-detail");
+                      return;
+                    }
+                    selectLesson(null);
+                    navigate("/quiz");
+                  }}
+                >
+                  {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="lesson-next-step-content">
+            <div className="lesson-next-step-text">
+              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+              <p className="lesson-next-step-desc">
+                Tandai pelajaran ini selesai untuk melanjutkan ke pelajaran berikutnya.
+              </p>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Bottom Navigation ──────────────────────────────────────────── */}
+      <div className="lesson-nav-row">
+        {prevLesson ? (
+          <Button variant="outline" size="sm" onClick={() => goTo(prevLesson)}>
+            <ArrowLeftIcon size={14} /> Pelajaran sebelumnya
+          </Button>
+        ) : <div />}
+        {nextLesson ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goTo(nextLesson)}
+            disabled={nextLesson.status === "locked"}
+          >
+            Pelajaran berikutnya <ArrowRightIcon size={14} />
+          </Button>
+        ) : allLessonsDone && courseQuiz ? (
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!isPremium) {
+                navigate("/course-detail");
+                return;
+              }
+              selectLesson(null);
+              navigate("/quiz");
+            }}
+          >
+            {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
-}
-
-function CheckIconMark() {
-  return <CheckCircleIcon size={14} className="text-[var(--success,#15A66E)]" />;
 }

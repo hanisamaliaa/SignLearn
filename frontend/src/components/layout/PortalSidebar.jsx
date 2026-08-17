@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
-import { LogoutIcon, MenuIcon } from "../ui/Icons";
+import { MenuIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
-import { SignLearnAvatar } from "../common/SignLearnAvatar";
 
 export default function PortalSidebar({
   variant,
@@ -11,7 +10,7 @@ export default function PortalSidebar({
   sidebarOpen,
   onClose,
   onToggleSidebar,
-  onLogout,
+  isPremium,
 }) {
   const isAdmin = variant === "admin";
   const isUser = variant === "user";
@@ -84,7 +83,10 @@ export default function PortalSidebar({
                           >
                             <Icon size={18} className="shrink-0 user-nav-icon" />
                             <span className="user-nav-label">{item.label}</span>
-                            {isPremiumItem && (
+                            {isPremiumItem && isPremium && (
+                              <span className="user-nav-premium-badge" aria-label="Premium aktif">AKTIF</span>
+                            )}
+                            {isPremiumItem && !isPremium && (
                               <span className="user-nav-premium-sparkle" aria-hidden="true">✦</span>
                             )}
                           </NavLink>
@@ -120,33 +122,6 @@ export default function PortalSidebar({
         )}
       </nav>
 
-      <div className="user-sidebar-footer shrink-0">
-        <div
-          className="user-sidebar-profile"
-          aria-label="Profil pengguna"
-        >
-          {isAdmin ? (
-            <span className="admin-header-avatar" aria-hidden="true">A</span>
-          ) : (
-            <SignLearnAvatar
-              id={currentUser?.avatar ?? currentUser?.profile?.avatar}
-              size="md"
-            />
-          )}
-          <div className="min-w-0">
-            <p className="user-sidebar-profile-name truncate">{currentUser?.name || "Pengguna"}</p>
-            <p className="user-sidebar-profile-email truncate">{currentUser?.email || ""}</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex w-full items-center gap-2.5 rounded-[14px] px-3 py-3 text-sm font-extrabold transition-colors user-sidebar-logout"
-        >
-          <LogoutIcon size={17} className="shrink-0" />
-          <span>Keluar</span>
-        </button>
-      </div>
     </aside>
   );
 }

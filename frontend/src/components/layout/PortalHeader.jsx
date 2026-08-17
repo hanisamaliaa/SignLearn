@@ -16,6 +16,7 @@ export default function PortalHeader({
   title,
   subtitle,
   currentUser,
+  isPremium,
   onAccessibility,
   onLogout,
 }) {
@@ -196,6 +197,7 @@ export default function PortalHeader({
               <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
                 {firstName}
               </span>
+              {isPremium && <span className="user-header-premium-star" aria-label="Premium aktif">⭐</span>}
               <ChevronDownIcon
                 size={14}
                 className={`text-[var(--text-subtle)] transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`}
@@ -206,6 +208,9 @@ export default function PortalHeader({
                 <div className="px-4 py-3 border-b border-[var(--border)]">
                   <p className="text-sm font-bold text-[var(--text)]">{currentUser?.name || "User"}</p>
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">{userEmail}</p>
+                  <span className={`user-header-plan-badge ${isPremium ? "is-premium" : "is-free"}`}>
+                    {isPremium ? "⭐ Premium" : "Paket Gratis"}
+                  </span>
                 </div>
                 <button onClick={() => { navigate("/profile"); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
                   <UserIcon size={15} /> Profil Saya
