@@ -15,9 +15,25 @@ const TYPE_FILTERS = [
   { key: "vocabulary", label: "Kosakata" },
 ];
 
+function buildPageRange(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push("...");
+  if (total > 1) pages.push(total);
+  return pages;
+}
+
 export default function Dictionary() {
   const reducedMotion = useReducedMotion();
   const vocabRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -37,10 +53,8 @@ export default function Dictionary() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-
     const params = { limit: 200 };
     if (search) params.q = search;
-
     translationService.getTranslations(params)
       .then((payload) => {
         if (cancelled) return;
@@ -53,7 +67,6 @@ export default function Dictionary() {
         setWordsError(error?.message ?? "Daftar kata gagal dimuat.");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [search]);
 
@@ -85,13 +98,13 @@ export default function Dictionary() {
 
   const showAlphabet = activeType === "all" || activeType === "alphabet";
   const showVocabulary = activeType === "all" || activeType === "vocabulary";
-  const nothingFound = !letters.length && !filteredWords.length && !loading && !wordsError;
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchInput("");
     setSearch("");
     setCurrentPage(1);
-  };
+    searchInputRef.current?.focus();
+  }, []);
 
   const handleTypeChange = (type) => {
     setActiveType(type);
@@ -114,11 +127,23 @@ export default function Dictionary() {
     setTimeout(scrollToVocab, 50);
   };
 
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Escape" && searchInput) {
+      event.preventDefault();
+      handleClearSearch();
+    }
+  };
+
   const pageStart = filteredWords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(safePage * PAGE_SIZE, filteredWords.length);
+  const pageRange = useMemo(() => buildPageRange(safePage, totalPages), [safePage, totalPages]);
+
+  const showSearchInfo = search && !loading;
+  const showSearchEmpty = search && !loading && !wordsError && filteredWords.length === 0 && (!showAlphabet || letters.length === 0);
+  const searchResultCount = filteredWords.length;
 
   return (
-    <div className="dictionary-page space-y-6">
+    <div className="dictionary-page space-y-5">
       {/* Header */}
       <header className="dictionary-header">
         <div>
@@ -134,13 +159,16 @@ export default function Dictionary() {
       </header>
 
       {/* Search */}
-      <div className="dictionary-search-wrap">
+      <div className="dictionary-search-wrap" role="search" aria-label="Cari di Kamus BISINDO">
         <div className="dictionary-search-inner">
           <SearchIcon size={17} className="dictionary-search-icon" aria-hidden="true" />
           <input
+            ref={searchInputRef}
+            type="search"
             className="dictionary-search-input"
             value={searchInput}
             onChange={(event) => { setSearchInput(event.target.value); setCurrentPage(1); }}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Cari huruf atau kata..."
             aria-label="Cari huruf atau kata dalam kamus"
           />
@@ -155,6 +183,7 @@ export default function Dictionary() {
             </button>
           )}
         </div>
+        <p className="dictionary-search-hint">Contoh: A, makan, teman</p>
       </div>
 
       {/* Type filter */}
@@ -174,15 +203,17 @@ export default function Dictionary() {
       </div>
 
       {/* Search info */}
-      {search && (
-        <p className="text-sm text-[var(--text-muted)]">
+      {showSearchInfo && (
+        <p className="dictionary-search-info" aria-live="polite" aria-atomic="true">
           Hasil untuk &ldquo;{search}&rdquo;
-          {filteredWords.length > 0 && ` — ${filteredWords.length} kata ditemukan`}
+          {searchResultCount > 0 && (
+            <> &mdash; <strong>{searchResultCount} kata ditemukan</strong></>
+          )}
         </p>
       )}
 
-      {/* Nothing found */}
-      {nothingFound && (
+      {/* Search empty result */}
+      {showSearchEmpty && (
         <Card>
           <div className="dictionary-empty">
             <p className="text-[var(--text-muted)]">
@@ -255,8 +286,18 @@ export default function Dictionary() {
           )}
 
           {/* Vocabulary grid */}
-          {paginatedWords.length > 0 ? (
+          {loading ? (
             <div className="bisindo-word-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bisindo-word-card dictionary-skeleton-card">
+                  <div className="dictionary-skeleton-line dictionary-skeleton-title" />
+                  <div className="dictionary-skeleton-line dictionary-skeleton-spelling" />
+                  <div className="dictionary-skeleton-line dictionary-skeleton-desc" />
+                </div>
+              ))}
+            </div>
+          ) : paginatedWords.length > 0 ? (
+            <div className="bisindo-word-grid dictionary-result-enter" key={`${search}-${safePage}-${activeCategory}`}>
               {paginatedWords.map((item) => (
                 <button
                   type="button"
@@ -271,7 +312,7 @@ export default function Dictionary() {
                 </button>
               ))}
             </div>
-          ) : !loading && !wordsError ? (
+          ) : !wordsError ? (
             <Card>
               <div className="dictionary-empty">
                 <p className="text-[var(--text-muted)]">Belum ada kata di kategori ini.</p>
@@ -280,7 +321,7 @@ export default function Dictionary() {
           ) : null}
 
           {/* Pagination */}
-          {filteredWords.length > PAGE_SIZE && (
+          {!loading && filteredWords.length > PAGE_SIZE && (
             <nav className="dictionary-pagination" aria-label="Navigasi halaman kosakata">
               <p className="dictionary-pagination-info">
                 Menampilkan {pageStart}–{pageEnd} dari {filteredWords.length} kata
@@ -295,19 +336,26 @@ export default function Dictionary() {
                 >
                   <ArrowLeftIcon size={15} /> Sebelumnya
                 </button>
-                <div className="dictionary-pagination-pages">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      type="button"
-                      key={page}
-                      className={`dictionary-pagination-page${page === safePage ? " is-active" : ""}`}
-                      onClick={() => handlePageChange(page)}
-                      aria-label={`Halaman ${page}`}
-                      aria-current={page === safePage ? "page" : undefined}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                <div className="dictionary-pagination-pages" role="list">
+                  {pageRange.map((page, i) =>
+                    page === "..." ? (
+                      <span key={`ellipsis-${i}`} className="dictionary-pagination-ellipsis" aria-hidden="true">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        key={page}
+                        role="listitem"
+                        className={`dictionary-pagination-page${page === safePage ? " is-active" : ""}`}
+                        onClick={() => handlePageChange(page)}
+                        aria-label={`Halaman ${page}`}
+                        aria-current={page === safePage ? "page" : undefined}
+                      >
+                        {page}
+                      </button>
+                    )
+                  )}
                 </div>
                 <button
                   type="button"
