@@ -21231,3 +21231,163 @@ textarea,
     display: none;
   }
 }
+
+/* ─── Progress Page Redesign ───────────────────────────────────────────── */
+.progress-page {
+  container-type: inline-size;
+}
+
+.progress-hero-card {
+  border: 2px solid #c9dceb;
+  background: #fffdf3;
+  border-radius: 20px;
+}
+[data-theme="dark"] .progress-hero-card {
+  border-color: #29384d;
+  background: #162236;
+}
+
+.progress-bar-fill {
+  background: linear-gradient(90deg, var(--primary), #6ba3f7);
+}
+.progress-hero-card .progress-bar-fill {
+  background: linear-gradient(90deg, #2e86bf, #4f8ef7);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+.progress-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-3);
+  border-radius: 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.progress-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.progress-tab:hover:not(.progress-tab--active) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+}
+.progress-tab--active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.06);
+}
+.progress-tab__label {
+  line-height: 1;
+}
+.progress-tab__count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--border);
+  color: var(--text-muted);
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+.progress-tab__count--active {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* ── Course Cards ────────────────────────────────────────────────────── */
+.progress-course-card {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+.progress-course-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+}
+.progress-course-card--active {
+  border-left: 3px solid var(--primary);
+}
+.progress-course-card--complete {
+  border-left: 3px solid var(--success);
+}
+.progress-course-card--complete .progress-course-card__thumb {
+  opacity: 0.9;
+}
+
+/* ── Quiz Cards ──────────────────────────────────────────────────────── */
+.quiz-progress-card {
+  transition: all 0.15s ease;
+}
+
+/* ── Achievement Cards ───────────────────────────────────────────────── */
+.achievement-card {
+  transition: all 0.25s ease;
+}
+.achievement-card--earned:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+}
+.achievement-card--locked {
+  opacity: 0.65;
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────── */
+.skeleton-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .progress-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .progress-tab {
+    min-height: 42px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-hero-card {
+    border-radius: 16px;
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .progress-course-card,
+  .achievement-card,
+  .progress-tab,
+  .progress-tab__count {
+    transition: none !important;
+  }
+  .progress-course-card:hover {
+    transform: none !important;
+  }
+  .achievement-card--earned:hover {
+    transform: none !important;
+  }
+}

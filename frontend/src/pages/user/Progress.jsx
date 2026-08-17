@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Card, Badge, ProgressBar, StatCard, FloatingShapes, AnimatedCounter } from "../../components/ui/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Card, StatCard, FloatingShapes, AnimatedCounter } from "../../components/ui/ui";
 import { useApp } from "../../context/app";
 import {
   TrophyIcon,
@@ -10,6 +11,14 @@ import {
 import * as progressService from "../../services/progressService";
 import QuizHistory from "../../features/progress/QuizHistory";
 import ScoreTrend from "../../features/progress/ScoreTrend";
+import ProgressHero from "../../features/progress/ProgressHero";
+import CourseProgressCard from "../../features/progress/CourseProgressCard";
+import AchievementCard from "../../features/progress/AchievementCard";
+import Pagination from "../../components/common/Pagination";
+import {
+  TabContentSkeleton,
+} from "../../features/progress/ProgressSkeleton";
+import ProgressEmptyState from "../../features/progress/ProgressEmptyState";
 
 const TABS = [
   { id: "overview", label: "Ringkasan" },
@@ -26,12 +35,31 @@ const SCORE_DISTRIBUTION = [
   { range: "< 50", color: "var(--chart-red)" },
 ];
 
-const BADGE_ICONS = {
-  FIRST_LESSON: "\u{1F31F}",
-  TEN_LESSONS: "\u{1F4DA}",
-  FIRST_QUIZ: "\u2705",
-  PERFECT_SCORE: "\u{1F4AF}",
-  COURSE_COMPLETE: "\u{1F393}",
+const COURSE_FILTERS = [
+  { id: "all", label: "Semua" },
+  { id: "active", label: "Berlangsung" },
+  { id: "completed", label: "Selesai" },
+];
+
+const PAGE_SIZE_DESKTOP = 8;
+const PAGE_SIZE_MOBILE = 5;
+
+/* ── Animation variants ─────────────────────────────────────────────── */
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.04 } },
+};
+
+const fadeSlideUp = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" } },
+  exit: { opacity: 0, y: -4, transition: { duration: 0.15 } },
+};
+
+const tabContentVariants = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: "easeOut" } },
+  exit: { opacity: 0, y: -4, transition: { duration: 0.12 } },
 };
 
 export default function Progress() {
@@ -40,6 +68,19 @@ export default function Progress() {
   const [history, setHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const [hoveredScore, setHoveredScore] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
+  /* Pagination state */
+  const [coursePage, setCoursePage] = useState(1);
+  const [quizPage, setQuizPage] = useState(1);
+  const [courseFilter, setCourseFilter] = useState("all");
+
+  const contentRef = useRef(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP;
 
   useEffect(() => {
     let cancelled = false;
@@ -54,35 +95,28 @@ export default function Progress() {
       .finally(() => {
         if (!cancelled) setHistoryLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [hoveredDay, setHoveredDay] = useState(null);
-  const [hoveredScore, setHoveredScore] = useState(null);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [hoveredBadge, setHoveredBadge] = useState(null);
 
+  /* ── Derived data ──────────────────────────────────────────────────── */
   const COURSES = courses ?? [];
   const QUIZ_HISTORY = quizHistory ?? [];
   const AVAILABLE_COURSES = COURSES.filter((course) => !course.isLocked);
 
-  const totalLessons = AVAILABLE_COURSES.reduce(
-    (s, c) => s + (c.totalLessons ?? 0),
-    0,
-  );
-  const completedLessons = AVAILABLE_COURSES.reduce(
-    (s, c) => s + (c.completedLessons ?? 0),
-    0,
-  );
+  const totalLessons = AVAILABLE_COURSES.reduce((s, c) => s + (c.totalLessons ?? 0), 0);
+  const completedLessons = AVAILABLE_COURSES.reduce((s, c) => s + (c.completedLessons ?? 0), 0);
   const avgScore = history?.summary?.averageBestScore ?? 0;
+  const overallPct = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
+  const activeCourses = AVAILABLE_COURSES.filter(
+    (c) => (c.completedLessons ?? 0) < (c.totalLessons ?? 0),
+  ).length;
+
+  /* ── Weekly activity ───────────────────────────────────────────────── */
   const todayIndex = (new Date().getDay() + 6) % 7;
   const weekActivity = useMemo(() => {
     const counts = Array(7).fill(0);
     const now = new Date();
-
     for (const course of COURSES) {
       if (!course.lastAccessedAt) continue;
       const accessed = new Date(course.lastAccessedAt);
@@ -92,7 +126,6 @@ export default function Progress() {
         counts[(todayIndex - diffDays + 7) % 7] += 1;
       }
     }
-
     const peak = Math.max(1, ...counts);
     return counts.map((count) => ({
       count,
@@ -100,29 +133,7 @@ export default function Progress() {
     }));
   }, [COURSES, todayIndex]);
 
-  const overallPct = totalLessons
-    ? Math.round((completedLessons / totalLessons) * 100)
-    : 0;
-
-  const activeCourses = AVAILABLE_COURSES.filter(
-    (c) => (c.completedLessons ?? 0) < (c.totalLessons ?? 0),
-  ).length;
-
-  const encouragement = completedLessons < 4
-    ? {
-        title: "Baru dimulai!",
-        copy: "Setiap pelajaran adalah satu langkah kecil menuju makin jago.",
-      }
-    : completedLessons < 8
-      ? {
-          title: "Meningkat Pesat!",
-          copy: "Progress-mu sudah mulai terlihat. Pertahankan semangat belajarmu!",
-        }
-      : {
-          title: "Luar biasa!",
-          copy: "Kamu sudah melangkah jauh. Siap menaklukkan level berikutnya?",
-        };
-
+  /* ── Score distribution ────────────────────────────────────────────── */
   const scoreCounts = useMemo(
     () =>
       SCORE_DISTRIBUTION.map((d) => {
@@ -138,328 +149,460 @@ export default function Progress() {
     [QUIZ_HISTORY],
   );
 
-  const tabClass = (isActive) =>
-    `min-h-11 min-w-0 flex-auto px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-      isActive
-        ? "bg-[var(--surface)] text-[var(--primary)] shadow-sm scale-[1.01]"
-        : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface)]/50"
-    }`;
+  /* ── Course filtering & pagination ─────────────────────────────────── */
+  const filteredCourses = useMemo(() => {
+    if (courseFilter === "active") return AVAILABLE_COURSES.filter((c) => (c.completedLessons ?? 0) < (c.totalLessons ?? 0));
+    if (courseFilter === "completed") return AVAILABLE_COURSES.filter((c) => (c.completedLessons ?? 0) === (c.totalLessons ?? 0) && (c.totalLessons ?? 0) > 0);
+    return AVAILABLE_COURSES;
+  }, [AVAILABLE_COURSES, courseFilter]);
 
+  const totalCoursePages = Math.max(1, Math.ceil(filteredCourses.length / pageSize));
+  const safeCoursePage = Math.min(coursePage, totalCoursePages);
+  const pagedCourses = filteredCourses.slice((safeCoursePage - 1) * pageSize, safeCoursePage * pageSize);
+
+  /* ── Quiz pagination ───────────────────────────────────────────────── */
+  const quizzes = history?.quizzes ?? [];
+  const totalQuizPages = Math.max(1, Math.ceil(quizzes.length / pageSize));
+  const safeQuizPage = Math.min(quizPage, totalQuizPages);
+  const pagedQuizzes = quizzes.slice((safeQuizPage - 1) * pageSize, safeQuizPage * pageSize);
+
+  /* ── Handlers ──────────────────────────────────────────────────────── */
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTab(tabId);
+    setCoursePage(1);
+    setQuizPage(1);
+    setCourseFilter("all");
+    contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const handleCourseFilterChange = useCallback((filter) => {
+    setCourseFilter(filter);
+    setCoursePage(1);
+  }, []);
+
+  const handleCourseSelect = useCallback((courseId) => {
+    setSelectedCourse(selectedCourse === courseId ? null : courseId);
+  }, [selectedCourse]);
+
+  /* ── Tab meta ──────────────────────────────────────────────────────── */
+  const tabMeta = useMemo(() => ({
+    courses: AVAILABLE_COURSES.length,
+    quizzes: history?.summary?.totalAttempts ?? QUIZ_HISTORY.length,
+    achievements: badges.filter((b) => b.earned).length,
+  }), [AVAILABLE_COURSES, history, QUIZ_HISTORY, badges]);
+
+  /* ── Render ────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="progress-page space-y-6" ref={contentRef}>
       <FloatingShapes count={3} />
 
       {/* Header */}
-      <div>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <h1 className="text-2xl font-extrabold text-[var(--text)]">
           Progress Belajar
         </h1>
         <p className="text-[var(--text-muted)] mt-1">
           Pantau perkembangan belajar BISINDO kamu
         </p>
-      </div>
+      </motion.div>
 
-      {/* Hero Progress */}
-      <Card interactive className="progress-hero-card relative overflow-hidden border-[#c9dceb] bg-[#fffdf3] group">
-        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#ffe8a6]/70 transition-transform duration-500 group-hover:scale-125" />
-        <div className="absolute -bottom-16 left-8 h-32 w-32 rounded-full bg-[#dff3ff] transition-transform duration-500 group-hover:scale-125" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="transition-transform duration-300 group-hover:-translate-y-0.5">
-            <p className="mb-1 text-sm font-bold text-[#2e86bf]">Progress belajar</p>
-            <h2 className="text-3xl font-extrabold text-[#123e63] sm:text-4xl">
-              {encouragement.title}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#536777]">
-              {encouragement.copy} {completedLessons} dari {totalLessons} pelajaran selesai.
-            </p>
-          </div>
-          <div className="w-full lg:max-w-xl">
-            <div className="mb-2 flex items-center justify-between text-sm font-extrabold text-[#214e72]">
-              <span>Progress keseluruhan</span>
-              <span className="transition-transform duration-200 group-hover:scale-110"><AnimatedCounter value={overallPct} suffix="%" /></span>
-            </div>
-            <div
-              className="h-4 overflow-hidden rounded-full bg-white shadow-inner"
-              role="progressbar"
-              aria-label="Progress keseluruhan"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={overallPct}
+      {/* Learning Hero */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.04 }}
+      >
+        <ProgressHero
+          completedLessons={completedLessons}
+          totalLessons={totalLessons}
+          overallPct={overallPct}
+        />
+      </motion.div>
+
+      {/* Statistics */}
+      <motion.div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={fadeSlideUp}>
+          <StatCard
+            label="Kursus Aktif"
+            value={<AnimatedCounter value={activeCourses} />}
+            icon={<ChartIcon size={18} />}
+            color="var(--chart-blue)"
+          />
+        </motion.div>
+        <motion.div variants={fadeSlideUp}>
+          <StatCard
+            label="Kuis Terbaru"
+            value={<AnimatedCounter value={QUIZ_HISTORY.length} />}
+            icon={<TrophyIcon size={18} />}
+            color="var(--chart-yellow)"
+          />
+        </motion.div>
+        <motion.div variants={fadeSlideUp}>
+          <StatCard
+            label="Rata-rata Skor"
+            value={<><AnimatedCounter value={avgScore} suffix="%" /></>}
+            icon={<StarIcon size={18} />}
+            color="var(--chart-green)"
+          />
+        </motion.div>
+        <motion.div variants={fadeSlideUp}>
+          <StatCard
+            label="Streak Belajar"
+            value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-sm">hari</span></>}
+            icon={<FireIcon size={18} />}
+            color="var(--chart-red)"
+          />
+        </motion.div>
+      </motion.div>
+
+      {/* Tab Navigation */}
+      <motion.div
+        className="progress-tabs"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.12 }}
+        role="tablist"
+        aria-label="Progress belajar"
+      >
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const count = tab.id === "courses" ? tabMeta.courses : tab.id === "quizzes" ? tabMeta.quizzes : tab.id === "achievements" ? tabMeta.achievements : undefined;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              aria-selected={isActive}
+              aria-controls={`panel-${tab.id}`}
+              role="tab"
+              className={`progress-tab ${isActive ? "progress-tab--active" : ""}`}
             >
-              <div
-                className="h-full rounded-full bg-[#2e86bf] transition-[width] duration-700 ease-out"
-                style={{ width: `${overallPct}%` }}
-              />
-            </div>
-            <div className="mt-1 flex justify-between text-xs font-semibold text-[#71889a]">
-              <span>Mulai</span>
-              <span>Target 100%</span>
-            </div>
-          </div>
-        </div>
-      </Card>
+              <span className="progress-tab__label">{tab.label}</span>
+              {count !== undefined && (
+                <span className={`progress-tab__count ${isActive ? "progress-tab__count--active" : ""}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </motion.div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "0ms" }}>
-          <StatCard interactive label="Kursus Aktif" value={<AnimatedCounter value={activeCourses} />} icon={<ChartIcon size={20} />} color="var(--chart-blue)" />
-        </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "60ms" }}>
-          <StatCard interactive label="Kuis Terbaru" value={<AnimatedCounter value={QUIZ_HISTORY.length} />} icon={<TrophyIcon size={20} />} color="var(--chart-yellow)" />
-        </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "120ms" }}>
-          <StatCard interactive label="Rata-rata Skor" value={<><AnimatedCounter value={avgScore} suffix="%" /></>} icon={<StarIcon size={20} />} color="var(--chart-green)" />
-        </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "180ms" }}>
-          <StatCard interactive label="Streak Belajar" value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-sm">hari</span></>} icon={<FireIcon size={20} />} color="var(--chart-red)" />
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            aria-selected={activeTab === tab.id}
-            role="tab"
-            className={tabClass(activeTab === tab.id)}
+      {/* Tab Content */}
+      <AnimatePresence mode="wait">
+        {/* ── OVERVIEW ────────────────────────────────────────────────── */}
+        {activeTab === "overview" && (
+          <motion.div
+            key="overview"
+            id="panel-overview"
+            role="tabpanel"
+            variants={tabContentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="grid min-w-0 grid-cols-1 lg:grid-cols-2 gap-5"
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Overview Tab */}
-      {activeTab === "overview" && (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
-          <Card interactive className="overflow-visible">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 className="font-bold text-[var(--text)]">Aktivitas Minggu Ini</h2>
-                <p className="text-xs text-[var(--text-muted)] mt-1">Kursus yang diakses dalam 7 hari terakhir</p>
-              </div>
-              <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
-                {weekActivity.reduce((a, d) => a + d.count, 0)} sesi
-              </span>
-            </div>
-            <div className="weekly-activity-chart flex min-w-0 items-end justify-between gap-2 h-40">
-              {DAYS.map((day, i) => {
-                const isToday = i === todayIndex;
-                const isHovered = hoveredDay === i;
-                return (
-                  <div
-                    key={day}
-                    className="relative min-w-0 flex flex-col items-center gap-1 flex-1 h-full"
-                    onMouseEnter={() => setHoveredDay(i)}
-                    onMouseLeave={() => setHoveredDay(null)}
-                  >
-                    <div className="relative w-full flex-1 flex items-end justify-center px-1">
-                      {isHovered && (
-                        <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#123e63] px-2.5 py-1.5 text-[11px] font-bold text-white shadow-lg">
-                          {weekActivity[i].count} {weekActivity[i].count === 1 ? "akses" : "akses"}
-                        </div>
-                      )}
-                      <div
-                        className={`w-full max-w-12 rounded-lg transition-all duration-300 ease-out ${isHovered ? "scale-x-110 brightness-105" : ""}`}
-                        style={{
-                          height: `${weekActivity[i].percent}%`,
-                          background: weekActivity[i].count > 0 ? "var(--chart-blue)" : "var(--primary-light)",
-                          opacity: isHovered ? 1 : 0.9,
-                        }}
-                      />
-                    </div>
-                    <span className={`text-xs font-medium transition-all duration-200 ${isToday ? "text-[var(--primary)] font-extrabold" : "text-[var(--text-subtle)]"} ${isHovered ? "scale-110" : ""}`}>
-                      {day}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-sm">
-              <span className="font-bold text-[var(--text)]">{weekActivity.filter((d) => d.count > 0).length} hari aktif</span>
-            </div>
-          </Card>
-
-          <Card interactive>
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 className="font-bold text-[var(--text)]">Distribusi Nilai Kuis</h2>
-                <p className="text-xs text-[var(--text-muted)] mt-1">Dari kuis terbaru yang tersedia</p>
-              </div>
-              <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">{QUIZ_HISTORY.length} kuis</span>
-            </div>
-            <div className="space-y-3">
-              {scoreCounts.map((d) => {
-                const percent = QUIZ_HISTORY.length ? Math.round((d.count / QUIZ_HISTORY.length) * 100) : 0;
-                const isHovered = hoveredScore === d.range;
-                return (
-                  <div
-                    key={d.range}
-                    className="flex items-center gap-3 text-sm rounded-lg px-1 py-1 transition-all duration-200 hover:bg-[var(--surface-2)]"
-                    onMouseEnter={() => setHoveredScore(d.range)}
-                    onMouseLeave={() => setHoveredScore(null)}
-                  >
-                    <span className="w-16 text-[var(--text-muted)] text-xs">{d.range}</span>
-                    <div className="flex-1 h-5 bg-[var(--surface-3)] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ease-out ${isHovered ? "brightness-105" : ""}`}
-                        style={{ width: `${percent}%`, background: d.color, transformOrigin: "left" }}
-                      />
-                    </div>
-                    <span className={`w-12 text-xs text-right font-semibold transition-transform duration-200 ${isHovered ? "scale-110 text-[var(--text)]" : "text-[var(--text-subtle)]"}`}>
-                      {d.count} · {percent}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {QUIZ_HISTORY.length === 0 && (
-              <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-sm text-[var(--text-muted)]">
-                Belum ada data kuis untuk ditampilkan.
-              </div>
-            )}
-          </Card>
-        </div>
-      )}
-
-      {/* Courses Tab */}
-      {activeTab === "courses" && (
-        <div className="space-y-4">
-          {AVAILABLE_COURSES.length === 0 ? (
-            <Card interactive className="text-center py-10 text-sm text-[var(--text-muted)]">Belum ada kursus yang tersedia.</Card>
-          ) : AVAILABLE_COURSES.map((course) => {
-            const isSelected = selectedCourse === course.id;
-            const isComplete = course.completedLessons === course.totalLessons;
-            return (
-              <Card
-                interactive
-                key={course.id}
-                className={`cursor-pointer transition-all duration-300 ${isSelected ? "ring-2 ring-[var(--primary)]/25 shadow-md" : ""}`}
-                onClick={() => setSelectedCourse(isSelected ? null : course.id)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="relative flex-shrink-0">
-                    <img src={course.thumbnail} alt={course.title} className="w-16 h-16 rounded-xl object-cover transition-transform duration-300 hover:scale-105" />
-                    {isComplete && <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#2ECC71] text-xs font-bold text-white shadow">✓</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-3 mb-1">
-                      <h3 className="font-bold text-[var(--text)] truncate">{course.title}</h3>
-                      <Badge variant={isComplete ? "success" : "primary"}>{isComplete ? "Selesai" : "Berlangsung"}</Badge>
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mb-2">{course.completedLessons} dari {course.totalLessons} pelajaran selesai</p>
-                    <ProgressBar value={course.completedLessons} max={course.totalLessons} showLabel />
-                    <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-subtle)]">
-                      <span>{isSelected ? "Klik untuk menutup detail" : "Klik untuk melihat detail"}</span>
-                      <span className={`transition-transform duration-300 ${isSelected ? "rotate-180" : ""}`}>⌄</span>
-                    </div>
-                    {isSelected && (
-                      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-3 text-xs">
-                        <div className="rounded-lg bg-[var(--surface-2)] p-3"><span className="block text-[var(--text-subtle)]">Selesai</span><strong className="text-[var(--text)]">{course.completedLessons}</strong></div>
-                        <div className="rounded-lg bg-[var(--surface-2)] p-3"><span className="block text-[var(--text-subtle)]">Total lesson</span><strong className="text-[var(--text)]">{course.totalLessons}</strong></div>
-                      </div>
-                    )}
-                  </div>
+            {/* Weekly activity */}
+            <Card className="overflow-visible">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="font-bold text-[var(--text)]">Aktivitas Minggu Ini</h2>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Kursus yang diakses dalam 7 hari terakhir</p>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Quizzes Tab */}
-      {activeTab === "quizzes" && (
-        <div className="space-y-5">
-          <Card>
-            <h2 className="mb-1 font-bold text-[var(--text)]">Peningkatan nilai kuis</h2>
-            <p className="mb-4 text-xs text-[var(--text-muted)]">
-              Setiap titik adalah satu percobaan, dari yang terlama ke terbaru.
-            </p>
-            <ScoreTrend points={history?.trend} />
-          </Card>
-
-          {history?.letterMistakes?.length > 0 && (
-            <Card>
-              <h2 className="mb-1 font-bold text-[var(--text)]">Huruf yang perlu dilatih</h2>
-              <p className="mb-4 text-xs text-[var(--text-muted)]">
-                Huruf yang paling sering keliru saat diperagakan di kuis kamera.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {history.letterMistakes.slice(0, 12).map((item) => (
-                  <span
-                    key={item.letter}
-                    className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2"
-                  >
-                    <strong className="text-lg font-extrabold text-[var(--text)]">
-                      {item.letter}
-                    </strong>
-                    <span className="text-xs text-[var(--text-subtle)]">{item.count}x</span>
-                  </span>
-                ))}
+                <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
+                  {weekActivity.reduce((a, d) => a + d.count, 0)} sesi
+                </span>
+              </div>
+              <div className="weekly-activity-chart flex min-w-0 items-end justify-between gap-2 h-36 sm:h-40">
+                {DAYS.map((day, i) => {
+                  const isToday = i === todayIndex;
+                  const isHovered = hoveredDay === i;
+                  return (
+                    <div
+                      key={day}
+                      className="relative min-w-0 flex flex-col items-center gap-1 flex-1 h-full"
+                      onMouseEnter={() => setHoveredDay(i)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                    >
+                      <div className="relative w-full flex-1 flex items-end justify-center px-1">
+                        {isHovered && (
+                          <div className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[var(--text)] px-2.5 py-1.5 text-[11px] font-bold text-white shadow-lg">
+                            {weekActivity[i].count} {weekActivity[i].count === 1 ? "akses" : "akses"}
+                          </div>
+                        )}
+                        <div
+                          className="w-full max-w-12 rounded-lg transition-all duration-300 ease-out"
+                          style={{
+                            height: `${weekActivity[i].percent}%`,
+                            background: weekActivity[i].count > 0 ? "var(--chart-blue)" : "var(--surface-3)",
+                            opacity: isHovered ? 1 : 0.85,
+                            transform: isHovered ? "scaleX(1.08)" : "none",
+                          }}
+                        />
+                      </div>
+                      <span className={`text-xs font-medium transition-all duration-200 ${isToday ? "text-[var(--primary)] font-extrabold" : "text-[var(--text-subtle)]"}`}>
+                        {day}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-[var(--border)] pt-3 text-sm">
+                <span className="font-bold text-[var(--text)]">{weekActivity.filter((d) => d.count > 0).length} hari aktif</span>
               </div>
             </Card>
-          )}
 
-          <Card>
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="font-bold text-[var(--text)]">Riwayat kuis</h2>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Dikelompokkan per kuis; klik sebuah percobaan untuk melihat soal
-                  mana yang benar dan salah.
-                </p>
+            {/* Score distribution */}
+            <Card>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="font-bold text-[var(--text)]">Distribusi Nilai Kuis</h2>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Dari kuis terbaru yang tersedia</p>
+                </div>
+                <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">{QUIZ_HISTORY.length} kuis</span>
               </div>
-              <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
-                {history?.summary?.totalAttempts ?? 0} percobaan
-              </span>
+              <div className="space-y-3">
+                {scoreCounts.map((d) => {
+                  const percent = QUIZ_HISTORY.length ? Math.round((d.count / QUIZ_HISTORY.length) * 100) : 0;
+                  const isHovered = hoveredScore === d.range;
+                  return (
+                    <div
+                      key={d.range}
+                      className="flex items-center gap-3 text-sm rounded-lg px-1 py-1 transition-all duration-200 hover:bg-[var(--surface-2)]"
+                      onMouseEnter={() => setHoveredScore(d.range)}
+                      onMouseLeave={() => setHoveredScore(null)}
+                    >
+                      <span className="w-16 text-[var(--text-muted)] text-xs">{d.range}</span>
+                      <div className="flex-1 h-5 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${percent}%`, background: d.color, transformOrigin: "left" }}
+                        />
+                      </div>
+                      <span className={`w-12 text-xs text-right font-semibold transition-transform duration-200 ${isHovered ? "scale-110 text-[var(--text)]" : "text-[var(--text-subtle)]"}`}>
+                        {d.count} · {percent}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {QUIZ_HISTORY.length === 0 && (
+                <div className="mt-4 rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-sm text-[var(--text-muted)]">
+                  Belum ada data kuis untuk ditampilkan.
+                </div>
+              )}
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ── COURSES ─────────────────────────────────────────────────── */}
+        {activeTab === "courses" && (
+          <motion.div
+            key="courses"
+            id="panel-courses"
+            role="tabpanel"
+            variants={tabContentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="space-y-4"
+          >
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-[var(--text-muted)]">Filter:</span>
+              {COURSE_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleCourseFilterChange(f.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                    courseFilter === f.id
+                      ? "bg-[var(--primary)] text-white shadow-sm"
+                      : "bg-[var(--surface-3)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
-            {historyError ? (
-              <p className="py-6 text-center text-sm text-[#E74C3C]">{historyError}</p>
-            ) : historyLoading ? (
-              <p className="py-6 text-center text-sm text-[var(--text-muted)]">
-                Memuat riwayat…
-              </p>
+            {/* Course list */}
+            {filteredCourses.length === 0 ? (
+              <ProgressEmptyState type="courses" />
             ) : (
-              <QuizHistory quizzes={history?.quizzes} />
-            )}
-          </Card>
-        </div>
-      )}
+              <>
+                <motion.div
+                  className="space-y-3"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  {pagedCourses.map((course) => (
+                    <motion.div key={course.id} variants={fadeSlideUp}>
+                      <CourseProgressCard
+                        course={course}
+                        onSelectCourse={handleCourseSelect}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
 
-      {/* Achievements Tab */}
-      {activeTab === "achievements" && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {badges.map((a) => {
-            const isHovered = hoveredBadge === a.code;
-            return (
-              <Card
-                interactive
-                key={a.code}
-                className={`transition-all duration-300 ${!a.earned ? "opacity-50" : ""} ${isHovered ? "-translate-y-1 shadow-md" : ""}`}
-                onMouseEnter={() => setHoveredBadge(a.code)}
-                onMouseLeave={() => setHoveredBadge(null)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 transition-transform duration-300 ${isHovered ? "scale-110 rotate-2" : ""} ${a.earned ? "bg-[var(--warning-light)]" : "bg-[var(--surface-3)]"}`}>
-                    {BADGE_ICONS[a.code] ?? "\u{1F3C5}"}
-                  </div>
-                  <div>
-                    <p className="font-bold text-[var(--text)] text-sm">{a.title}</p>
-                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{a.description}</p>
-                    {a.earned ? (
-                      <p className="text-xs text-[#2ECC71] mt-1 font-medium">✓ Diperoleh</p>
-                    ) : (
-                      <p className="text-xs text-[var(--text-subtle)] mt-1">Belum diperoleh</p>
-                    )}
-                  </div>
+                {/* Pagination info + controls */}
+                <div className="flex flex-col items-center gap-3 pt-2">
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Menampilkan {Math.min((safeCoursePage - 1) * pageSize + 1, filteredCourses.length)}–{Math.min(safeCoursePage * pageSize, filteredCourses.length)} dari {filteredCourses.length} kursus
+                  </p>
+                  <Pagination
+                    currentPage={safeCoursePage}
+                    totalPages={totalCoursePages}
+                    onPageChange={setCoursePage}
+                  />
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+
+        {/* ── QUIZZES ─────────────────────────────────────────────────── */}
+        {activeTab === "quizzes" && (
+          <motion.div
+            key="quizzes"
+            id="panel-quizzes"
+            role="tabpanel"
+            variants={tabContentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="space-y-5"
+          >
+            {/* Score trend */}
+            <Card>
+              <h2 className="mb-1 font-bold text-[var(--text)]">Peningkatan nilai kuis</h2>
+              <p className="mb-4 text-xs text-[var(--text-muted)]">
+                Setiap titik adalah satu percobaan, dari yang terlama ke terbaru.
+              </p>
+              <ScoreTrend points={history?.trend} />
+            </Card>
+
+            {/* Letter mistakes */}
+            {history?.letterMistakes?.length > 0 && (
+              <Card>
+                <h2 className="mb-1 font-bold text-[var(--text)]">Huruf yang perlu dilatih</h2>
+                <p className="mb-4 text-xs text-[var(--text-muted)]">
+                  Huruf yang paling sering keliru saat diperagakan di kuis kamera.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {history.letterMistakes.slice(0, 12).map((item) => (
+                    <span
+                      key={item.letter}
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2"
+                    >
+                      <strong className="text-lg font-extrabold text-[var(--text)]">
+                        {item.letter}
+                      </strong>
+                      <span className="text-xs text-[var(--text-subtle)]">{item.count}x</span>
+                    </span>
+                  ))}
                 </div>
               </Card>
-            );
-          })}
-        </div>
-      )}
+            )}
+
+            {/* Quiz history */}
+            <Card>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-bold text-[var(--text)]">Riwayat kuis</h2>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    Dikelompokkan per kuis; klik sebuah percobaan untuk melihat soal
+                    mana yang benar dan salah.
+                  </p>
+                </div>
+                <span className="rounded-full bg-[var(--surface-3)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
+                  {history?.summary?.totalAttempts ?? 0} percobaan
+                </span>
+              </div>
+
+              {historyError ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-[var(--danger)] mb-3">{historyError}</p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 rounded-lg bg-[var(--surface-3)] text-sm font-semibold text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors"
+                  >
+                    Coba Lagi
+                  </button>
+                </div>
+              ) : historyLoading ? (
+                <TabContentSkeleton count={3} />
+              ) : quizzes.length === 0 ? (
+                <ProgressEmptyState type="quizzes" />
+              ) : (
+                <>
+                  <QuizHistory quizzes={pagedQuizzes} />
+
+                  {totalQuizPages > 1 && (
+                    <div className="flex flex-col items-center gap-3 pt-4">
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Menampilkan {Math.min((safeQuizPage - 1) * pageSize + 1, quizzes.length)}–{Math.min(safeQuizPage * pageSize, quizzes.length)} dari {quizzes.length} kuis
+                      </p>
+                      <Pagination
+                        currentPage={safeQuizPage}
+                        totalPages={totalQuizPages}
+                        onPageChange={setQuizPage}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+          </motion.div>
+        )}
+
+        {/* ── ACHIEVEMENTS ────────────────────────────────────────────── */}
+        {activeTab === "achievements" && (
+          <motion.div
+            key="achievements"
+            id="panel-achievements"
+            role="tabpanel"
+            variants={tabContentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {badges.length === 0 ? (
+              <ProgressEmptyState type="achievements" />
+            ) : (
+              <>
+                <div className="mb-2">
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {badges.filter((b) => b.earned).length} dari {badges.length} pencapaian terbuka
+                  </p>
+                </div>
+                <motion.div
+                  className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  {badges.map((a) => (
+                    <motion.div key={a.code} variants={fadeSlideUp}>
+                      <AchievementCard badge={a} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

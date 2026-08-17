@@ -15,6 +15,11 @@ import * as userService from "../services/userService";
 import * as subscriptionService from "../services/subscriptionService";
 import { bootstrapSession, onAuthFailure, normalizeError } from "../services/api";
 import { getCourseThumbnail } from "../utils/courseThumbnail";
+import {
+  getStoredProfilePhoto,
+  removeStoredProfilePhoto,
+  saveStoredProfilePhoto,
+} from "../utils/profilePhoto";
 
 /**
  * State aplikasi — satu-satunya jembatan antara halaman dan backend.
@@ -38,7 +43,12 @@ const AppContext = createContext(null);
  */
 function toUiUser(user) {
   if (!user) return null;
-  return { ...user, profileType: user.profile ?? "general" };
+  const storedPhoto = getStoredProfilePhoto(user);
+  return {
+    ...user,
+    profileType: user.profile ?? "general",
+    profilePhoto: storedPhoto ?? user.profile?.photo ?? user.photo ?? null,
+  };
 }
 
 /**
@@ -254,20 +264,44 @@ export function AppProvider({ children }) {
 
   const updateProfile = useCallback(async (data) => {
     try {
-      // Halaman Profile mengirim `profileType`; API menamainya `profile`.
+      const hasProfileData = ["name", "phone", "avatar", "profileType"].some(
+        (key) => data[key] !== undefined,
+      );
+      const hasPhotoUpdate = data.profilePhoto !== undefined;
+
+      let user = currentUser;
       const avatar = data.avatar ?? data.profile?.avatar;
       const phone = data.phone ?? data.profile?.phone;
-      const user = await userService.updateProfile({
-        name: data.name,
-        phone,
-        avatar,
-        profile: data.profileType ?? undefined,
-      });
+
+      if (hasProfileData) {
+        // Halaman Profile mengirim `profileType`; API menamainya `profile`.
+        user = await userService.updateProfile({
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(phone !== undefined ? { phone } : {}),
+          ...(avatar !== undefined ? { avatar } : {}),
+          ...(data.profileType !== undefined ? { profile: data.profileType } : {}),
+        });
+      }
+
+      if (hasPhotoUpdate) {
+        if (data.profilePhoto) {
+          const saved = saveStoredProfilePhoto(currentUser, data.profilePhoto);
+          if (!saved) {
+            return {
+              success: false,
+              message: "Foto belum dapat disimpan di perangkat ini.",
+            };
+          }
+        } else {
+          removeStoredProfilePhoto(currentUser);
+        }
+      }
 
       // Beberapa respons API hanya mengembalikan sebagian blok profile.
-      // Gabungkan dengan state lama agar avatar/sidebar langsung konsisten.
+      // Gabungkan dengan state lama agar avatar/foto/sidebar langsung konsisten.
       setCurrentUser((previous) =>
         toUiUser({
+          ...previous,
           ...user,
           profile: {
             ...previous?.profile,
@@ -275,6 +309,9 @@ export function AppProvider({ children }) {
             ...(phone !== undefined ? { phone } : {}),
             ...(avatar !== undefined ? { avatar } : {}),
           },
+          ...(hasPhotoUpdate
+            ? { profilePhoto: data.profilePhoto || null }
+            : {}),
         }),
       );
       return { success: true, message: "" };
@@ -282,7 +319,7 @@ export function AppProvider({ children }) {
       const e = normalizeError(error);
       return { success: false, message: e.message, errors: e.errors };
     }
-  }, []);
+  }, [currentUser]);
 
   /**
    * Preferensi tampilan (tema, ukuran huruf) tetap di perangkat.
