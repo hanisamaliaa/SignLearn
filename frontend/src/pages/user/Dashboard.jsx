@@ -164,7 +164,10 @@ export default function UserDashboard() {
         <div className="dashboard-hero-content">
           <div className="dashboard-hero-mascot">
             <div className="mascot-character">
-              <SignLearnAvatar id={currentUser?.avatar} size="xl" />
+              <SignLearnAvatar
+                id={currentUser?.avatar ?? currentUser?.profile?.avatar}
+                size="xl"
+              />
             </div>
             <MascotBubble message={mascotGreeting} />
           </div>

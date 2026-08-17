@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { success } from "../utils/apiResponse.js";
 import * as userService from "../services/userService.js";
+import * as mediaService from "../services/mediaService.js";
 
 /**
  * Profile controller — profil milik pemanggil sendiri (API Contract §7.1-7.2).
@@ -21,4 +22,12 @@ export const getProfile = asyncHandler(async (req, res) => {
 export const updateProfile = asyncHandler(async (req, res) => {
   const user = await userService.updateProfile(req.user.id, req.body);
   success(res, { user }, "Profil berhasil diperbarui.");
+});
+
+export const uploadAvatar = asyncHandler(async (req, res) => {
+  const { resource: user, asset } = await mediaService.replaceProfileAvatar(
+    req.user.id,
+    req.file,
+  );
+  success(res, { user, asset }, "Foto profil berhasil diunggah.");
 });

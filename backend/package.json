@@ -15,6 +15,7 @@
     "smoke": "node scripts/smoke-auth.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:password-reset": "node scripts/smoke-password-reset.mjs",
+    "smoke:cloudinary": "node scripts/smoke-cloudinary.mjs",
     "smoke:users": "node scripts/smoke-users.mjs",
     "smoke:content": "node scripts/smoke-content.mjs",
     "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
@@ -39,6 +40,7 @@
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -47,6 +49,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "multer": "^2.2.0",
     "nodemailer": "^9.0.5",
     "pg": "^8.22.0"
   },

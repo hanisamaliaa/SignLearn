@@ -2,6 +2,7 @@ import * as repository from "../repositories/translationRepository.js";
 import { ApiError } from "../utils/ApiError.js";
 import { paginate, meta } from "../utils/pagination.js";
 import { normalizeWord } from "../utils/normalizeWord.js";
+import { destroyImageBestEffort } from "./cloudinaryService.js";
 
 function clean(data) {
   const result = {};
@@ -58,8 +59,17 @@ export async function create(data) {
 
 export async function update(id, data) {
   if (!await repository.findById(id)) throw ApiError.notFound("Kata BISINDO tidak ditemukan.");
+  const patch = clean(data);
+  const previousImage = patch.signImage !== undefined
+    ? await repository.findImageMedia(id)
+    : null;
+  if (previousImage && patch.signImage === previousImage.url) delete patch.signImage;
   try {
-    return await repository.update(id, clean(data));
+    const item = await repository.update(id, patch);
+    if (previousImage?.publicId && patch.signImage !== undefined) {
+      await destroyImageBestEffort(previousImage.publicId);
+    }
+    return item;
   } catch (error) {
     if (error.code === "23505") throw ApiError.conflict("Kata atau alias tersebut sudah tersedia.");
     throw error;
@@ -67,5 +77,9 @@ export async function update(id, data) {
 }
 
 export async function remove(id) {
-  if (!await repository.remove(id)) throw ApiError.notFound("Kata BISINDO tidak ditemukan.");
+  const image = await repository.findImageMedia(id);
+  if (!image || !await repository.remove(id)) {
+    throw ApiError.notFound("Kata BISINDO tidak ditemukan.");
+  }
+  await destroyImageBestEffort(image.publicId);
 }

@@ -26,8 +26,7 @@ export default function PortalHeader({
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
-  const userAvatar = resolveAvatarId(currentUser?.profile?.avatar ?? currentUser?.avatar);
-  const profilePhoto = currentUser?.profilePhoto ?? currentUser?.profile?.photo ?? currentUser?.photo ?? null;
+  const userAvatar = resolveAvatarId(currentUser?.avatar ?? currentUser?.profile?.avatar);
   const firstName = currentUser?.name?.split(" ")[0] || "User";
   const userEmail = currentUser?.email || "";
 
@@ -194,7 +193,7 @@ export default function PortalHeader({
               className="user-header-profile-btn"
               aria-label="Menu profil"
             >
-              <SignLearnAvatar id={userAvatar} photo={profilePhoto} size="sm" className="border border-white" />
+              <SignLearnAvatar id={userAvatar} size="sm" className="border border-white" />
               <span className="text-sm font-medium text-[var(--text)] hidden sm:block">
                 {firstName}
               </span>

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "lint": "oxlint src",
-    "test": "node --test --test-concurrency=1 src/features/bisindo/*.test.js src/features/lesson/*.test.js src/features/quiz/*.test.js src/features/auth/*.test.js src/config/*.test.js",
+    "test": "node --test --test-concurrency=1 src/features/bisindo/*.test.js src/features/lesson/*.test.js src/features/quiz/*.test.js src/features/auth/*.test.js src/features/media/*.test.js src/config/*.test.js",
     "build": "vite build",
     "preview": "vite preview"
   },

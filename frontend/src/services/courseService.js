@@ -1,4 +1,5 @@
 import { request } from "./api";
+import { uploadImage } from "./mediaService";
 
 /** Courses — API Contract §8.1-8.5. */
 
@@ -23,6 +24,11 @@ export async function createCourse(data) {
 
 export async function updateCourse(courseId, data) {
   const payload = await request({ method: "put", url: `/courses/${courseId}`, data });
+  return payload.course;
+}
+
+export async function uploadCourseThumbnail(courseId, file) {
+  const payload = await uploadImage(`/courses/${courseId}/thumbnail`, file);
   return payload.course;
 }
 

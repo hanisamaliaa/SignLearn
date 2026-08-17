@@ -6,6 +6,8 @@ import { authenticate, optionalAuthenticate } from "../middleware/auth.middlewar
 import { requireAdmin, requireUser } from "../middleware/rbac.middleware.js";
 import { requirePremium, requirePremiumOrAdmin } from "../middleware/premium.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
+import { uploadSingleImage } from "../middleware/imageUpload.middleware.js";
+import { imageUploadLimiter } from "../middleware/rateLimit.middleware.js";
 import {
   validateCreateLesson,
   validateUpdateLesson,
@@ -55,6 +57,14 @@ router.put(
   requireAdmin,
   validate(validateUpdateCourse),
   courseController.updateCourse,
+);
+router.post(
+  "/:id/thumbnail",
+  authenticate,
+  requireAdmin,
+  imageUploadLimiter,
+  uploadSingleImage,
+  courseController.uploadThumbnail,
 );
 router.delete("/:id", authenticate, requireAdmin, courseController.deleteCourse);
 

@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, Button, Badge, Modal, Alert, Input } from "../../components/ui/ui";
 import { PlusIcon, EditIcon, TrashIcon, SearchIcon } from "../../components/ui/Icons";
 import { courseService } from "../../services";
+import { getCourseThumbnail } from "../../utils/courseThumbnail";
 import {
-  getCourseThumbnail,
-  imageFileToDataUrl,
-  saveCourseThumbnail,
-  removeCourseThumbnail,
-} from "../../utils/courseThumbnail";
+  IMAGE_UPLOAD_ACCEPT,
+  validateImageFile,
+} from "../../features/media/imageUpload";
 import {
   useAdminResource,
   useFlash,
@@ -25,9 +24,9 @@ import {
  *   terang-terangan. Versi lama menyalin seluruh objek kursus apa adanya —
  *   yang berarti setiap penyimpanan akan gagal 422 begitu tersambung API.
  *
- * · Thumbnail tidak dikirim sebagai berkas ke backend karena API saat ini hanya
- *   menerima URL http/https. Gambar yang dipilih admin dikompres dan disimpan
- *   di localStorage perangkat, lalu dipakai di seluruh halaman frontend.
+ * · Thumbnail diunggah setelah kursus memiliki ID. Backend menyimpan URL dan
+ *   public ID Cloudinary agar penggantian/penghapusan tidak meninggalkan aset
+ *   yatim di object storage.
  *
  * · Menghapus kursus dapat DITOLAK 409 bila sudah ada yang mempelajarinya.
  *   Itu bukan galat tak terduga melainkan penjagaan yang disengaja, jadi
@@ -84,6 +83,13 @@ export default function AdminCourses() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(
+    () => () => {
+      if (thumbnailPreview.startsWith("blob:")) URL.revokeObjectURL(thumbnailPreview);
+    },
+    [thumbnailPreview],
+  );
+
   const load = useCallback(async () => {
     const params = { limit: 100, sortBy: "sortOrder", sortDir: "asc" };
     if (search.length >= 2) params.q = search;
@@ -136,14 +142,14 @@ export default function AdminCourses() {
     setFormErrors({});
   }
 
-  async function handleThumbnailChange(event) {
+  function handleThumbnailChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
-      const dataUrl = await imageFileToDataUrl(file);
-      setThumbnailFile(dataUrl);
-      setThumbnailPreview(dataUrl);
+      validateImageFile(file);
+      setThumbnailFile(file);
+      setThumbnailPreview(URL.createObjectURL(file));
       setFormErrors((previous) => ({ ...previous, thumbnail: "" }));
     } catch (error) {
       setThumbnailFile(null);
@@ -171,8 +177,6 @@ export default function AdminCourses() {
       category: form.category.trim() || null,
       level: form.level,
       description: form.description.trim() || null,
-      // Backend tetap menerima URL lama/null; gambar lokal disimpan terpisah di browser.
-      thumbnail: editCourse?.thumbnail ?? null,
       estimatedHours: Number(form.estimatedHours) || 0,
       sortOrder: Number(form.sortOrder) || 0,
       isLocked: Boolean(form.isLocked),
@@ -190,30 +194,29 @@ export default function AdminCourses() {
         : courseService.createCourse(payload),
     );
 
-    setSaving(false);
-
     if (!outcome.ok) {
+      setSaving(false);
       setFormErrors(fieldErrors(outcome.errors));
       show("danger", outcome.message);
       return;
     }
 
-    let thumbnailSaveFailed = false;
+    let thumbnailUploadFailure = null;
     if (thumbnailFile) {
       const savedCourseId = outcome.result?.id ?? editCourse?.id;
-      try {
-        saveCourseThumbnail(savedCourseId, thumbnailFile);
-      } catch {
-        thumbnailSaveFailed = true;
-      }
+      const upload = await runMutation(() =>
+        courseService.uploadCourseThumbnail(savedCourseId, thumbnailFile),
+      );
+      if (!upload.ok) thumbnailUploadFailure = upload.message;
     }
 
+    setSaving(false);
     closeModal();
     await reload();
     show(
-      thumbnailSaveFailed ? "danger" : "success",
-      thumbnailSaveFailed
-        ? "Kursus tersimpan, tetapi gambar lokal tidak dapat disimpan di browser."
+      thumbnailUploadFailure ? "danger" : "success",
+      thumbnailUploadFailure
+        ? `Kursus tersimpan, tetapi thumbnail gagal diunggah: ${thumbnailUploadFailure}`
         : editCourse
           ? "Kursus berhasil diperbarui."
           : "Kursus baru berhasil dibuat.",
@@ -238,7 +241,6 @@ export default function AdminCourses() {
       return;
     }
 
-    removeCourseThumbnail(target.id);
     await reload();
     show("success", "Kursus berhasil dihapus.");
   }
@@ -502,12 +504,12 @@ export default function AdminCourses() {
             </label>
             <input
               type="file"
-              accept="image/*"
+              accept={IMAGE_UPLOAD_ACCEPT}
               onChange={handleThumbnailChange}
               className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm text-[var(--text)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-3)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--text)]"
             />
             <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Pilih gambar dari perangkat ini. Gambar otomatis diperkecil agar ringan dan tersimpan lokal di browser.
+              JPEG, PNG, atau WebP maksimal 5 MB. Gambar disimpan aman di Cloudinary.
             </p>
             {formErrors.thumbnail && (
               <p className="text-xs text-[#E74C3C] mt-1">{formErrors.thumbnail}</p>

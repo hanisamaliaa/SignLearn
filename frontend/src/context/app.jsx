@@ -15,11 +15,6 @@ import * as userService from "../services/userService";
 import * as subscriptionService from "../services/subscriptionService";
 import { bootstrapSession, onAuthFailure, normalizeError } from "../services/api";
 import { getCourseThumbnail } from "../utils/courseThumbnail";
-import {
-  getStoredProfilePhoto,
-  removeStoredProfilePhoto,
-  saveStoredProfilePhoto,
-} from "../utils/profilePhoto";
 
 /**
  * State aplikasi — satu-satunya jembatan antara halaman dan backend.
@@ -43,11 +38,9 @@ const AppContext = createContext(null);
  */
 function toUiUser(user) {
   if (!user) return null;
-  const storedPhoto = getStoredProfilePhoto(user);
   return {
     ...user,
     profileType: user.profile ?? "general",
-    profilePhoto: storedPhoto ?? user.profile?.photo ?? user.photo ?? null,
   };
 }
 
@@ -264,54 +257,24 @@ export function AppProvider({ children }) {
 
   const updateProfile = useCallback(async (data) => {
     try {
-      const hasProfileData = ["name", "phone", "avatar", "profileType"].some(
-        (key) => data[key] !== undefined,
-      );
-      const hasPhotoUpdate = data.profilePhoto !== undefined;
-
-      let user = currentUser;
       const avatar = data.avatar ?? data.profile?.avatar;
       const phone = data.phone ?? data.profile?.phone;
+      // Halaman Profile mengirim `profileType`; API menamainya `profile`.
+      const user = await userService.updateProfile({
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(avatar !== undefined ? { avatar } : {}),
+        ...(data.profileType !== undefined ? { profile: data.profileType } : {}),
+      });
 
-      if (hasProfileData) {
-        // Halaman Profile mengirim `profileType`; API menamainya `profile`.
-        user = await userService.updateProfile({
-          ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(phone !== undefined ? { phone } : {}),
-          ...(avatar !== undefined ? { avatar } : {}),
-          ...(data.profileType !== undefined ? { profile: data.profileType } : {}),
-        });
-      }
-
-      if (hasPhotoUpdate) {
-        if (data.profilePhoto) {
-          const saved = saveStoredProfilePhoto(currentUser, data.profilePhoto);
-          if (!saved) {
-            return {
-              success: false,
-              message: "Foto belum dapat disimpan di perangkat ini.",
-            };
-          }
-        } else {
-          removeStoredProfilePhoto(currentUser);
-        }
-      }
-
-      // Beberapa respons API hanya mengembalikan sebagian blok profile.
-      // Gabungkan dengan state lama agar avatar/foto/sidebar langsung konsisten.
+      // DTO profil memakai field datar (`phone`, `avatar`, `profile`). Gabungkan
+      // dengan state lama agar sidebar langsung konsisten bila respons parsial.
       setCurrentUser((previous) =>
         toUiUser({
           ...previous,
           ...user,
-          profile: {
-            ...previous?.profile,
-            ...user?.profile,
-            ...(phone !== undefined ? { phone } : {}),
-            ...(avatar !== undefined ? { avatar } : {}),
-          },
-          ...(hasPhotoUpdate
-            ? { profilePhoto: data.profilePhoto || null }
-            : {}),
+          ...(phone !== undefined ? { phone } : {}),
+          ...(avatar !== undefined ? { avatar } : {}),
         }),
       );
       return { success: true, message: "" };
@@ -319,7 +282,22 @@ export function AppProvider({ children }) {
       const e = normalizeError(error);
       return { success: false, message: e.message, errors: e.errors };
     }
-  }, [currentUser]);
+  }, []);
+
+  const uploadProfileAvatar = useCallback(async (file) => {
+    try {
+      const user = await userService.uploadProfileAvatar(file);
+      setCurrentUser((previous) => toUiUser({ ...previous, ...user }));
+      return { success: true, user };
+    } catch (error) {
+      const failure = normalizeError(error);
+      return {
+        success: false,
+        message: failure.message,
+        errors: failure.errors,
+      };
+    }
+  }, []);
 
   /**
    * Preferensi tampilan (tema, ukuran huruf) tetap di perangkat.
@@ -469,6 +447,7 @@ export function AppProvider({ children }) {
       logout,
       register,
       updateProfile,
+      uploadProfileAvatar,
       updateUserSettings,
       startLesson,
       completeLesson,
@@ -483,6 +462,7 @@ export function AppProvider({ children }) {
       currentUser, booting, users, courses, quizHistory, badges, stats, dashboard,
       progress, selectedCourseId, selectedLessonId, selectedCourse, quizScore,
       quizPassed, subscriptionState, subscriptionLoading, navigate, login, logout, register, updateProfile,
+      uploadProfileAvatar,
       updateUserSettings, startLesson, completeLesson, submitQuiz, selectCourse, selectLesson,
       setQuizResult, loadLearnerData, refreshSubscription,
     ],

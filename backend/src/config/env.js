@@ -123,6 +123,34 @@ if (isProduction && corsOrigins.length === 0) {
   );
 }
 
+const cloudinaryCredentials = [
+  process.env.CLOUDINARY_CLOUD_NAME,
+  process.env.CLOUDINARY_API_KEY,
+  process.env.CLOUDINARY_API_SECRET,
+].filter((value) => Boolean(value?.trim()));
+const cloudinaryFolder = (process.env.CLOUDINARY_FOLDER || "signlearn")
+  .trim()
+  .replace(/[^a-zA-Z0-9/_-]/g, "")
+  .replace(/\/{2,}/g, "/")
+  .replace(/^\/+|\/+$/g, "");
+
+if (cloudinaryCredentials.length > 0 && cloudinaryCredentials.length < 3) {
+  errors.push(
+    "Konfigurasi Cloudinary tidak lengkap. CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, dan CLOUDINARY_API_SECRET harus diisi bersama.",
+  );
+}
+if (isProduction && cloudinaryCredentials.length !== 3) {
+  errors.push("Kredensial Cloudinary wajib diisi di produksi agar upload gambar tersedia.");
+}
+if (!/[a-zA-Z0-9]/.test(cloudinaryFolder)) {
+  errors.push("CLOUDINARY_FOLDER harus memuat minimal satu huruf atau angka.");
+}
+
+const imageMaxBytes = num(process.env.UPLOAD_IMAGE_MAX_BYTES, 5 * 1024 * 1024);
+if (!Number.isInteger(imageMaxBytes) || imageMaxBytes < 1024) {
+  errors.push("UPLOAD_IMAGE_MAX_BYTES harus berupa bilangan bulat minimal 1024 byte.");
+}
+
 // ─── Konfigurasi ───────────────────────────────────────────────────────
 export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV || "development",
@@ -134,6 +162,18 @@ export const env = Object.freeze({
   midtrans: {
     serverKey: process.env.MIDTRANS_SERVER_KEY || "",
     isProduction: bool(process.env.MIDTRANS_IS_PRODUCTION, false),
+  },
+
+  cloudinary: {
+    enabled: cloudinaryCredentials.length === 3,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim() || "",
+    apiKey: process.env.CLOUDINARY_API_KEY?.trim() || "",
+    apiSecret: process.env.CLOUDINARY_API_SECRET?.trim() || "",
+    folder: cloudinaryFolder,
+  },
+
+  upload: {
+    imageMaxBytes,
   },
 
   database: {

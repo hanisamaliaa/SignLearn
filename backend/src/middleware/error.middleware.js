@@ -20,6 +20,22 @@ export function notFoundHandler(req, _res, next) {
 function normalize(err) {
   if (err instanceof ApiError) return err;
 
+  // Multer membatasi request multipart sebelum buffer mencapai service.
+  // Kode library tidak pernah diteruskan mentah ke klien.
+  if (err.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return new ApiError(413, "Ukuran gambar melebihi batas upload.", {
+        code: ERROR_CODES.PAYLOAD_TOO_LARGE,
+      });
+    }
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return ApiError.validation("Field upload tidak valid.", [
+        { field: "image", message: "Kirim tepat satu gambar pada field 'image'." },
+      ]);
+    }
+    return ApiError.validation("Upload gambar tidak valid.");
+  }
+
   // ── jsonwebtoken ────────────────────────────────────────────────────
   if (err.name === "TokenExpiredError") {
     return ApiError.unauthorized("Token sudah kedaluwarsa.", ERROR_CODES.TOKEN_EXPIRED);

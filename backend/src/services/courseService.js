@@ -2,6 +2,7 @@ import * as courseRepo from "../repositories/courseRepository.js";
 import * as lessonRepo from "../repositories/lessonRepository.js";
 import { ApiError } from "../utils/ApiError.js";
 import { paginate, meta, MAX_LIMIT } from "../utils/pagination.js";
+import { destroyImageBestEffort } from "./cloudinaryService.js";
 
 /**
  * Course service — seluruh aturan bisnis kursus.
@@ -74,7 +75,17 @@ export async function create(data) {
 
 export async function update(id, data) {
   await requireCourse(id);
-  return courseRepo.update(id, data);
+  const patch = { ...data };
+  const previousThumbnail = patch.thumbnail !== undefined
+    ? await courseRepo.findThumbnailMedia(id)
+    : null;
+
+  if (previousThumbnail && patch.thumbnail === previousThumbnail.url) delete patch.thumbnail;
+  const course = await courseRepo.update(id, patch);
+  if (previousThumbnail?.publicId && patch.thumbnail !== undefined) {
+    await destroyImageBestEffort(previousThumbnail.publicId);
+  }
+  return course;
 }
 
 /**
@@ -89,6 +100,7 @@ export async function update(id, data) {
  */
 export async function remove(id) {
   await requireCourse(id);
+  const thumbnail = await courseRepo.findThumbnailMedia(id);
 
   if (await courseRepo.hasCompletions(id)) {
     throw ApiError.conflict(
@@ -99,4 +111,5 @@ export async function remove(id) {
 
   const deleted = await courseRepo.remove(id);
   if (!deleted) throw ApiError.notFound("Kursus tidak ditemukan.");
+  await destroyImageBestEffort(thumbnail?.publicId);
 }
