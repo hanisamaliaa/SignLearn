@@ -4,7 +4,8 @@ const sections = [
   ["1. Informasi yang Kami Gunakan","Untuk menjalankan fitur pembelajaran SignLearn, aplikasi dapat menggunakan beberapa jenis informasi.",[
     ["Informasi Akun","Nama atau username, alamat email, dan informasi autentikasi akun."],
     ["Informasi Pembelajaran","Course atau lesson yang telah dipelajari, hasil kuis, progress pembelajaran, dan badge atau pencapaian yang diperoleh."],
-    ["Informasi Teknis","Informasi teknis yang diperlukan agar aplikasi dapat berjalan dengan baik, seperti jenis perangkat atau browser."]
+    ["Informasi Teknis","Informasi teknis yang diperlukan agar aplikasi dapat berjalan dengan baik, seperti jenis perangkat atau browser."],
+    ["Input Kamera dan Suara","Fitur latihan kamera mengirim frame gambar ke layanan AI SignLearn untuk mengenali alfabet. Jika pengguna memilih tombol mikrofon, pengenalan suara dikelola oleh browser/perangkat dan audio dapat diproses oleh layanan milik penyedia browser. Mikrofon hanya aktif setelah pengguna menekan tombol dan berhenti setelah satu ucapan atau saat dibatalkan."]
   ]],
   ["2. Bagaimana Informasi Digunakan","Informasi pengguna digunakan untuk membuat dan mengelola akun, menyediakan materi pembelajaran, menyimpan progress, menampilkan hasil aktivitas dan kuis, menyediakan fitur pembelajaran, menjaga keamanan, dan membantu meningkatkan pengalaman penggunaan SignLearn.",[]],
   ["3. Privasi Anak","SignLearn Kids dirancang untuk anak usia 6–12 tahun dan melibatkan keluarga dalam proses pembelajaran. Kami memahami bahwa informasi anak perlu diperlakukan dengan perhatian khusus. Karena itu, SignLearn berupaya membatasi penggunaan informasi pada hal-hal yang diperlukan untuk menjalankan pengalaman pembelajaran. Orang tua atau anggota keluarga dianjurkan untuk mendampingi anak saat menggunakan SignLearn.",[]],

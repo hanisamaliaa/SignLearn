@@ -1,0 +1,320 @@
+{
+  "source": "bisindo-canvas-approved-source.png",
+  "sourceSha256": "71cfdcaaddd0f61226c5a95b4b1994da68430f0d7b8544710d53d2b0ea1bee1b",
+  "transformation": "audited-crop + label-isolation + white-padding + Lanczos resampling",
+  "lossless": true,
+  "assets": {
+    "A": {
+      "file": "a.webp",
+      "sha256": "d57facd4ad4eb2643f4a38fdb706293961037b8b5a4f5b02c501791f9f7afcca",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        64,
+        99,
+        228,
+        215
+      ]
+    },
+    "B": {
+      "file": "b.webp",
+      "sha256": "983c18899a792b2ca032bb2c4a9024543ed74be7b3aed908c4f22c0f429cc445",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        293,
+        100,
+        453,
+        234
+      ]
+    },
+    "C": {
+      "file": "c.webp",
+      "sha256": "689d8f3c71e668615d9617644557b6f5aa5a807a2a2d67134843d74c9e432ef9",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        504,
+        106,
+        615,
+        226
+      ]
+    },
+    "D": {
+      "file": "d.webp",
+      "sha256": "17c69dfdf035eae83da80b5ae656b21ea24d0fb357dc7214537d36272a0ac375",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        664,
+        100,
+        812,
+        216
+      ]
+    },
+    "E": {
+      "file": "e.webp",
+      "sha256": "e300ac7738af2d757a0e5b5b67fa1b91831f3a53521734ea017f305b8e9d1593",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        858,
+        109,
+        973,
+        213
+      ]
+    },
+    "F": {
+      "file": "f.webp",
+      "sha256": "0cedd2e2af08bf538a89e7ef3b00fd389847c425626a3667b0a1cfbbcf32c2ef",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        1028,
+        110,
+        1173,
+        238
+      ]
+    },
+    "G": {
+      "file": "g.webp",
+      "sha256": "a57148c8bc45f4f34a19aa5673ffd59a1d521c622e1d28ba5b48f80ab4498884",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        83,
+        298,
+        228,
+        429
+      ]
+    },
+    "H": {
+      "file": "h.webp",
+      "sha256": "619623df6146d9e0b0b5be1ba03a7a231ebb4d40e70a2b87d4e386e01544c3fe",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        300,
+        304,
+        447,
+        435
+      ]
+    },
+    "I": {
+      "file": "i.webp",
+      "sha256": "9dda8d3f541cadf21636af2fc9141c571924958ef382327f087d4d0e4b1a16e3",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        504,
+        298,
+        614,
+        438
+      ]
+    },
+    "J": {
+      "file": "j.webp",
+      "sha256": "8122ddaa0d3abbcc050f8a1e85b5e97154c1d8dbe61506a0c0b5d0aa8ca7ca3e",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        669,
+        287,
+        801,
+        435
+      ]
+    },
+    "K": {
+      "file": "k.webp",
+      "sha256": "337042fffcdfa8da7dddf29adb3442e7bc6edf2c36233b8840f8b2f2737820ac",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        828,
+        308,
+        972,
+        437
+      ]
+    },
+    "L": {
+      "file": "l.webp",
+      "sha256": "ebd9f8c449e66d405758f8f40cd9ab4da49d64407b73aca74462d55324d7bf0f",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        1053,
+        299,
+        1164,
+        436
+      ]
+    },
+    "M": {
+      "file": "m.webp",
+      "sha256": "7e5420a0799942077f41bcb21cac787a2a1c5932bfdb8d954da069b91fd62c20",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        70,
+        522,
+        183,
+        652
+      ]
+    },
+    "N": {
+      "file": "n.webp",
+      "sha256": "c24576c43f94a11dac559d306209af69666ee6efdc8c0f9fd77981efa2da3ff7",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        293,
+        512,
+        413,
+        650
+      ]
+    },
+    "O": {
+      "file": "o.webp",
+      "sha256": "3f05333b840f91d4d62579369cd2f44ca3cb9334600ee5a7ed24ac53daf4faf5",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        512,
+        511,
+        603,
+        651
+      ]
+    },
+    "P": {
+      "file": "p.webp",
+      "sha256": "9fddc8bcb71965765e12b7d232c7aa0688917dcaf9d5a38680fffe431410b14b",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        650,
+        522,
+        809,
+        653
+      ]
+    },
+    "Q": {
+      "file": "q.webp",
+      "sha256": "51bfa6b8132d83a7ed8a499bd67195b7a74bb6d646ebdace0add8194958ce75f",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        846,
+        511,
+        981,
+        648
+      ]
+    },
+    "R": {
+      "file": "r.webp",
+      "sha256": "59e4a4b1a5f44d566985660fba93f502139f31eaf3bf18bfeb80e27645ce0799",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        1065,
+        511,
+        1173,
+        648
+      ]
+    },
+    "S": {
+      "file": "s.webp",
+      "sha256": "1c5afb2805c47e9634a51453edf8fa8bd39e8f6721287117e8e6300d7c76d215",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        51,
+        735,
+        201,
+        867
+      ]
+    },
+    "T": {
+      "file": "t.webp",
+      "sha256": "1a747e6bbb138a3b1306a755bada5b52d9943e224088d63930bb23ed98735263",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        281,
+        735,
+        448,
+        874
+      ]
+    },
+    "U": {
+      "file": "u.webp",
+      "sha256": "b19daf3824983d694c30830be01b0ca5d5af5cd605822f1ba3cc8b7a7c8b161b",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        512,
+        736,
+        577,
+        882
+      ]
+    },
+    "V": {
+      "file": "v.webp",
+      "sha256": "f673c403e6d389689ee65dbe166cc794c3c5277a5e6045a2a0bb11123bbd6c52",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        664,
+        736,
+        742,
+        885
+      ]
+    },
+    "W": {
+      "file": "w.webp",
+      "sha256": "5b07e5c58f0c59b05995971e6c74e7fde0dde825d35fbe904ff901ea94a5c437",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        828,
+        745,
+        972,
+        890
+      ]
+    },
+    "X": {
+      "file": "x.webp",
+      "sha256": "55293f0982f746c0b51dae0d4226941e6840cf3fbb13598583705a91a892daf9",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        1015,
+        761,
+        1202,
+        893
+      ]
+    },
+    "Y": {
+      "file": "y.webp",
+      "sha256": "f298f8aad92b6c5c9e0605d179e6cb8b61a8c5307f5f03377ab806f59ab31031",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        66,
+        930,
+        184,
+        1098
+      ]
+    },
+    "Z": {
+      "file": "z.webp",
+      "sha256": "0411dbb360b1de5346e2ded6b48622b404b40f238b5ebca5d864dc805030a9ff",
+      "width": 1024,
+      "height": 1024,
+      "sourceCropBounds": [
+        293,
+        949,
+        417,
+        1098
+      ]
+    }
+  }
+}

@@ -1,33 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeftIcon,
   ArrowRightIcon,
   CameraIcon,
-  ChevronDownIcon,
   GridIcon,
   HandSignIcon,
-  PlayIcon,
-  RefreshIcon,
+  MicIcon,
   TrashIcon,
 } from "../ui/Icons";
 import { useInView, useReducedMotion } from "../../hooks/useLandingMotion";
 import { useCameraStream } from "../../hooks/useCameraStream";
 import { useBisindoRecognition } from "../../hooks/useBisindoRecognition";
+import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import TranslationResult from "./TranslationResult";
 import TranslatorIntro from "./TranslatorIntro";
 import CameraPracticePanel from "./CameraPracticePanel";
-import { useAccessibility } from "../../context/AccessibilityContext";
+import SpelledPhrase from "./SpelledPhrase";
+import { MAX_PHRASE_LENGTH, describeSkipped, spellPhrase } from "../../features/bisindo/spelling";
 import { translationService } from "../../services";
 
-const EXISTING_DEMO_WORDS = ["Halo", "Terima kasih", "Maaf", "Tolong", "Teman"];
-const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25];
-
-function toSign(item) {
-  if (item.signVideo) return { word: item.word, type: "video", src: item.signVideo, description: item.description };
-  if (item.signImage) return { word: item.word, type: "image", src: item.signImage, description: item.description };
-  return { word: item.word, type: "text", src: `text:${item.id}`, translation: item.translation, description: item.description };
-}
+const EXISTING_DEMO_WORDS = ["Halo", "Terima kasih", "Aku mau makan", "Nama saya", "Teman"];
 
 function TranslationModeSwitch({ mode, onChange, inView, reducedMotion }) {
   const handleKeyDown = (event) => {
@@ -75,14 +67,14 @@ function TranslationModeSwitch({ mode, onChange, inView, reducedMotion }) {
   );
 }
 
-function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef }) {
+function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef, speech }) {
   return (
     <form className="kids-translator-card kids-translation-input" onSubmit={onTranslate}>
       <div className="kids-translator-card-heading">
         <span className="kids-translator-card-icon" aria-hidden="true"><GridIcon size={22} /></span>
         <div>
           <h3>Apa yang ingin kamu katakan?</h3>
-          <p>Ketik kata atau kalimat pendek di bawah ini.</p>
+          <p>Ketik kata atau kalimat pendek{speech.supported ? ", atau ucapkan lewat mikrofon" : ""}.</p>
         </div>
       </div>
 
@@ -92,18 +84,51 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef 
           ref={inputRef}
           id="bisindo-text-input"
           value={value}
-          maxLength={140}
+          maxLength={MAX_PHRASE_LENGTH}
           rows={4}
           placeholder="Ketik di sini..."
           onChange={(event) => onChange(event.target.value)}
         />
         <div className="kids-translator-field-meta">
-          <span>{value.length}/140</span>
+          <span>{value.length}/{MAX_PHRASE_LENGTH}</span>
           <button type="button" onClick={onClear} disabled={!value}>
             <TrashIcon size={15} /> Bersihkan
           </button>
         </div>
       </div>
+
+      {/* Tombol mikrofon HANYA muncul bila perambannya benar-benar mendukung.
+          Firefox tidak punya Web Speech API sama sekali; menampilkan tombol
+          yang pasti gagal lebih buruk daripada tidak menampilkannya. */}
+      {speech.supported && (
+        <div className="kids-voice-row">
+          <button
+            type="button"
+            className={`kids-voice-button${speech.listening ? " is-listening" : ""}`}
+            onClick={speech.listening ? speech.stop : speech.start}
+            aria-pressed={speech.listening}
+          >
+            <MicIcon size={18} />
+            {speech.listening ? "Mendengarkan… ketuk untuk berhenti" : "Ucapkan"}
+          </button>
+          {speech.listening && (
+            <span className="kids-voice-interim" role="status">
+              {speech.interim || "Silakan bicara…"}
+            </span>
+          )}
+        </div>
+      )}
+
+      {!speech.supported && (
+        <p className="kids-voice-unavailable">{speech.unavailableReason}</p>
+      )}
+
+      {speech.error && (
+        <p className="kids-voice-error" role="alert">
+          {speech.error}
+          <button type="button" onClick={speech.clearError} aria-label="Tutup pesan">×</button>
+        </p>
+      )}
 
       <button type="submit" className="kids-translator-primary" disabled={!value.trim()}>
         Terjemahkan ke BISINDO <ArrowRightIcon size={18} />
@@ -121,136 +146,78 @@ function TranslationInputCard({ value, onChange, onTranslate, onClear, inputRef 
   );
 }
 
-function PlayerEmptyState() {
+function SpellEmptyState() {
   return (
     <div className="kids-player-state kids-player-empty">
       <span className="kids-player-hand" aria-hidden="true"><HandSignIcon size={62} /></span>
-      <h4>Gerakan BISINDO akan tampil di sini</h4>
-      <p>Ketik kata lalu tekan Terjemahkan.</p>
+      <h4>Ejaan BISINDO akan tampil di sini</h4>
+      <p>Ketik atau ucapkan kalimat, lalu tekan Terjemahkan.</p>
     </div>
   );
 }
 
-function PlayerLoadingState() {
-  return (
-    <div className="kids-player-state" role="status">
-      <span className="kids-loading-hand" aria-hidden="true"><HandSignIcon size={54} /></span>
-      <h4>Menyiapkan gerakan BISINDO...</h4>
-      <span className="kids-loading-dots" aria-hidden="true"><i /><i /><i /></span>
-    </div>
-  );
-}
-
-function PlayerErrorState({ onRetry, onShowSuggestions }) {
+function SpellEmptyResult({ note, onRetry }) {
   return (
     <div className="kids-player-state kids-player-error" role="status">
       <span className="kids-player-hand" aria-hidden="true"><HandSignIcon size={58} /></span>
-      <h4>Kata belum tersedia.</h4>
-      <p>Yuk coba kata lain.</p>
+      <h4>Tidak ada huruf untuk dieja.</h4>
+      <p>{note || "Coba ketik kata yang memakai huruf A sampai Z."}</p>
       <div>
         <button type="button" className="kids-control-button" onClick={onRetry}>Coba Lagi</button>
-        <button type="button" className="kids-control-button" onClick={onShowSuggestions}>Lihat kata tersedia</button>
       </div>
     </div>
   );
 }
 
-function SignPlayer({ status, query, signs, onRetry, onShowSuggestions }) {
-  const reducedMotion = useReducedMotion();
-  const { subtitles } = useAccessibility();
-  const videoRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [speed, setSpeed] = useState(1);
-  const [playing, setPlaying] = useState(false);
-  const currentSign = signs[currentIndex];
-
-  useEffect(() => {
-    setCurrentIndex(0);
-    setPlaying(false);
-  }, [signs]);
-
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.playbackRate = speed;
-  }, [speed, currentSign]);
-
-  const play = async () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      await videoRef.current.play();
-      setPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setPlaying(false);
-    }
-  };
-
-  const replay = async () => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = 0;
-    await videoRef.current.play();
-    setPlaying(true);
-  };
+/**
+ * Panel hasil: kalimat yang dieja huruf per huruf.
+ *
+ * Menggantikan pemutar video satu-gerakan yang ada sebelumnya. Pemutar itu
+ * meminta satu berkas untuk seluruh frasa, sehingga "aku mau makan" hanya bisa
+ * berhasil bila ada video berjudul persis itu — yang tidak akan pernah ada.
+ * Mengeja per huruf membuat kalimat APA PUN dapat diperagakan dari 26 gambar.
+ *
+ * `entry` adalah kata Bank Kata yang kebetulan cocok dengan seluruh frasa.
+ * Sifatnya tambahan, bukan syarat: ketiadaannya tidak menghalangi ejaan.
+ */
+function SignPanel({ spelled, query, entry, reducedMotion, onRetry }) {
+  const started = Boolean(query);
 
   return (
     <article className="kids-translator-card kids-sign-player" aria-labelledby="bisindo-player-title">
       <header>
-        <div><span className="kids-live-label">BISINDO</span><h3 id="bisindo-player-title">Pemutar gerakan</h3></div>
+        <div><span className="kids-live-label">BISINDO</span><h3 id="bisindo-player-title">Ejaan isyarat</h3></div>
         <span className="kids-current-query">Kata: <strong>{query || "—"}</strong></span>
       </header>
 
-      <div className="kids-sign-viewport">
+      <div className="kids-sign-viewport kids-sign-viewport-spell">
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={status} className="kids-player-state-transition" initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0, y: -6 }} transition={{ duration: reducedMotion ? 0 : 0.22 }}>
-          {status === "idle" && <PlayerEmptyState />}
-          {status === "loading" && <PlayerLoadingState />}
-          {status === "error" && <PlayerErrorState onRetry={onRetry} onShowSuggestions={onShowSuggestions} />}
-          {status === "success" && currentSign && (
-          <motion.div key={currentSign.src} className="kids-sign-media" initial={reducedMotion ? false : { opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }}>
-            {currentSign.type === "video" ? (
-              <video ref={videoRef} src={currentSign.src} playsInline onEnded={() => setPlaying(false)} aria-label={`Gerakan BISINDO untuk ${currentSign.word}`}>
-                {currentSign.captionSrc && (
-                  <track
-                    kind="captions"
-                    src={currentSign.captionSrc}
-                    srcLang={currentSign.captionLanguage || "id"}
-                    label={currentSign.captionLabel || "Bahasa Indonesia"}
-                    default={subtitles}
-                  />
-                )}
-              </video>
-            ) : currentSign.type === "image" ? (
-              <img src={currentSign.src} alt={`Gerakan BISINDO untuk ${currentSign.word}`} />
-            ) : (
-              <div className="kids-sign-text-fallback" role="img" aria-label={`Representasi BISINDO untuk ${currentSign.word}: ${currentSign.translation}`}>
-                <HandSignIcon size={48} />
-                <strong>{currentSign.translation}</strong>
-                <span>{currentSign.description || "Media gerakan akan segera ditambahkan."}</span>
-              </div>
+          <motion.div
+            key={started ? (spelled.isEmpty ? "empty" : query) : "idle"}
+            className="kids-player-state-transition"
+            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+            transition={{ duration: reducedMotion ? 0 : 0.22 }}
+          >
+            {!started && <SpellEmptyState />}
+            {started && spelled.isEmpty && (
+              <SpellEmptyResult note={describeSkipped(spelled.skipped)} onRetry={onRetry} />
             )}
-          </motion.div>
-          )}
+            {started && !spelled.isEmpty && (
+              <SpelledPhrase spelled={spelled} reducedMotion={reducedMotion} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      <div className="kids-player-details">
-        <div>
-          <span>Sedang diperagakan</span>
-          <motion.strong key={currentSign?.word || query || "empty"} initial={reducedMotion ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>{currentSign?.word || query || "Belum ada kata"}</motion.strong>
-          <small>{signs.length ? `Gerakan ${currentIndex + 1} dari ${signs.length}` : "Pilih kata untuk memulai"}</small>
+      {entry && (
+        <div className="kids-spell-entry">
+          <span className="kids-spell-entry-tag">Ada di Bank Kata</span>
+          <strong>{entry.word}</strong>
+          {entry.description && <p>{entry.description}</p>}
         </div>
-        {signs.length > 1 && (
-          <div className="kids-word-sequence" aria-label="Urutan kata">
-            {signs.map((sign, index) => <button type="button" key={`${sign.word}-${index}`} className={index === currentIndex ? "is-active" : ""} onClick={() => setCurrentIndex(index)}>{sign.word}</button>)}
-          </div>
-        )}
-        <div className="kids-player-actions">
-          <button type="button" className="kids-control-button" onClick={replay} disabled={!currentSign || currentSign.type !== "video"}><RefreshIcon size={17} /> Ulangi</button>
-          <button type="button" className="kids-control-button kids-control-primary" onClick={play} disabled={!currentSign || currentSign.type !== "video"}><PlayIcon size={16} /> {playing ? "Jeda" : "Mainkan"}</button>
-          <label className="kids-speed-control">Kecepatan<span className="sr-only"> pemutaran</span><select value={speed} onChange={(event) => setSpeed(Number(event.target.value))} disabled={!currentSign || currentSign.type !== "video"}>{PLAYBACK_SPEEDS.map((item) => <option key={item} value={item}>{item}×</option>)}</select><ChevronDownIcon size={15} aria-hidden="true" /></label>
-          {signs.length > 1 && <><button type="button" className="kids-icon-control" aria-label="Gerakan sebelumnya" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => index - 1)}><ArrowLeftIcon size={18} /></button><button type="button" className="kids-icon-control" aria-label="Gerakan berikutnya" disabled={currentIndex === signs.length - 1} onClick={() => setCurrentIndex((index) => index + 1)}><ArrowRightIcon size={18} /></button></>}
-        </div>
-      </div>
+      )}
     </article>
   );
 }
@@ -259,41 +226,63 @@ function TextToSignMode({ reducedMotion }) {
   const inputRef = useRef(null);
   const [value, setValue] = useState("");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("idle");
-  const [signs, setSigns] = useState([]);
+  const [entry, setEntry] = useState(null);
+  const lookupSequenceRef = useRef(0);
 
-  const translate = async (event) => {
+  // Ejaan dihitung dari `query`, bukan dari `value`. Menghitungnya dari ketikan
+  // membuat huruf-huruf melompat mengikuti setiap penekanan tombol; anak tidak
+  // sempat membaca apa pun sebelum tampilannya berubah lagi.
+  const spelled = useMemo(() => spellPhrase(query), [query]);
+
+  const run = useCallback((text) => {
+    const next = text.trim();
+    if (!next) return;
+    setQuery(next);
+    setEntry(null);
+    const sequence = ++lookupSequenceRef.current;
+
+    // Pencarian Bank Kata berjalan di belakang dan tidak pernah menghalangi:
+    // ejaannya sudah tampil, ini hanya menambah keterangan bila katanya ada.
+    // Kegagalan sengaja diabaikan — "tidak ada di kamus" adalah hal biasa.
+    translationService.lookupTranslation(next)
+      .then((found) => {
+        if (lookupSequenceRef.current === sequence) setEntry(found);
+      })
+      .catch(() => {});
+  }, []);
+
+  const speech = useSpeechRecognition({
+    onResult: useCallback((text) => {
+      setValue(text);
+      run(text);
+    }, [run]),
+  });
+
+  const translate = (event) => {
     event?.preventDefault();
-    const nextQuery = value.trim();
-    if (!nextQuery) return;
-    setQuery(nextQuery);
-    setStatus("loading");
-    try {
-      const item = await translationService.lookupTranslation(nextQuery);
-      setSigns([toSign(item)]);
-      setStatus("success");
-    } catch {
-      setSigns([]);
-      setStatus("error");
-    }
+    run(value);
   };
 
   const clear = () => {
+    lookupSequenceRef.current += 1;
+    speech.cancel();
     setValue("");
     setQuery("");
-    setSigns([]);
-    setStatus("idle");
+    setEntry(null);
     inputRef.current?.focus();
   };
 
   return (
     <div className="kids-text-mode">
-      <motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.05 }}><TranslationInputCard value={value} onChange={setValue} onTranslate={translate} onClear={clear} inputRef={inputRef} /></motion.div>
-      <motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.12 }}><SignPlayer status={status} query={query} signs={signs} onRetry={() => inputRef.current?.focus()} onShowSuggestions={() => document.getElementById("translator-suggestions")?.focus()} /></motion.div>
+      <motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.05 }}>
+        <TranslationInputCard value={value} onChange={setValue} onTranslate={translate} onClear={clear} inputRef={inputRef} speech={speech} />
+      </motion.div>
+      <motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.4, delay: reducedMotion ? 0 : 0.12 }}>
+        <SignPanel spelled={spelled} query={query} entry={entry} reducedMotion={reducedMotion} onRetry={() => inputRef.current?.focus()} />
+      </motion.div>
     </div>
   );
 }
-
 function CameraToTextMode({ camera, reducedMotion }) {
   const recognition = useBisindoRecognition({
     active: camera.state === "active",
@@ -303,10 +292,10 @@ function CameraToTextMode({ camera, reducedMotion }) {
   return <div className="kids-camera-mode"><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, x: -18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reducedMotion ? 0 : 0.44, delay: reducedMotion ? 0 : 0.04 }}><CameraPracticePanel camera={camera} recognition={recognition} reducedMotion={reducedMotion} /></motion.div><motion.div className="kids-workspace-motion-item" initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reducedMotion ? 0 : 0.44, delay: reducedMotion ? 0 : 0.1 }}><TranslationResult recognition={recognition} cameraActive={camera.state === "active"} /></motion.div></div>;
 }
 
-export default function BisindoTranslator() {
+export default function BisindoTranslator({ embedded = false, defaultMode = "camera" }) {
   const reducedMotion = useReducedMotion();
   const { ref, inView } = useInView({ rootMargin: "0px 0px -10%", threshold: 0.18 });
-  const [mode, setMode] = useState("camera");
+  const [mode, setMode] = useState(defaultMode);
   const camera = useCameraStream();
 
   const changeMode = (nextMode) => {
@@ -315,10 +304,15 @@ export default function BisindoTranslator() {
   };
 
   return (
-    <section ref={ref} id="demo-gerakan" className="kids-section kids-demo-section kids-translator-section" aria-labelledby="demo-title">
-      <div className="kids-translator-decor" aria-hidden="true"><span /><span /></div>
+    <section
+      ref={ref}
+      id={embedded ? undefined : "demo-gerakan"}
+      className={`${embedded ? "" : "kids-section "}kids-demo-section kids-translator-section${embedded ? " is-embedded" : ""}`}
+      aria-labelledby={embedded ? "user-translator-title" : "demo-title"}
+    >
+      {!embedded && <div className="kids-translator-decor" aria-hidden="true"><span /><span /></div>}
       <div className="kids-container kids-translator-container">
-        <TranslatorIntro inView={inView} reducedMotion={reducedMotion} />
+        {!embedded && <TranslatorIntro inView={inView} reducedMotion={reducedMotion} />}
         <TranslationModeSwitch mode={mode} onChange={changeMode} inView={inView} reducedMotion={reducedMotion} />
         <AnimatePresence mode="wait" initial={false}><motion.div
           key={mode}

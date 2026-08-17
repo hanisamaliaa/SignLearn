@@ -19,10 +19,12 @@
     "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
     "smoke:db": "node scripts/smoke-db.mjs",
     "smoke:all": "node scripts/smoke-all.mjs",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
     "db:schema": "psql \"$DATABASE_URL\" -f src/database/schema.sql",
     "db:migrate": "psql \"$DATABASE_URL\" -f src/database/migrate.sql",
-    "gen:secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\""
+    "gen:secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
+    "seed:wordbank": "node src/database/seedWordBank.js",
+    "smoke:wordbank": "node scripts/smoke-wordbank.mjs"
   },
   "keywords": [
     "signlearn",

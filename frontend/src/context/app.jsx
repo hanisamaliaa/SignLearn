@@ -263,8 +263,8 @@ export function AppProvider({ children }) {
         toUiUser({
           ...user,
           profile: {
-            ...(previous?.profile ?? {}),
-            ...(user?.profile ?? {}),
+            ...previous?.profile,
+            ...user?.profile,
             ...(phone !== undefined ? { phone } : {}),
             ...(avatar !== undefined ? { avatar } : {}),
           },
