@@ -3,6 +3,12 @@ import { Card, Button, Badge, Modal, Alert, Input } from "../../components/ui/ui
 import { PlusIcon, EditIcon, TrashIcon, SearchIcon } from "../../components/ui/Icons";
 import { courseService } from "../../services";
 import {
+  getCourseThumbnail,
+  imageFileToDataUrl,
+  saveCourseThumbnail,
+  removeCourseThumbnail,
+} from "../../utils/courseThumbnail";
+import {
   useAdminResource,
   useFlash,
   runMutation,
@@ -19,10 +25,9 @@ import {
  *   terang-terangan. Versi lama menyalin seluruh objek kursus apa adanya —
  *   yang berarti setiap penyimpanan akan gagal 422 begitu tersambung API.
  *
- * · Kotak "Klik untuk unggah gambar" diganti input URL. Skema menyimpan
- *   `thumbnail VARCHAR(500)`, bukan berkas; tidak ada penyimpanan objek di
- *   proyek ini. Kotak unggah yang tidak mengunggah apa pun hanya menunda
- *   penemuan masalahnya sampai hari demo.
+ * · Thumbnail tidak dikirim sebagai berkas ke backend karena API saat ini hanya
+ *   menerima URL http/https. Gambar yang dipilih admin dikompres dan disimpan
+ *   di localStorage perangkat, lalu dipakai di seluruh halaman frontend.
  *
  * · Menghapus kursus dapat DITOLAK 409 bila sudah ada yang mempelajarinya.
  *   Itu bukan galat tak terduga melainkan penjagaan yang disengaja, jadi
@@ -37,24 +42,12 @@ const EMPTY_FORM = {
   category: "",
   level: "Pemula",
   description: "",
-  thumbnail: "",
   estimatedHours: 2,
   sortOrder: 0,
   isLocked: false,
 };
 
-/**
- * Thumbnail dengan cadangan.
- *
- * URL diketik admin, jadi ia bisa salah ketik hari ini atau mati bulan depan.
- * Menyembunyikan `<img>` yang gagal (`display:none`) menyisakan LUBANG seukuran
- * gambar — kartunya terlihat rusak, bukan terlihat "belum ada gambar".
- * Kegagalan dicatat di state supaya React merender placeholder yang sama
- * dengan kursus tanpa thumbnail sama sekali.
- *
- * `key` pada pemanggil me-reset state ini ketika URL-nya berganti; tanpa itu
- * satu URL rusak akan membuat URL penggantinya ikut dianggap rusak.
- */
+/** Thumbnail dengan fallback untuk daftar kursus admin. */
 function Thumbnail({ src, className, fallbackClassName }) {
   const [failed, setFailed] = useState(false);
 
@@ -79,6 +72,8 @@ export default function AdminCourses() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [thumbnailFile, setThumbnailFile] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -109,6 +104,8 @@ export default function AdminCourses() {
   function openAdd() {
     setEditCourse(null);
     setForm({ ...EMPTY_FORM, sortOrder: courses.length });
+    setThumbnailPreview("");
+    setThumbnailFile(null);
     setFormErrors({});
     setModalOpen(true);
   }
@@ -121,11 +118,12 @@ export default function AdminCourses() {
       category: course.category ?? "",
       level: course.level ?? "Pemula",
       description: course.description ?? "",
-      thumbnail: course.thumbnail ?? "",
       estimatedHours: course.estimatedHours ?? 0,
       sortOrder: course.sortOrder ?? 0,
       isLocked: course.isLocked ?? false,
     });
+    setThumbnailPreview(getCourseThumbnail(course));
+    setThumbnailFile(null);
     setFormErrors({});
     setModalOpen(true);
   }
@@ -133,7 +131,29 @@ export default function AdminCourses() {
   function closeModal() {
     setModalOpen(false);
     setEditCourse(null);
+    setThumbnailPreview("");
+    setThumbnailFile(null);
     setFormErrors({});
+  }
+
+  async function handleThumbnailChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      setThumbnailFile(dataUrl);
+      setThumbnailPreview(dataUrl);
+      setFormErrors((previous) => ({ ...previous, thumbnail: "" }));
+    } catch (error) {
+      setThumbnailFile(null);
+      setFormErrors((previous) => ({
+        ...previous,
+        thumbnail: error?.message ?? "Gambar tidak dapat digunakan.",
+      }));
+    } finally {
+      event.target.value = "";
+    }
   }
 
   /**
@@ -151,7 +171,8 @@ export default function AdminCourses() {
       category: form.category.trim() || null,
       level: form.level,
       description: form.description.trim() || null,
-      thumbnail: form.thumbnail.trim() || null,
+      // Backend tetap menerima URL lama/null; gambar lokal disimpan terpisah di browser.
+      thumbnail: editCourse?.thumbnail ?? null,
       estimatedHours: Number(form.estimatedHours) || 0,
       sortOrder: Number(form.sortOrder) || 0,
       isLocked: Boolean(form.isLocked),
@@ -177,9 +198,26 @@ export default function AdminCourses() {
       return;
     }
 
+    let thumbnailSaveFailed = false;
+    if (thumbnailFile) {
+      const savedCourseId = outcome.result?.id ?? editCourse?.id;
+      try {
+        saveCourseThumbnail(savedCourseId, thumbnailFile);
+      } catch {
+        thumbnailSaveFailed = true;
+      }
+    }
+
     closeModal();
     await reload();
-    show("success", editCourse ? "Kursus berhasil diperbarui." : "Kursus baru berhasil dibuat.");
+    show(
+      thumbnailSaveFailed ? "danger" : "success",
+      thumbnailSaveFailed
+        ? "Kursus tersimpan, tetapi gambar lokal tidak dapat disimpan di browser."
+        : editCourse
+          ? "Kursus berhasil diperbarui."
+          : "Kursus baru berhasil dibuat.",
+    );
   }
 
   async function handleDelete() {
@@ -200,6 +238,7 @@ export default function AdminCourses() {
       return;
     }
 
+    removeCourseThumbnail(target.id);
     await reload();
     show("success", "Kursus berhasil dihapus.");
   }
@@ -295,7 +334,7 @@ export default function AdminCourses() {
               <div className="relative">
                 <Thumbnail
                   key={course.thumbnail ?? "none"}
-                  src={course.thumbnail}
+                  src={getCourseThumbnail(course)}
                   className="w-full h-40 object-cover"
                   fallbackClassName="w-full h-40 bg-[var(--surface-3)] flex items-center justify-center text-4xl"
                 />
@@ -458,23 +497,31 @@ export default function AdminCourses() {
           </div>
 
           <div>
-            <Input
-              label="URL Thumbnail"
-              value={form.thumbnail}
-              onChange={(e) => setForm((p) => ({ ...p, thumbnail: e.target.value }))}
-              placeholder="https://contoh.com/gambar.jpg"
-              error={formErrors.thumbnail}
+            <label className="text-sm font-medium text-[var(--text)] mb-1.5 block">
+              Gambar Thumbnail
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleThumbnailChange}
+              className="w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm text-[var(--text)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-3)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--text)]"
             />
             <p className="text-xs text-[var(--text-subtle)] mt-1">
-              Harus diawali http:// atau https://. Kosongkan bila belum ada.
+              Pilih gambar dari perangkat ini. Gambar otomatis diperkecil agar ringan dan tersimpan lokal di browser.
             </p>
-            {form.thumbnail.trim() && (
-              <Thumbnail
-                key={form.thumbnail.trim()}
-                src={form.thumbnail.trim()}
+            {formErrors.thumbnail && (
+              <p className="text-xs text-[#E74C3C] mt-1">{formErrors.thumbnail}</p>
+            )}
+            {thumbnailPreview ? (
+              <img
+                src={thumbnailPreview}
+                alt="Pratinjau thumbnail kursus"
                 className="mt-2 h-24 w-full object-cover rounded-xl border border-[var(--border)]"
-                fallbackClassName="mt-2 h-24 w-full rounded-xl border border-dashed border-[var(--border)] flex items-center justify-center text-xs text-[var(--text-subtle)]"
               />
+            ) : (
+              <div className="mt-2 h-24 w-full rounded-xl border border-dashed border-[var(--border)] flex items-center justify-center text-xs text-[var(--text-subtle)]">
+                Belum ada gambar thumbnail
+              </div>
             )}
           </div>
 
