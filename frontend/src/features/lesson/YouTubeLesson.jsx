@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PlayIcon, AlertCircleIcon, ArrowRightIcon } from "../../components/ui/Icons";
+import { PlayIcon, AlertCircleIcon, ArrowRightIcon, ClockIcon, RefreshIcon } from "../../components/ui/Icons";
 import {
-  FALLBACK_THUMBNAIL_QUALITY,
+  THUMBNAIL_QUALITY_CHAIN,
   parseYouTubeId,
   thumbnailUrl,
   watchUrl,
+  formatDuration,
 } from "./youtube";
 import { EMBED_BLOCKED_CODES, loadYouTubeApi } from "./youtubeApi";
 
@@ -23,7 +24,7 @@ import { EMBED_BLOCKED_CODES, loadYouTubeApi } from "./youtubeApi";
  * Tiga jalur mundur, karena ini bergantung pada pihak ketiga yang bisa gagal:
  *   · skrip API tidak selesai dimuat  -> <iframe> biasa, penyelesaian manual
  *   · pemilik video mematikan embed   -> tautan tonton di YouTube
- *   · sampul maxres tidak ada         -> turun ke hqdefault
+ *   · sampul maxres tidak ada         -> turun ke sddefault, lalu hqdefault
  */
 export default function YouTubeLesson({
   videoUrl,
@@ -40,8 +41,16 @@ export default function YouTubeLesson({
   const endedRef = useRef(false);
   const startedRef = useRef(false);
 
-  const [phase, setPhase] = useState("idle"); // idle | loading | playing | iframe | blocked
-  const [thumbQuality, setThumbQuality] = useState("maxresdefault");
+  const [phase, setPhase] = useState("idle"); // idle | resuming | loading | playing | iframe | blocked
+  const [thumbIndex, setThumbIndex] = useState(0);
+  const [thumbLoaded, setThumbLoaded] = useState(false);
+
+  // Resume state
+  const [resumePosition, setResumePosition] = useState(null);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const resumeStartTime = useRef(null);
+
+  const currentThumbQuality = THUMBNAIL_QUALITY_CHAIN[thumbIndex] || THUMBNAIL_QUALITY_CHAIN[THUMBNAIL_QUALITY_CHAIN.length - 1];
 
   // Callback disimpan di ref agar player tidak perlu dibuat ulang hanya karena
   // induknya merender ulang dengan fungsi baru.
@@ -52,22 +61,58 @@ export default function YouTubeLesson({
   useEffect(() => { durationCallback.current = onDurationKnown; }, [onDurationKnown]);
   useEffect(() => { startedCallback.current = onStarted; }, [onStarted]);
 
+  // Check for saved resume position on mount
+  useEffect(() => {
+    if (!videoId) return;
+    try {
+      const saved = localStorage.getItem(`yt-resume-${videoId}`);
+      if (saved) {
+        const position = Number(saved);
+        if (Number.isFinite(position) && position > 5) {
+          setResumePosition(position);
+          setShowResumePrompt(true);
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [videoId]);
+
+  // Save position periodically during playback
+  const savePosition = useCallback((position) => {
+    if (!videoId || !Number.isFinite(position)) return;
+    try {
+      localStorage.setItem(`yt-resume-${videoId}`, String(Math.floor(position)));
+    } catch { /* localStorage unavailable */ }
+  }, [videoId]);
+
+  // Clear saved position on video end
+  const clearResume = useCallback(() => {
+    if (!videoId) return;
+    try {
+      localStorage.removeItem(`yt-resume-${videoId}`);
+    } catch { /* localStorage unavailable */ }
+  }, [videoId]);
+
   useEffect(() => () => {
     playerRef.current?.destroy?.();
     playerRef.current = null;
   }, []);
 
-  const start = useCallback(async () => {
-    if (!videoId || phase !== "idle") return;
+  const handleThumbError = useCallback(() => {
+    setThumbIndex((prev) => {
+      if (prev < THUMBNAIL_QUALITY_CHAIN.length - 1) return prev + 1;
+      return prev;
+    });
+  }, []);
+
+  const start = useCallback(async (startFrom) => {
+    if (!videoId || (phase !== "idle" && phase !== "resuming")) return;
     setPhase("loading");
+    resumeStartTime.current = startFrom || null;
 
     let YT;
     try {
       YT = await loadYouTubeApi();
     } catch {
-      // Video tetap harus bisa ditonton walaupun API-nya tidak tersedia.
-      // Tanpa API tidak ada kejadian pemutaran, jadi menekan putar itu sendiri
-      // yang dihitung sebagai mulai belajar.
       if (!startedRef.current) {
         startedRef.current = true;
         startedCallback.current?.();
@@ -77,14 +122,21 @@ export default function YouTubeLesson({
     }
     if (!containerRef.current) return;
 
+    const playerVars = {
+      autoplay: 1,
+      rel: 0,
+      modestbranding: 1,
+      playsinline: 1,
+    };
+
+    // If resuming, seek to saved position after player loads
+    if (startFrom && startFrom > 0) {
+      playerVars.start = Math.floor(startFrom);
+    }
+
     playerRef.current = new YT.Player(containerRef.current, {
       videoId,
-      playerVars: {
-        autoplay: 1,
-        rel: 0,              // tidak menawarkan video kanal lain setelah selesai
-        modestbranding: 1,
-        playsinline: 1,
-      },
+      playerVars,
       events: {
         onReady: (event) => {
           setPhase("playing");
@@ -92,18 +144,32 @@ export default function YouTubeLesson({
           if (Number.isFinite(duration) && duration > 0) {
             durationCallback.current?.(duration);
           }
+          // If we have a resume position that wasn't handled by start param,
+          // seek manually
+          if (startFrom && startFrom > 0 && playerVars.start === undefined) {
+            event.target.seekTo(startFrom, true);
+          }
         },
         onStateChange: (event) => {
-          // Ditandai mulai hanya ketika benar-benar diputar, bukan saat
-          // halaman dibuka: membuka lalu langsung pergi bukan belajar.
           if (event.data === YT.PlayerState.PLAYING && !startedRef.current) {
             startedRef.current = true;
             startedCallback.current?.();
           }
+          // Save position while playing
+          if (event.data === YT.PlayerState.PLAYING) {
+            const intervalId = setInterval(() => {
+              const pos = playerRef.current?.getCurrentTime?.();
+              if (Number.isFinite(pos)) savePosition(pos);
+            }, 5000);
+            // Store interval so we can clear it later
+            playerRef.current._positionInterval = intervalId;
+          } else if (playerRef.current?._positionInterval) {
+            clearInterval(playerRef.current._positionInterval);
+            playerRef.current._positionInterval = null;
+          }
           if (event.data !== YT.PlayerState.ENDED || endedRef.current) return;
-          // Sekali saja: menonton ulang tidak boleh mengirim penyelesaian
-          // berkali-kali ke server.
           endedRef.current = true;
+          clearResume();
           endedCallback.current?.();
         },
         onError: (event) => {
@@ -112,13 +178,26 @@ export default function YouTubeLesson({
         },
       },
     });
-  }, [videoId, phase]);
+  }, [videoId, phase, savePosition, clearResume]);
+
+  const handleResumeFromSaved = useCallback(() => {
+    setShowResumePrompt(false);
+    setPhase("resuming");
+    start(resumePosition);
+  }, [resumePosition, start]);
+
+  const handleStartFromBeginning = useCallback(() => {
+    setShowResumePrompt(false);
+    setResumePosition(null);
+    try { localStorage.removeItem(`yt-resume-${videoId}`); } catch {}
+    start(0);
+  }, [videoId, start]);
 
   if (!videoId) {
     return (
       <Frame className={className}>
         <Notice
-          icon={<AlertCircleIcon size={22} />}
+          icon={<AlertCircleIcon size={24} />}
           title="Video pelajaran belum tersedia"
           detail="Tautan video belum diisi atau formatnya tidak dikenali. Hubungi pengelola kursus."
         />
@@ -130,7 +209,7 @@ export default function YouTubeLesson({
     return (
       <Frame className={className}>
         <Notice
-          icon={<AlertCircleIcon size={22} />}
+          icon={<AlertCircleIcon size={24} />}
           title="Video ini tidak dapat diputar di sini"
           detail="Pemiliknya membatasi pemutaran di situs lain."
           action={
@@ -138,7 +217,7 @@ export default function YouTubeLesson({
               href={watchUrl(videoId)}
               target="_blank"
               rel="noreferrer noopener"
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="lesson-yt-cta"
             >
               Tonton di YouTube <ArrowRightIcon size={14} />
             </a>
@@ -162,54 +241,99 @@ export default function YouTubeLesson({
     );
   }
 
-  if (phase === "loading" || phase === "playing") {
+  if (phase === "loading" || phase === "playing" || phase === "resuming") {
     return (
       <Frame className={className}>
-        {/* Wadah ini digantikan seluruhnya oleh <iframe> milik YouTube. */}
         <div ref={containerRef} className="absolute inset-0 h-full w-full" />
         {phase === "loading" && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#1A2332]">
-            <span className="text-sm text-white/70">Memuat video…</span>
+          <div className="lesson-yt-loading">
+            <div className="lesson-yt-loading-spinner" />
+            <span className="text-sm text-white/80 font-medium">Memuat video…</span>
           </div>
         )}
       </Frame>
     );
   }
 
+  // ── Idle: thumbnail + play button ──────────────────────────────────
+  const thumbSrc = thumbnailUrl(videoId, currentThumbQuality);
+
   return (
     <Frame className={className}>
       <button
         type="button"
-        onClick={start}
+        onClick={() => start(0)}
         aria-label={`Putar video: ${title || "pelajaran"}`}
-        className="group absolute inset-0 h-full w-full cursor-pointer"
+        className="lesson-yt-play-area"
       >
+        {/* Thumbnail skeleton */}
+        {!thumbLoaded && (
+          <div className="absolute inset-0 lesson-yt-thumb-skeleton" />
+        )}
+
+        {/* Thumbnail image */}
         <img
-          src={thumbnailUrl(videoId, thumbQuality)}
+          src={thumbSrc}
           alt=""
           loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover"
-          onError={() => setThumbQuality(FALLBACK_THUMBNAIL_QUALITY)}
+          className={`lesson-yt-thumb ${thumbLoaded ? "is-loaded" : ""}`}
+          onError={handleThumbError}
+          onLoad={() => setThumbLoaded(true)}
         />
-        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/10" />
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/40 bg-white/15 backdrop-blur-sm transition-transform duration-200 group-hover:scale-110 group-hover:bg-white/25">
-            <PlayIcon size={28} className="ml-1 text-white" />
+
+        {/* Gradient overlay */}
+        <span className="lesson-yt-gradient" />
+
+        {/* Play button + title */}
+        <span className="lesson-yt-overlay">
+          <span className="lesson-yt-play-btn">
+            <PlayIcon size={32} className="ml-1 text-white" />
           </span>
           {title && (
-            <span className="max-w-[85%] text-center text-sm font-medium text-white drop-shadow">
-              {title}
-            </span>
+            <span className="lesson-yt-title">{title}</span>
           )}
         </span>
       </button>
+
+      {/* Resume prompt overlay */}
+      {showResumePrompt && resumePosition && (
+        <div className="lesson-yt-resume-overlay" role="dialog" aria-label="Lanjutkan dari terakhir ditonton">
+          <div className="lesson-yt-resume-card">
+            <div className="lesson-yt-resume-icon">
+              <ClockIcon size={20} />
+            </div>
+            <div className="lesson-yt-resume-text">
+              <p className="lesson-yt-resume-heading">Lanjutkan dari terakhir kamu belajar?</p>
+              <p className="lesson-yt-resume-time">Terakhir ditonton: {formatDuration(resumePosition)}</p>
+            </div>
+            <div className="lesson-yt-resume-actions">
+              <button
+                type="button"
+                onClick={handleResumeFromSaved}
+                className="lesson-yt-resume-btn primary"
+              >
+                <PlayIcon size={14} className="ml-0.5" />
+                Lanjut dari {formatDuration(resumePosition)}
+              </button>
+              <button
+                type="button"
+                onClick={handleStartFromBeginning}
+                className="lesson-yt-resume-btn secondary"
+              >
+                <RefreshIcon size={14} />
+                Mulai dari awal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Frame>
   );
 }
 
 function Frame({ children, className = "" }) {
   return (
-    <div className={`relative aspect-video w-full overflow-hidden bg-[#1A2332] ${className}`}>
+    <div className={`lesson-yt-frame ${className}`}>
       {children}
     </div>
   );
@@ -217,8 +341,8 @@ function Frame({ children, className = "" }) {
 
 function Notice({ icon, title, detail, action }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white">
+    <div className="lesson-yt-notice">
+      <span className="lesson-yt-notice-icon">
         {icon}
       </span>
       <p className="text-sm font-semibold text-white">{title}</p>
