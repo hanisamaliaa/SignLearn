@@ -33,6 +33,7 @@ function buildPageRange(current, total) {
 export default function Dictionary() {
   const reducedMotion = useReducedMotion();
   const vocabRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -97,13 +98,13 @@ export default function Dictionary() {
 
   const showAlphabet = activeType === "all" || activeType === "alphabet";
   const showVocabulary = activeType === "all" || activeType === "vocabulary";
-  const nothingFound = !letters.length && !filteredWords.length && !loading && !wordsError && !search;
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchInput("");
     setSearch("");
     setCurrentPage(1);
-  };
+    searchInputRef.current?.focus();
+  }, []);
 
   const handleTypeChange = (type) => {
     setActiveType(type);
@@ -126,12 +127,23 @@ export default function Dictionary() {
     setTimeout(scrollToVocab, 50);
   };
 
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Escape" && searchInput) {
+      event.preventDefault();
+      handleClearSearch();
+    }
+  };
+
   const pageStart = filteredWords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(safePage * PAGE_SIZE, filteredWords.length);
   const pageRange = useMemo(() => buildPageRange(safePage, totalPages), [safePage, totalPages]);
 
+  const showSearchInfo = search && !loading;
+  const showSearchEmpty = search && !loading && !wordsError && filteredWords.length === 0 && (!showAlphabet || letters.length === 0);
+  const searchResultCount = filteredWords.length;
+
   return (
-    <div className="dictionary-page space-y-6">
+    <div className="dictionary-page space-y-5">
       {/* Header */}
       <header className="dictionary-header">
         <div>
@@ -147,13 +159,16 @@ export default function Dictionary() {
       </header>
 
       {/* Search */}
-      <div className="dictionary-search-wrap">
+      <div className="dictionary-search-wrap" role="search" aria-label="Cari di Kamus BISINDO">
         <div className="dictionary-search-inner">
           <SearchIcon size={17} className="dictionary-search-icon" aria-hidden="true" />
           <input
+            ref={searchInputRef}
+            type="search"
             className="dictionary-search-input"
             value={searchInput}
             onChange={(event) => { setSearchInput(event.target.value); setCurrentPage(1); }}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Cari huruf atau kata..."
             aria-label="Cari huruf atau kata dalam kamus"
           />
@@ -188,28 +203,17 @@ export default function Dictionary() {
       </div>
 
       {/* Search info */}
-      {search && (
-        <p className="dictionary-search-info">
+      {showSearchInfo && (
+        <p className="dictionary-search-info" aria-live="polite" aria-atomic="true">
           Hasil untuk &ldquo;{search}&rdquo;
-          {filteredWords.length > 0 && (
-            <span> — {filteredWords.length} kata ditemukan</span>
+          {searchResultCount > 0 && (
+            <> &mdash; <strong>{searchResultCount} kata ditemukan</strong></>
           )}
         </p>
       )}
 
-      {/* Nothing found */}
-      {nothingFound && (
-        <Card>
-          <div className="dictionary-empty">
-            <p className="text-[var(--text-muted)]">
-              Tidak ada yang cocok. Coba kata lain atau periksa kembali ejaannya.
-            </p>
-          </div>
-        </Card>
-      )}
-
       {/* Search empty result */}
-      {search && !filteredWords.length && !letters.length && !loading && !wordsError && (
+      {showSearchEmpty && (
         <Card>
           <div className="dictionary-empty">
             <p className="text-[var(--text-muted)]">
@@ -293,7 +297,7 @@ export default function Dictionary() {
               ))}
             </div>
           ) : paginatedWords.length > 0 ? (
-            <div className="bisindo-word-grid">
+            <div className="bisindo-word-grid dictionary-result-enter" key={`${search}-${safePage}-${activeCategory}`}>
               {paginatedWords.map((item) => (
                 <button
                   type="button"
