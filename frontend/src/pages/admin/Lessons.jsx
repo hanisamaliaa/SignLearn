@@ -230,16 +230,16 @@ export default function AdminLessons() {
 
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total Pelajaran", value: lessons.length, color: "#4F8EF7" },
+          { label: "Total Pelajaran", value: lessons.length, color: "var(--chart-blue)" },
           {
             label: "Terbuka",
             value: lessons.filter((l) => !l.isLocked).length,
-            color: "#2ECC71",
+            color: "var(--chart-green)",
           },
           {
             label: "Terkunci",
             value: lessons.filter((l) => l.isLocked).length,
-            color: "#E74C3C",
+            color: "var(--chart-red)",
           },
         ].map((s) => (
           <div

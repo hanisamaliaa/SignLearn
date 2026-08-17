@@ -10,15 +10,15 @@ import {
 } from "../../components/ui/Icons";
 
 const PASS_METRICS = [
-  { label: "Nilai Anda", value: "", color: "#2ECC71" },
-  { label: "Nilai KKM", value: "70", color: "#4F8EF7" },
-  { label: "Status", value: "Lulus", color: "#2ECC71" },
+  { label: "Nilai Anda", value: "", color: "var(--chart-green)" },
+  { label: "Nilai KKM", value: "70", color: "var(--chart-blue)" },
+  { label: "Status", value: "Lulus", color: "var(--chart-green)" },
 ];
 
 const FAIL_METRICS = [
-  { label: "Nilai Anda", value: "", color: "#E74C3C" },
-  { label: "Nilai KKM", value: "70", color: "#4F8EF7" },
-  { label: "Selisih", value: "", color: "#E74C3C" },
+  { label: "Nilai Anda", value: "", color: "var(--chart-red)" },
+  { label: "Nilai KKM", value: "70", color: "var(--chart-blue)" },
+  { label: "Selisih", value: "", color: "var(--chart-red)" },
 ];
 
 const TIPS = [
@@ -152,7 +152,7 @@ export default function QuizResult() {
             </div>
             <div className="p-8">
               <div className="text-center mb-6">
-                <ScoreRing score={score} color="#2ECC71" />
+                <ScoreRing score={score} color="var(--chart-green)" />
                 <Stars stars={stars} />
                 <p className="text-sm text-[var(--text-muted)] font-medium">
                   {stars === 3
@@ -213,7 +213,7 @@ export default function QuizResult() {
             </div>
             <div className="p-8">
               <div className="text-center mb-6">
-                <ScoreRing score={score} color="#E74C3C" />
+                <ScoreRing score={score} color="var(--chart-red)" />
                 <p className="text-sm text-[var(--text-muted)] font-medium">
                   Jangan menyerah! Pelajari kembali materinya dan coba lagi.
                 </p>

@@ -333,6 +333,7 @@ function GrowthChart({ series }) {
 
 export default function AdminDashboard() {
   const range = useMemo(last30Days, []);
+  const [courseView, setCourseView] = useState("all");
 
   /**
    * Empat permintaan sekaligus, dan setiap kegagalan ditangkap SENDIRI-sendiri.
@@ -439,6 +440,31 @@ export default function AdminDashboard() {
     "var(--adm-purple)",
     "var(--adm-green)",
   ];
+
+  const interactiveCourses = (() => {
+    const normalized = courses.map((course) => {
+      const stat = enrollmentByCourse.get(course.id);
+      const completion = stat ? Math.round(stat.rate * 100) : null;
+      return {
+        ...course,
+        enrollments: stat?.enrollments ?? 0,
+        completion,
+      };
+    });
+
+    if (courseView === "active") {
+      return normalized.filter((course) => course.enrollments > 0);
+    }
+
+    if (courseView === "top") {
+      return [...normalized]
+        .filter((course) => course.enrollments > 0)
+        .sort((a, b) => b.enrollments - a.enrollments)
+        .slice(0, 5);
+    }
+
+    return normalized.slice(0, 8);
+  })();
 
   return (
     <div className="admin-dashboard space-y-6">
@@ -592,91 +618,77 @@ export default function AdminDashboard() {
         </div>
       </section>
 
-      <section className="admin-panel overflow-hidden">
-        <div className="admin-panel-heading px-1">
+      <section className="admin-panel admin-course-insights">
+        <div className="admin-panel-heading admin-course-insights-heading">
           <div>
-            <h3>Ringkasan Kursus</h3>
-            <p>Pendaftar dihitung dari aktivitas 30 hari terakhir</p>
+            <h3>Eksplorasi Performa Kursus</h3>
+            <p>Pantau kursus yang paling aktif tanpa tabel yang kaku.</p>
+          </div>
+          <div className="admin-course-tabs" role="tablist" aria-label="Filter performa kursus">
+            {[
+              ["all", "Semua"],
+              ["active", "Sedang Aktif"],
+              ["top", "Paling Aktif"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`admin-course-tab ${courseView === value ? "is-active" : ""}`}
+                onClick={() => setCourseView(value)}
+                role="tab"
+                aria-selected={courseView === value}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                {["Kursus", "Kategori", "Level", "Pelajaran", "Pendaftar", "Penyelesaian"].map(
-                  (column) => (
-                    <th key={column}>{column}</th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {courses.map((course) => {
-                const stat = enrollmentByCourse.get(course.id);
-                const completion = stat ? Math.round(stat.rate * 100) : null;
-
-                return (
-                  <tr key={course.id}>
-                    <td>
-                      <div className="flex items-center gap-3 min-w-[220px]">
-                        {course.thumbnail ? (
-                          <img src={getCourseThumbnail(course)} alt="" className="admin-course-thumb" />
-                        ) : (
-                          <div className="admin-course-thumb bg-[var(--surface-3)] flex items-center justify-center text-xs">
-                            📚
-                          </div>
-                        )}
-                        <span className="admin-table-title">{course.title}</span>
-                      </div>
-                    </td>
-                    <td>{course.category ?? "—"}</td>
-                    <td>
-                      <Badge
-                        variant={
-                          course.level === "Pemula"
-                            ? "success"
-                            : course.level === "Menengah"
-                              ? "warning"
-                              : "primary"
-                        }
-                        className="admin-level-badge"
-                      >
-                        {course.level}
-                      </Badge>
-                    </td>
-                    <td>{course.totalLessons}</td>
-                    <td>{stat ? stat.enrollments : "—"}</td>
-                    <td>
-                      {completion === null ? (
-                        <span className="text-[var(--text-subtle)]">—</span>
-                      ) : (
-                        <div className="flex items-center gap-2 min-w-[120px]">
-                          <div className="admin-table-progress">
-                            <span
-                              style={{
-                                width: `${completion}%`,
-                                background:
-                                  completion >= 60 ? "var(--adm-blue)" : "var(--adm-yellow)",
-                              }}
-                            />
-                          </div>
-                          <strong>{completion}%</strong>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {courses.length === 0 && (
-            <div className="text-center py-12 text-[var(--text-subtle)]">
-              <p>Belum ada kursus.</p>
+        {interactiveCourses.length === 0 ? (
+          <div className="admin-course-empty">
+            <span className="admin-course-empty-icon" aria-hidden="true">📚</span>
+            <div>
+              <strong>Belum ada aktivitas kursus</strong>
+              <p>Kursus akan muncul di sini ketika mulai dipelajari pengguna.</p>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="admin-course-insight-list">
+            {interactiveCourses.map((course, index) => {
+              const completion = course.completion ?? 0;
+              const tone = progressPalette[index % progressPalette.length];
+              return (
+                <div key={course.id} className="admin-course-insight-card">
+                  <div className="admin-course-insight-main">
+                    {course.thumbnail ? (
+                      <img src={getCourseThumbnail(course)} alt="" className="admin-course-insight-thumb" />
+                    ) : (
+                      <div className="admin-course-insight-thumb is-empty" aria-hidden="true">📚</div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="admin-course-insight-title-row">
+                        <h4 className="admin-course-insight-title">{course.title}</h4>
+                        <span className="admin-course-insight-level">{course.level ?? "—"}</span>
+                      </div>
+                      <p className="admin-course-insight-meta">
+                        {course.category ?? "Tanpa kategori"} · {course.totalLessons ?? 0} pelajaran · {course.enrollments} pendaftar
+                      </p>
+                      <div className="admin-course-insight-progress-row">
+                        <div className="admin-course-insight-progress" aria-label={`Penyelesaian ${completion}%`}>
+                          <span style={{ width: `${completion}%`, background: tone }} />
+                        </div>
+                        <strong style={{ color: tone }}>{course.completion === null ? "—" : `${completion}%`}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="admin-course-insight-badge">
+                    {course.enrollments > 0 ? "Aktif" : "Belum aktif"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -290,14 +290,14 @@ export default function AdminReports() {
       {!loading && tab === "overview" && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatTile label="Total Pengguna" value={totals.users ?? 0} color="#4F8EF7" />
-            <StatTile label="Pengguna Aktif" value={totals.activeUsers ?? 0} color="#2ECC71" />
+            <StatTile label="Total Pengguna" value={totals.users ?? 0} color="var(--chart-blue)" />
+            <StatTile label="Pengguna Aktif" value={totals.activeUsers ?? 0} color="var(--chart-green)" />
             <StatTile
               label="Rata-rata Skor"
               value={`${quizSummary?.avgScore ?? engagement.avgQuizScore ?? 0}%`}
-              color="#F4B400"
+              color="var(--chart-yellow)"
             />
-            <StatTile label="Tingkat Kelulusan" value={`${passRate}%`} color="#6C63FF" />
+            <StatTile label="Tingkat Kelulusan" value={`${passRate}%`} color="var(--chart-purple)" />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-5">
@@ -306,7 +306,7 @@ export default function AdminReports() {
                 <h2 className="font-bold text-[var(--text)]">Pendaftar Baru</h2>
                 <Badge variant="primary">{period.label}</Badge>
               </div>
-              <ActivityBars series={series} metric="newUsers" color="#4F8EF7" />
+              <ActivityBars series={series} metric="newUsers" color="var(--chart-blue)" />
             </Card>
 
             <Card>
@@ -314,7 +314,7 @@ export default function AdminReports() {
                 <h2 className="font-bold text-[var(--text)]">Pelajaran Selesai</h2>
                 <Badge variant="success">{period.label}</Badge>
               </div>
-              <ActivityBars series={series} metric="lessonsCompleted" color="#2ECC71" />
+              <ActivityBars series={series} metric="lessonsCompleted" color="var(--chart-green)" />
             </Card>
 
             <Card>
@@ -322,7 +322,7 @@ export default function AdminReports() {
                 <h2 className="font-bold text-[var(--text)]">Kuis Dikerjakan</h2>
                 <Badge variant="warning">{period.label}</Badge>
               </div>
-              <ActivityBars series={series} metric="quizzesTaken" color="#F4B400" />
+              <ActivityBars series={series} metric="quizzesTaken" color="var(--chart-yellow)" />
             </Card>
           </div>
 
@@ -339,9 +339,9 @@ export default function AdminReports() {
             ) : (
               <div className="space-y-3">
                 {[
-                  { label: "90 – 100", color: "#2ECC71", count: quizSummary.bands.high },
-                  { label: "70 – 89", color: "#4F8EF7", count: quizSummary.bands.mid },
-                  { label: "< 70", color: "#E74C3C", count: quizSummary.bands.low },
+                  { label: "90 – 100", color: "var(--chart-green)", count: quizSummary.bands.high },
+                  { label: "70 – 89", color: "var(--chart-blue)", count: quizSummary.bands.mid },
+                  { label: "< 70", color: "var(--chart-red)", count: quizSummary.bands.low },
                 ].map((d) => (
                   <div key={d.label} className="flex items-center gap-3 text-sm">
                     <span className="w-16 text-[var(--text-muted)] text-xs">{d.label}</span>
@@ -462,7 +462,7 @@ export default function AdminReports() {
                               className="h-full rounded-full"
                               style={{
                                 width: `${pct}%`,
-                                background: pct >= 60 ? "#2ECC71" : "#F4B400",
+                                background: pct >= 60 ? "var(--chart-green)" : "var(--chart-yellow)",
                               }}
                             />
                           </div>
