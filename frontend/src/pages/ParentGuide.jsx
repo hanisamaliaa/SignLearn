@@ -5,6 +5,7 @@ export default function ParentGuide() {
     <PublicPage
       eyebrow="Dukungan"
       title="Panduan Orang Tua"
+      showBackToDashboard
       intro="Dukung anak belajar dan mempraktikkan BISINDO bersama keluarga. SignLearn Kids membantu anak usia 6–12 tahun mempelajari dan mempraktikkan BISINDO melalui pembelajaran visual, aktivitas interaktif, dan materi yang dekat dengan kehidupan sehari-hari."
     >
       <div className="grid gap-12">
