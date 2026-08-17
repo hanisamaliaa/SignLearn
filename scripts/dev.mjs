@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -19,6 +19,43 @@ import process from "node:process";
 
 const root = path.resolve(import.meta.dirname, "..");
 const isWindows = os.platform() === "win32";
+
+// ─── Port cleanup ─────────────────────────────────────────────────────
+// When a previous dev session is killed abruptly (terminal closed, SIGKILL),
+// child processes (Vite, Node) may become orphaned and keep holding their
+// ports. This causes "Port XXXX is already in use" on the next start.
+// We detect and terminate stale processes before spawning new ones.
+function killStaleProcessOnPort(port) {
+  try {
+    const pids = execSync(`lsof -ti:${port}`, { encoding: "utf-8" })
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), "SIGTERM");
+        console.log(`[cleanup] Killed stale process PID ${pid} on port ${port}`);
+      } catch {
+        // Process may have exited between lsof and kill — ignore.
+      }
+    }
+  } catch {
+    // lsof returns non-zero when no process uses the port — that's fine.
+  }
+}
+
+const services = [
+  { name: "frontend", port: parseInt(process.env.PORT || "4789", 10) },
+  { name: "backend", port: 4788 },
+  { name: "ai", port: 8000 },
+];
+
+for (const { port } of services) {
+  killStaleProcessOnPort(port);
+}
+
+// Give the OS a moment to fully release the ports after killing stale processes.
+await new Promise((r) => setTimeout(r, 500));
 
 const venvBin = path.join(root, "ai", ".venv", isWindows ? "Scripts" : "bin");
 const uvicorn = path.join(venvBin, isWindows ? "uvicorn.exe" : "uvicorn");
@@ -48,7 +85,7 @@ const npmRun = (workspace) =>
 // membuat Matplotlib memuntahkan peringatan setiap start.
 const cacheDir = path.join(os.tmpdir(), "signlearn-cache");
 
-const services = [
+const childProcesses = [
   npmRun("backend"),
   spawn(uvicorn, ["app.main:app", "--app-dir", "ai", "--host", "127.0.0.1", "--port", "8000"], {
     cwd: root,
@@ -67,18 +104,18 @@ let stopping = false;
 function stop(exitCode = 0) {
   if (stopping) return;
   stopping = true;
-  for (const service of services) {
-    if (!service.killed) service.kill("SIGTERM");
+  for (const proc of childProcesses) {
+    if (!proc.killed) proc.kill("SIGTERM");
   }
   setTimeout(() => process.exit(exitCode), 100);
 }
 
-for (const service of services) {
-  service.on("error", (error) => {
+for (const proc of childProcesses) {
+  proc.on("error", (error) => {
     console.error(error.message);
     stop(1);
   });
-  service.on("exit", (code, signal) => {
+  proc.on("exit", (code, signal) => {
     if (!stopping) {
       console.error(`Layanan pengembangan berhenti (${signal || code}).`);
       stop(code || 1);
