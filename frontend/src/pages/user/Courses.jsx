@@ -14,7 +14,21 @@ import {
   XIcon,
 } from "../../components/ui/Icons";
 import { formatEstimatedHours } from "../../features/lesson/courseMeta";
+import { getCourseThumbnail } from "../../utils/courseThumbnail";
 import Pagination from "../../components/common/Pagination";
+
+/** Thumbnail dengan fallback untuk kartu kursus user. */
+function CourseThumbnail({ src, alt, className }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div className={className} aria-hidden="true">
+        📚
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+}
 
 const LEVELS = ["Semua", "Pemula", "Menengah", "Lanjutan"];
 const ITEMS_PER_PAGE = 6;
@@ -178,7 +192,7 @@ export default function Courses() {
       <section className="courses-intro">
         <div>
           <p className="courses-kicker">RUANG BELAJARMU</p>
-          <h1>Yuk, belajar BISINDO! 🤟</h1>
+          <h1>Yuk, belajar BISINDO!</h1>
           <p>Pilih materi yang ingin kamu pelajari hari ini.</p>
         </div>
         <div className="courses-intro-progress">
@@ -292,7 +306,11 @@ export default function Courses() {
                       }}
                     >
                       <div className="course-kids-art">
-                        <img src={course.thumbnail} alt="" />
+                        <CourseThumbnail
+                          src={getCourseThumbnail(course)}
+                          alt={course.title}
+                          className="w-full h-full object-cover"
+                        />
                         <Badge
                           variant={
                             course.level === "Pemula"
@@ -349,7 +367,11 @@ export default function Courses() {
                 {locked.map((course) => (
                   <article key={course.id} className="course-kids-card is-locked">
                     <div className="course-kids-art">
-                      <img src={course.thumbnail} alt="" />
+                      <CourseThumbnail
+                        src={getCourseThumbnail(course)}
+                        alt={course.title}
+                        className="w-full h-full object-cover"
+                      />
                       <Badge variant="muted">{course.level}</Badge>
                       <span className="course-lock">
                         <LockIcon size={20} />
@@ -365,7 +387,7 @@ export default function Courses() {
                         )}
                       </div>
                       <div className="course-locked-note">
-                        <LockIcon size={14} /> Selesaikan kursus sebelumnya
+                        <LockIcon size={14} /> Kursus ini belum tersedia
                       </div>
                     </div>
                   </article>
@@ -384,14 +406,18 @@ export default function Courses() {
                 <div className="courses-section-heading">
                   <div>
                     <h2>Kursus Terkunci</h2>
-                    <p>Selesaikan kursus sebelumnya untuk membukanya.</p>
+                    <p>Kursus ini akan segera tersedia.</p>
                   </div>
                 </div>
                 <div className="courses-card-grid">
                   {locked.map((course) => (
                     <article key={course.id} className="course-kids-card is-locked">
                       <div className="course-kids-art">
-                        <img src={course.thumbnail} alt="" />
+                        <CourseThumbnail
+                          src={getCourseThumbnail(course)}
+                          alt={course.title}
+                          className="w-full h-full object-cover"
+                        />
                         <Badge variant="muted">{course.level}</Badge>
                         <span className="course-lock">
                           <LockIcon size={20} />
@@ -407,7 +433,7 @@ export default function Courses() {
                           )}
                         </div>
                         <div className="course-locked-note">
-                          <LockIcon size={14} /> Selesaikan kursus sebelumnya untuk membuka
+                          <LockIcon size={14} /> Kursus ini belum tersedia
                         </div>
                       </div>
                     </article>

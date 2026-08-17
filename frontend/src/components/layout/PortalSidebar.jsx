@@ -12,6 +12,8 @@ export default function PortalSidebar({
   onClose,
   onToggleSidebar,
   onLogout,
+  isPremium,
+  subscriptionLoading,
 }) {
   const isAdmin = variant === "admin";
   const isUser = variant === "user";
@@ -84,7 +86,10 @@ export default function PortalSidebar({
                           >
                             <Icon size={18} className="shrink-0 user-nav-icon" />
                             <span className="user-nav-label">{item.label}</span>
-                            {isPremiumItem && (
+                            {isPremiumItem && isPremium && (
+                              <span className="user-nav-premium-badge" aria-label="Premium aktif">AKTIF</span>
+                            )}
+                            {isPremiumItem && !isPremium && (
                               <span className="user-nav-premium-sparkle" aria-hidden="true">✦</span>
                             )}
                           </NavLink>
@@ -132,7 +137,11 @@ export default function PortalSidebar({
           )}
           <div className="min-w-0">
             <p className="user-sidebar-profile-name truncate">{currentUser?.name || "Pengguna"}</p>
-            <p className="user-sidebar-profile-email truncate">{currentUser?.email || ""}</p>
+            {!isAdmin && !subscriptionLoading && (
+              <span className={`user-sidebar-plan-badge ${isPremium ? "is-premium" : "is-free"}`}>
+                {isPremium ? "⭐ Premium" : "Paket Gratis"}
+              </span>
+            )}
           </div>
         </div>
         <button

@@ -24,7 +24,7 @@ export default function TranslatorIntro({ inView, reducedMotion }) {
       <div className="kids-demo-intro-grid">
         <motion.header className="kids-translator-header" {...reveal(0.05, -18)}>
           <p className="kids-translator-eyebrow">Coba BISINDO langsung</p>
-          <h2 id="demo-title">Yuk, Coba Gerakannya! <span aria-hidden="true">👋</span></h2>
+          <h2 id="demo-title">Yuk, Coba Gerakannya!</h2>
           <p>Tunjukkan gerakanmu lewat kamera, atau ketik kata yang ingin kamu lihat dalam BISINDO.</p>
           <div className="kids-demo-trust" aria-label="Informasi penggunaan kamera">
             <span><i aria-hidden="true" /> Kamera hanya aktif setelah kamu mengizinkannya</span>
