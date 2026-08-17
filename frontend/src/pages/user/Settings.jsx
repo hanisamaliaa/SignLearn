@@ -44,9 +44,7 @@ export default function Settings() {
     minFontSize,
     maxFontSize,
     highContrast,
-    reducedMotion,
     setHighContrast,
-    setReducedMotion,
   } = useTheme();
   const {
     language,
@@ -193,19 +191,6 @@ export default function Settings() {
                   checked={highContrast}
                   onChange={setHighContrast}
                   ariaLabel="Kontras tinggi"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-[var(--text)]">Kurangi animasi</p>
-                  <p className="text-xs leading-5 text-[var(--text-subtle)]">
-                    Mengurangi gerakan dan transisi agar lebih nyaman.
-                  </p>
-                </div>
-                <Toggle
-                  checked={reducedMotion}
-                  onChange={setReducedMotion}
-                  ariaLabel="Kurangi animasi"
                 />
               </div>
             </div>
