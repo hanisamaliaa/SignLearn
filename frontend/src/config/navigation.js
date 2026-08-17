@@ -1,7 +1,9 @@
 import {
+  AlphabetBlocksIcon,
   BookIcon,
   ChartIcon,
   GridIcon,
+  HandSignIcon,
   HomeIcon,
   SettingsIcon,
   StarIcon,
@@ -33,6 +35,25 @@ export const userNavSections = [
         page: "user/progress",
         path: "/progress",
         icon: ChartIcon,
+        roles: ["user"],
+      },
+    ],
+  },
+  {
+    label: "ALAT BISINDO",
+    items: [
+      {
+        label: "Penerjemah",
+        page: "user/translator",
+        path: "/translator",
+        icon: HandSignIcon,
+        roles: ["user"],
+      },
+      {
+        label: "Kamus BISINDO",
+        page: "user/dictionary",
+        path: "/dictionary",
+        icon: AlphabetBlocksIcon,
         roles: ["user"],
       },
     ],

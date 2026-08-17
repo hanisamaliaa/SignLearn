@@ -72,10 +72,12 @@ export function optionalAuthenticate(req, _res, next) {
       email: payload.email,
       role: payload.role,
     };
-  } catch {
-    // Token rusak diperlakukan sebagai tamu, bukan error. Endpoint ini
-    // memang boleh diakses tanpa autentikasi.
-    req.user = null;
+  } catch (error) {
+    // Tanpa token berarti tamu; token yang DIKIRIM tetapi rusak/kedaluwarsa
+    // tetap 401. Ini penting bagi klien admin: respons 401 memicu rotasi access
+    // token, sedangkan respons 200 sebagai tamu diam-diam menyembunyikan entri
+    // inactive dan membuat dashboard tampak rusak setelah 15 menit.
+    return next(error);
   }
 
   return next();

@@ -7,6 +7,7 @@ import {
   TrophyIcon,
 } from "../../components/ui/Icons";
 import { adminService, courseService, userService } from "../../services";
+import { getCourseThumbnail } from "../../utils/courseThumbnail";
 import { useAdminResource } from "../../hooks/useAdminResource";
 
 /**
@@ -620,7 +621,7 @@ export default function AdminDashboard() {
                     <td>
                       <div className="flex items-center gap-3 min-w-[220px]">
                         {course.thumbnail ? (
-                          <img src={course.thumbnail} alt="" className="admin-course-thumb" />
+                          <img src={getCourseThumbnail(course)} alt="" className="admin-course-thumb" />
                         ) : (
                           <div className="admin-course-thumb bg-[var(--surface-3)] flex items-center justify-center text-xs">
                             📚

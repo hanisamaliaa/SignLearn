@@ -2058,6 +2058,79 @@ textarea,
   box-shadow: 0 -4px 0 #f8fcff;
 }
 
+.kids-demo-section.kids-translator-section.is-embedded {
+  min-height: 0;
+  overflow: visible;
+  border-radius: 28px;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.kids-translator-section.is-embedded .kids-translator-container {
+  max-width: none;
+  padding-inline: 0;
+}
+
+.kids-translator-section.is-embedded .kids-mode-switch {
+  margin-top: 0;
+}
+
+.user-translator-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid #c9e0eb;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 8%, rgb(255 209 102 / 0.27), transparent 34%),
+    linear-gradient(135deg, #f7fcff, #eef9f7);
+  padding: clamp(20px, 3vw, 30px);
+  box-shadow: 0 12px 32px rgb(15 36 80 / 0.07);
+}
+
+.user-translator-page-header > div:first-child { max-width: 720px; }
+.user-translator-page-header h1 {
+  margin-top: 4px;
+  color: var(--kids-navy);
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+  font-weight: var(--kids-font-extrabold);
+  letter-spacing: -0.035em;
+}
+.user-translator-page-header h1 + p {
+  margin-top: 8px;
+  color: var(--kids-muted);
+  line-height: 1.65;
+}
+.user-translator-eyebrow {
+  color: var(--kids-teal);
+  font-size: 0.76rem;
+  font-weight: var(--kids-font-extrabold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.user-translator-capabilities {
+  display: flex;
+  max-width: 420px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.user-translator-capabilities span {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #c8dde7;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  padding: 8px 12px;
+  color: #315465;
+  font-size: 0.78rem;
+  font-weight: var(--kids-font-bold);
+}
+
 .kids-translator-decor {
   position: absolute;
   inset: 0;
@@ -3600,9 +3673,16 @@ textarea,
 .admin-word-form-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .admin-word-preview { display: grid; gap: 16px; text-align: center; }
 .admin-word-preview :is(img, video) { width: 100%; max-height: 380px; border-radius: 16px; background: #0f172a; object-fit: contain; }
+/* Iframe YouTube tidak punya rasio bawaan; tanpa ini tingginya runtuh ke 150px. */
+.admin-word-preview iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 16px; background: #0f172a; }
 .admin-word-preview > div { display: grid; min-height: 220px; place-items: center; align-content: center; gap: 10px; border-radius: 16px; background: var(--surface-2); }
 .admin-word-preview > div span { font-size: 3rem; }
 .admin-word-preview > div strong { color: var(--primary); font-size: 2rem; }
+.admin-word-preview > .admin-word-alphabet-preview { display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 18px; padding: 18px; }
+.admin-word-alphabet-word { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.admin-word-alphabet-word figure { overflow: hidden; width: clamp(64px, 15vw, 92px); margin: 0; border: 1px solid var(--border); border-radius: 12px; background: white; }
+.admin-word-preview .admin-word-alphabet-word img { display: block; width: 100%; max-height: none; border-radius: 0; background: white; object-fit: cover; }
+.admin-word-alphabet-word figcaption { padding: 4px; color: #344256; font-size: 0.78rem; font-weight: 800; }
 @media (max-width: 520px) { .admin-word-pagination { align-items: stretch; flex-direction: column; } .admin-word-pagination > div > * { flex: 1; } }
 
 /* ─── Register Page (SignLearn) ────────────────────────────────────────────── */
@@ -6572,6 +6652,13 @@ textarea,
 .courses-search-clear:hover { background: var(--surface-3); color: var(--cp-text); }
 .courses-search-clear:active { transform: scale(.92); }
 
+/* ── Course detail page ──────────────────────────────────────────────── */
+.course-detail { max-width: 1100px; margin: 0 auto; }
+.course-lesson-row:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.course-lesson-row:active { transform: scale(.995); }
+.course-quiz-card { transition: transform .18s ease, box-shadow .18s ease; }
+.course-quiz-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgb(40 85 140 / .08); }
+
 /* ── Courses cards section wrapper ────────────────────────────────────── */
 .courses-cards-section { scroll-margin-top: 24px; }
 
@@ -6832,6 +6919,8 @@ textarea,
 [data-theme="dark"] .courses-pagination-btn:hover:not(:disabled):not(.is-active) { border-color: #5577a8; color: #eef4fb; }
 [data-theme="dark"] .courses-pagination-btn.is-active { border-color: #087b70; background: #087b70; color: #fff; }
 [data-theme="dark"] .courses-pagination-mobile-info { color: #eef4fb; }
+[data-theme="dark"] .course-quiz-card { border-color: #2c3d54; }
+[data-theme="dark"] .course-lesson-row:focus-visible { outline-color: #60a5fa; }
 
 @media (max-width: 900px) {
   .courses-summary-grid { grid-template-columns: 1fr; }
@@ -8342,6 +8431,247 @@ textarea,
     transform: none !important;
   }
 }
+
+/* ── Penerjemah teks/suara → ejaan BISINDO ─────────────────────────────
+   Huruf dirender dari 26 aset abjad, jadi tata letaknya harus menampung
+   jumlah kotak yang berubah-ubah, bukan satu pemutar berukuran tetap. */
+
+.kids-sign-viewport-spell {
+  place-items: start stretch;
+  overflow-y: auto;
+  padding: clamp(14px, 2.4vw, 22px);
+}
+
+.kids-spell-result { display: grid; gap: 16px; width: 100%; align-content: start; }
+
+/* Jarak antar kata sengaja jauh lebih lebar daripada jarak antar huruf.
+   Tanpa selisih itu "AKU MAU" terbaca sebagai satu kata berhuruf enam. */
+.kids-spell-words { display: flex; flex-wrap: wrap; gap: 10px clamp(20px, 3.5vw, 34px); }
+.kids-spell-word { display: grid; gap: 5px; justify-items: center; }
+.kids-spell-letters { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+
+.kids-spell-letter {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  margin: 0;
+  border: 1px solid var(--kids-border);
+  border-radius: 12px;
+  background: white;
+  padding: 5px 5px 3px;
+  transition: transform var(--kids-motion-fast) var(--kids-ease-out),
+              border-color var(--kids-motion-fast) ease,
+              box-shadow var(--kids-motion-fast) ease;
+}
+
+/* Ukuran visual dibatasi agar detail canvas HD tetap tajam dan semua kartu
+   konsisten. Lihat assets/bisindo/README.md untuk provenans aset. */
+.kids-spell-letter img { display: block; width: clamp(52px, 7vw, 84px); height: auto; }
+.kids-spell-letter figcaption {
+  color: var(--kids-muted);
+  font-size: 0.72rem;
+  font-weight: var(--kids-font-bold);
+  letter-spacing: 0.04em;
+}
+
+.kids-spell-letter.is-current {
+  border-color: var(--kids-blue);
+  box-shadow: 0 0 0 3px rgb(22 119 200 / 0.22);
+  transform: translateY(-3px);
+}
+.kids-spell-letter.is-current figcaption { color: var(--kids-blue); }
+
+.kids-spell-word-label {
+  color: var(--kids-navy);
+  font-size: 0.78rem;
+  font-weight: var(--kids-font-extrabold);
+  letter-spacing: 0.02em;
+}
+
+.kids-spell-note {
+  margin: 0;
+  border-radius: 10px;
+  background: #fff6e0;
+  padding: 9px 12px;
+  color: #7a5a12;
+  font-size: 0.78rem;
+}
+
+.kids-spell-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.kids-spell-speeds { display: inline-flex; border: 1px solid var(--kids-border); border-radius: 999px; background: white; padding: 3px; }
+.kids-spell-speeds button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 7px 13px;
+  color: var(--kids-muted);
+  font-size: 0.76rem;
+  font-weight: var(--kids-font-bold);
+  cursor: pointer;
+  transition: background-color var(--kids-motion-fast) ease, color var(--kids-motion-fast) ease;
+}
+.kids-spell-speeds button.is-active { background: var(--kids-blue); color: white; }
+.kids-spell-count { color: var(--kids-muted); font-size: 0.76rem; font-weight: var(--kids-font-medium); }
+
+.kids-spell-entry {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--kids-border);
+  padding: 14px clamp(18px, 3vw, 26px) 18px;
+}
+.kids-spell-entry-tag {
+  justify-self: start;
+  border-radius: 999px;
+  background: #e6f7f3;
+  padding: 4px 9px;
+  color: #00766c;
+  font-size: 0.66rem;
+  font-weight: var(--kids-font-extrabold);
+  letter-spacing: 0.05em;
+}
+.kids-spell-entry strong { color: var(--kids-navy); font-size: 0.95rem; }
+.kids-spell-entry p { margin: 0; color: var(--kids-muted); font-size: 0.82rem; line-height: 1.5; }
+
+/* ── Masukan suara ───────────────────────────────────────────────────── */
+
+.kids-voice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+.kids-voice-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--kids-border);
+  border-radius: 12px;
+  background: white;
+  padding: 9px 15px;
+  color: var(--kids-navy);
+  font-size: 0.82rem;
+  font-weight: var(--kids-font-bold);
+  cursor: pointer;
+  transition: border-color var(--kids-motion-fast) ease, background-color var(--kids-motion-fast) ease;
+}
+.kids-voice-button:hover { border-color: var(--kids-blue); background: #eef7ff; }
+.kids-voice-button.is-listening { border-color: var(--kids-coral); background: #fdeced; color: #a8262c; }
+
+/* Denyut hanya menandai bahwa mikrofon hidup; tidak ada informasi yang
+   hilang bila pengguna meminta gerak dikurangi. */
+.kids-voice-button.is-listening svg { animation: kids-mic-pulse 1.15s ease-in-out infinite; }
+@keyframes kids-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .kids-voice-button.is-listening svg { animation: none; }
+}
+
+.kids-voice-interim { color: var(--kids-muted); font-size: 0.8rem; font-style: italic; }
+
+.kids-voice-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  border-radius: 10px;
+  background: #fdeced;
+  padding: 9px 12px;
+  color: #a8262c;
+  font-size: 0.8rem;
+}
+.kids-voice-error button { border: 0; background: transparent; color: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.kids-voice-unavailable { margin: 0; color: var(--kids-muted); font-size: 0.76rem; line-height: 1.5; }
+
+[data-theme="dark"] :is(.kids-spell-speeds, .kids-voice-button) { border-color: #40536a; background: #18263a; color: #edf5ff; }
+
+/* Kartu huruf tetap putih di tema gelap. Aset abjadnya berlatar putih padat,
+   jadi kartu gelap hanya menghasilkan persegi putih yang mengambang dengan
+   tepi keras — lebih buruk daripada kartu terang yang menyatu dengan gambarnya. */
+[data-theme="dark"] .kids-spell-letter { border-color: #6d8296; background: white; }
+[data-theme="dark"] .kids-spell-letter figcaption { color: #46586a; }
+[data-theme="dark"] .kids-spell-note { background: #3a2f14; color: #ffdf9e; }
+[data-theme="dark"] .kids-voice-button.is-listening { background: #3d1f22; color: #ffb9bd; }
+[data-theme="dark"] .kids-voice-error { background: #3d1f22; color: #ffb9bd; }
+[data-theme="dark"] .kids-spell-entry-tag { background: #123c38; color: #7fe3d6; }
+
+/* ── Kamus BISINDO ────────────────────────────────────────────────────── */
+
+.bisindo-letter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+
+.bisindo-letter-card {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  /* Kartu tetap putih di kedua tema: aset abjadnya berlatar putih padat,
+     jadi kartu gelap hanya menghasilkan persegi putih bertepi keras. */
+  background: white;
+  padding: 10px 8px 8px;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 160ms ease, box-shadow 160ms ease;
+}
+.bisindo-letter-card img { display: block; width: 100%; max-width: 92px; height: auto; }
+.bisindo-letter-card span { color: #46586a; font-size: 0.86rem; font-weight: 800; letter-spacing: 0.04em; }
+.bisindo-letter-card:hover { border-color: var(--primary, #2f6fe4); box-shadow: 0 8px 20px rgb(15 36 80 / 0.12); transform: translateY(-2px); }
+.bisindo-letter-card:focus-visible { outline: 3px solid var(--primary, #2f6fe4); outline-offset: 2px; }
+
+.bisindo-word-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+
+.bisindo-word-card {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms ease;
+}
+.bisindo-word-card:hover { border-color: var(--primary, #2f6fe4); transform: translateY(-2px); }
+.bisindo-word-card:focus-visible { outline: 3px solid var(--primary, #2f6fe4); outline-offset: 2px; }
+.bisindo-word-card strong { color: var(--text); font-size: 1rem; }
+.bisindo-word-card small { color: var(--text-subtle); font-size: 0.76rem; line-height: 1.45; }
+
+.bisindo-word-spelling {
+  color: var(--primary, #2f6fe4);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.bisindo-detail { display: grid; gap: 14px; }
+.bisindo-detail p { margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+.bisindo-detail-hero {
+  justify-self: center;
+  width: min(240px, 70%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: white;
+  padding: 10px;
+}
+
+.bisindo-detail-spelling { display: flex; flex-wrap: wrap; gap: 10px 26px; }
+.bisindo-detail-word { display: grid; gap: 5px; justify-items: center; }
+.bisindo-detail-word > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.bisindo-detail-word > span { color: var(--text); font-size: 0.8rem; font-weight: 800; }
+.bisindo-detail-word figure {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  padding: 5px 5px 3px;
+}
+.bisindo-detail-word figure img { display: block; width: 60px; height: auto; }
+.bisindo-detail-word figcaption { color: #46586a; font-size: 0.7rem; font-weight: 700; }
+
+[data-theme="dark"] :is(.bisindo-letter-card, .bisindo-detail-hero, .bisindo-detail-word figure) { border-color: #6d8296; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    USER PORTAL ENHANCEMENTS — SignLearn Kids

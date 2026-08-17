@@ -40,7 +40,7 @@ Materi BISINDO digital sering tersebar dan belum menyediakan satu alur yang meng
 - Registrasi, login, pemulihan sesi, reset kata sandi, dan pengelolaan profil.
 - Dashboard pembelajar, daftar kursus, pelajaran, kuis fullscreen, hasil, dan progres.
 - Dashboard administrator untuk pengguna, kursus, pelajaran, kuis, laporan, dan bank kata.
-- Penerjemah teks-ke-BISINDO berbasis bank kata serta kamera-ke-teks untuk alfabet A-Z.
+- Penerjemah teks/suara menjadi ejaan alfabet BISINDO A-Z dengan batas kata yang jelas, kamus ilustrasi alfabet, bank kata terkelompok, serta kamera-ke-teks A-Z; seluruh mode tersedia dari sidebar portal pengguna.
 - Tema terang/gelap, ukuran teks, kontras tinggi, reduced motion, subtitle, dan focus mode.
 - Access token berumur pendek, rotasi refresh token, rate limiting, validasi request, dan error envelope konsisten.
 
@@ -61,6 +61,11 @@ AI tidak digunakan untuk autentikasi, penilaian kuis, atau aturan progres.
 Model saat ini hanya mengenali alfabet statis A-Z, bukan kalimat BISINDO
 kontinu. Detail model, dataset, training, evaluasi, dan keterbatasan tersedia
 di [AI Documentation](ai/README.md).
+
+Fitur **Teks/Suara → BISINDO** juga dibatasi pada alfabet: contoh “aku mau
+makan” ditampilkan sebagai A-K-U, M-A-U, M-A-K-A-N. Hasil ini adalah ejaan
+jari, bukan terjemahan tata bahasa atau isyarat kata penuh. Input suara memakai
+Web Speech API berbahasa Indonesia dan selalu memiliki fallback ketikan.
 
 ## GitHub Repository
 

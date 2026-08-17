@@ -128,6 +128,7 @@ cd backend
 export DATABASE_URL='postgresql://USER:PASSWORD@HOST:PORT/DATABASE'
 npm run db:schema
 npm run seed
+npm run seed:wordbank
 ```
 
 ### Database yang sudah berisi data
@@ -139,6 +140,7 @@ cd backend
 export DATABASE_URL='postgresql://USER:PASSWORD@HOST:PORT/DATABASE'
 npm run db:migrate
 npm run seed
+npm run seed:wordbank
 ```
 
 Jangan menjalankan `schema.sql` sebagai pengganti migrasi pada database yang harus dipertahankan tanpa meninjau dampaknya.
@@ -154,6 +156,14 @@ Seed membaca:
   seed memang sengaja dijalankan dengan `NODE_ENV=production`.
 
 Jika password kosong, script membuat password kuat dan menampilkannya satu kali. Tidak ada password admin bawaan yang disimpan di repository.
+
+### Seed Bank Kata
+
+`npm run seed:wordbank` melakukan upsert idempoten atas kata awal yang
+dikelompokkan ke kategori Sapaan, Keluarga, Sekolah, Perasaan, dan Kegiatan
+Harian. Setiap entri menyimpan ejaan A-Z dan tidak memasang URL media palsu.
+Perintah ini juga membersihkan media rusak pada entri seed yang sudah ada tanpa
+menghapus ID barisnya.
 
 ## Environment variables
 

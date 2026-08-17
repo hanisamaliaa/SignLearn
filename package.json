@@ -13,6 +13,7 @@
     "ai:capture": "node scripts/venv-run.mjs python -m ai.training.capture_webcam",
     "ai:validate": "node scripts/venv-run.mjs python -m ai.training.evaluate_model --real-world",
     "ai:test": "node scripts/venv-run.mjs python -m unittest discover -s ai/tests -t .",
+    "assets:bisindo": "node scripts/venv-run.mjs python -m scripts.prepare_bisindo_authoritative_assets",
     "build:frontend": "npm --prefix frontend run build",
     "lint:frontend": "npm --prefix frontend run lint"
   },

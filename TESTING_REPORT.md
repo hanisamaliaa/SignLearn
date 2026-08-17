@@ -1,17 +1,31 @@
 # SignLearn Kids — Verification Report
 
-Date: 2026-08-13
+Date: 2026-08-17
 
-This report records tests that were actually run. Database-dependent cases are
-marked blocked when the local environment cannot supply PostgreSQL credentials;
-they are not counted as passed.
+This report records tests that were actually run. Cases outside the current
+feature scope remain marked blocked/not run and are never counted as passed.
+
+## Automated verification — Bank Kata, Kamus, and text/speech spelling
+
+| Check | Result |
+|---|---|
+| Backend unit/contract tests | 50/50 passed |
+| Frontend behavior tests | 85/85 passed |
+| Camera/AI service tests | 13/13 passed |
+| Live PostgreSQL + HTTP smoke test | 11/11 passed; temporary row deleted |
+| Frontend lint | 0 errors and 0 warnings |
+| Vite production build | Passed; 605 modules transformed |
+| BISINDO assets in production output | Exactly A–Z (26 lossless 1024×1024 WebP files); audit sheet excluded |
+| Dependency audit | 0 known vulnerabilities in root, backend, and frontend |
+| Approved-canvas reproduction | Passed via `npm run assets:bisindo`; source hash locked |
+| Production preview smoke | `/`, `/translator`, `/dictionary`, JS, and CSS return HTTP 200 |
 
 ## Black-box cases
 
 | ID | Module | Scenario | Expected | Actual | Status | Notes |
 |---|---|---|---|---|---|---|
 | CFG-001 | Backend | Start with legacy Mongo-only `.env` | Refuse unsafe/mismatched config | Startup identifies missing `DATABASE_URL` and short JWT secret | Pass | Prevents a false healthy auth server |
-| AUTH-001 | Database | Connect to PostgreSQL | Connection succeeds before HTTP listens | No `DATABASE_URL` is available locally | Blocked | Supply a real PostgreSQL URL, then migrate |
+| AUTH-001 | Database | Connect to PostgreSQL | Connection succeeds before HTTP listens | Health endpoint reports `database: connected` | Pass | Verified through the live server |
 | AUTH-002 | Auth | Register valid user | Hashed user row and session created | Not executed without database | Blocked | Repository/service path inspected |
 | AUTH-003 | Auth | Duplicate registration | 409 without duplicate row | Not executed without database | Blocked | Unique lower-email index exists |
 | AUTH-004 | Auth | Wrong password | Generic 401 | Not executed without database | Blocked | Timing-safe dummy bcrypt path inspected |
@@ -24,7 +38,14 @@ they are not counted as passed.
 | TRN-001 | Word bank | Validate entry | Valid entry accepted | Backend unit test passes | Pass | Includes media URL and aliases |
 | TRN-002 | Word bank | Reject invalid entry | Field errors returned | Backend unit test passes | Pass | Rejects unsafe URL and invalid status |
 | TRN-003 | Word bank | Normalize query | Case/spacing/full-width normalized | Backend unit test passes | Pass | Uses NFKC and Indonesian lowercase |
-| TRN-004 | Word bank | Admin creates then public searches | DB-backed result appears without React edit | Not executed without database | Blocked | End-to-end layers implemented |
+| TRN-004 | Word bank | Admin creates, updates, searches, then deletes | DB-backed lifecycle works through HTTP | Live smoke test passed and removed its row | Pass | Also verifies inactive public/admin visibility |
+| TRN-005 | Admin word bank | Expired/invalid optional-auth token | Return 401 so the client refresh interceptor runs | Invalid Bearer token returns 401 | Pass | Prevents inactive entries silently disappearing |
+| DCT-001 | Dictionary | Open alphabet without API data | Complete A–Z remains available | 26 build-time HD assets and fallback UI verified | Pass | Word categories degrade independently |
+| DCT-002 | Dictionary | Group seeded learning words | Stable category and alphabetical ordering | 33 words across 5 categories | Pass | Seed is idempotent |
+| TXT-001 | Text translator | Translate `aku mau makan` | Render A-K-U, M-A-U, M-A-K-A-N with word spacing | Frontend behavior test passes | Pass | Explicit fingerspelling, not word-level grammar |
+| TXT-002 | Voice input | Dictate Indonesian text | Use `id-ID`; fall back to typing when unsupported/insecure | Hook and fallback states verified | Pass | Physical microphone/browser matrix remains manual QA |
+| TXT-003 | User portal | Open translator from sidebar | One protected page exposes text, speech, and camera modes | Route/menu included in production bundle and preview returns 200 | Pass | Text mode is the dashboard default |
+| AST-001 | Alphabet media | Regenerate A–Z from approved canvas | Deterministic lossless 1024×1024 cards plus manifest | Source hash, pixel round-trip, dimensions, and 26-file assertion pass | Pass | User-approved imagegen canvas is the locked production source |
 | AI-001 | AI | Temporal smoothing and duplicate suppression | Stable output, no spam | 13 recognition tests pass | Pass | EMA, majority vote, release lock |
 | AI-002 | AI | Camera route cleanup | Tracks stop on unmount | Hook cleanup inspected | Pass | Physical camera test not available |
 
@@ -34,7 +55,7 @@ they are not counted as passed.
 |---|---|---|---|---|---|
 | UAT-CHILD-01 | Child | Use camera translator and understand feedback | UI covers ready, detecting, uncertain, success, clear/copy | Pass | Physical gesture quality requires a child/device session |
 | UAT-PARENT-01 | Parent | Configure accessibility and retain it | Unified persistent preferences apply across public and portal routes | Pass | Browser zoom matrix remains manual QA |
-| UAT-ADMIN-01 | Admin | Manage and preview BISINDO vocabulary | CRUD/search/filter/page/preview UI and protected API implemented | Blocked | Real database credentials unavailable |
+| UAT-ADMIN-01 | Admin | Manage and preview BISINDO vocabulary | CRUD/search/filter/status/preview API path works against PostgreSQL | Pass | Final cross-browser visual review remains recommended |
 
 ## SUS readiness
 
