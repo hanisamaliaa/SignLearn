@@ -19,14 +19,10 @@ export default function AccessibilityMenu({ open, onClose }) {
     textSize,
     highContrast,
     reduceMotion,
-    subtitles,
-    focusMode,
     theme,
     setTextSize,
     setHighContrast,
     setReduceMotion,
-    setSubtitles,
-    setFocusMode,
     setTheme,
     resetAccessibility,
   } = useAccessibility();
@@ -77,8 +73,6 @@ export default function AccessibilityMenu({ open, onClose }) {
   const toggles = [
     { label: "Kontras tinggi", checked: highContrast, onChange: setHighContrast },
     { label: "Kurangi animasi", checked: reduceMotion, onChange: setReduceMotion },
-    { label: "Tampilkan subtitle", checked: subtitles, onChange: setSubtitles },
-    { label: "Mode fokus", checked: focusMode, onChange: setFocusMode },
   ];
 
   return createPortal(

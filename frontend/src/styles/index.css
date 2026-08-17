@@ -3090,12 +3090,6 @@ textarea,
   --register-muted: #3b4d63;
 }
 
-.a11y-subtitles-hidden [data-caption] { display: none !important; }
-.a11y-focus-mode [data-focus-secondary="true"],
-.a11y-focus-mode .kids-page :is(.kids-cloud, .kids-playground-flower, .kids-topic-decor, .kids-translator-decor, .kids-footer-decor, .kids-card-spotlight),
-.a11y-focus-mode .kids-page :is(.kids-quick-actions, .kids-benefits-section, .kids-progress-section, .kids-cta-section) { display: none !important; }
-.a11y-focus-mode .kids-page :is(.kids-hero, .kids-section) { background-image: none; }
-.a11y-focus-mode :is(.login-brand-decor, .login-card-spotlight, .login-benefits) { display: none !important; }
 
 .admin-a11y-button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--adm-border); border-radius: 14px; background: var(--adm-surface); color: var(--adm-text-muted); cursor: pointer; }
 .admin-a11y-button:hover { color: var(--adm-blue); box-shadow: var(--adm-shadow-sm); }
