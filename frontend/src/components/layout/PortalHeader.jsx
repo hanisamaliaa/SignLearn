@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BellIcon,
@@ -23,8 +23,31 @@ export default function PortalHeader({
   const [notifOpen, setNotifOpen] = useState(false);
   const notifications = useNotifications();
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  const notifRef = useRef(null);
   const userAvatar = resolveAvatarId(currentUser?.profile?.avatar);
   const firstName = currentUser?.name?.split(" ")[0] || "User";
+  const userEmail = currentUser?.email || "";
+
+  useEffect(() => {
+    if (!notifOpen && !profileOpen) return;
+    function handleClick(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    }
+    function handleEsc(e) {
+      if (e.key === "Escape") {
+        setProfileOpen(false);
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [notifOpen, profileOpen]);
 
   return (
     <header
@@ -61,7 +84,7 @@ export default function PortalHeader({
             <SettingsIcon size={18} />
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => {
                 setProfileOpen(!profileOpen);
@@ -74,11 +97,11 @@ export default function PortalHeader({
               <span className="admin-profile-name text-sm font-extrabold hidden sm:block">
                 {firstName}
               </span>
-              <ChevronDownIcon size={14} className="text-[var(--adm-text-subtle)]" />
+              <ChevronDownIcon size={14} className={`text-[var(--adm-text-subtle)] transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
             </button>
 
             {profileOpen && (
-              <div className="admin-dropdown absolute right-0 top-12 w-48 rounded-2xl z-50 overflow-hidden">
+              <div className="admin-dropdown absolute right-0 top-12 w-48 rounded-2xl z-50 overflow-hidden animate-scale-in">
                 <button
                   onClick={() => {
                     navigate("/admin/settings");
@@ -104,12 +127,12 @@ export default function PortalHeader({
           <button
             type="button"
             onClick={onAccessibility}
-            className="w-11 h-11 flex items-center justify-center rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+            className="user-header-action-btn"
             aria-label="Buka pengaturan aksesibilitas"
           >
             <SettingsIcon size={18} />
           </button>
-          <div className="relative">
+          <div className="relative" ref={notifRef}>
             <button
               onClick={() => {
                 const opening = !notifOpen;
@@ -117,7 +140,7 @@ export default function PortalHeader({
                 setProfileOpen(false);
                 if (opening) notifications.markAllSeen();
               }}
-              className="relative w-11 h-11 flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:bg-[var(--surface-3)] transition-colors"
+              className="relative user-header-action-btn"
               data-focus-secondary="true"
               aria-label={
                 notifications.unreadCount
@@ -126,12 +149,10 @@ export default function PortalHeader({
               }
             >
               <BellIcon size={18} />
-              {/* Titik hanya muncul bila memang ada yang belum dibaca; versi
-                  sebelumnya menampilkannya selamanya. */}
               {notifications.unreadCount > 0 && <span className="user-header-notif-dot" />}
             </button>
             {notifOpen && (
-              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl">
+              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl animate-scale-in">
                 <div className="border-b border-[var(--border)] px-4 py-3"><p className="text-sm font-semibold text-[var(--text)]">Notifikasi</p></div>
                 {notifications.items.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
@@ -162,13 +183,13 @@ export default function PortalHeader({
               </div>
             )}
           </div>
-          <div className="relative">
+          <div className="relative" ref={profileRef}>
             <button
               onClick={() => {
                 setProfileOpen(!profileOpen);
                 setNotifOpen(false);
               }}
-              className="min-h-11 flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-[var(--surface-3)] transition-colors"
+              className="user-header-profile-btn"
               aria-label="Menu profil"
             >
               <SignLearnAvatar id={userAvatar} size="sm" className="border border-white" />
@@ -177,15 +198,25 @@ export default function PortalHeader({
               </span>
               <ChevronDownIcon
                 size={14}
-                className="text-[var(--text-subtle)]"
+                className={`text-[var(--text-subtle)] transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`}
               />
             </button>
             {profileOpen && (
-              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl">
-                <button onClick={() => { navigate("/profile"); setProfileOpen(false); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-2)]"><UserIcon size={14} /> Profil</button>
-                <button onClick={() => { navigate("/settings"); setProfileOpen(false); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-2)]"><SettingsIcon size={14} /> Pengaturan</button>
+              <div className="user-header-dropdown absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl animate-scale-in">
+                <div className="px-4 py-3 border-b border-[var(--border)]">
+                  <p className="text-sm font-bold text-[var(--text)]">{currentUser?.name || "User"}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">{userEmail}</p>
+                </div>
+                <button onClick={() => { navigate("/profile"); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
+                  <UserIcon size={15} /> Profil Saya
+                </button>
+                <button onClick={() => { navigate("/settings"); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
+                  <SettingsIcon size={15} /> Pengaturan
+                </button>
                 <div className="border-t border-[var(--border)]" />
-                <button onClick={onLogout} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-[#E74C3C] hover:bg-[var(--danger-light)]"><LogoutIcon size={14} /> Keluar</button>
+                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-[#E74C3C] hover:bg-[var(--danger-light)] transition-colors">
+                  <LogoutIcon size={15} /> Keluar
+                </button>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 // ─── Button ─────────────────────────────────────────────────────────────────
 export function Button({
@@ -525,5 +525,75 @@ export function Tabs({ tabs, active, onChange }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// ─── Mascot Bubble ────────────────────────────────────────────────────────
+export function MascotBubble({ message, className = "" }) {
+  if (!message) return null;
+  return (
+    <div className={`mascot-bubble ${className}`}>
+      <span className="mascot-bubble-text">{message}</span>
+    </div>
+  );
+}
+
+// ─── Animated Number Counter ──────────────────────────────────────────────
+export function AnimatedCounter({ value, duration = 1200, suffix = "" }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef(null);
+  const numericValue = typeof value === "number" ? value : parseInt(String(value).replace(/[^0-9]/g, ""), 10) || 0;
+
+  useEffect(() => {
+    if (numericValue === 0) { setDisplay(0); return; }
+    const startTime = performance.now();
+    function step(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(eased * numericValue));
+      if (progress < 1) ref.current = requestAnimationFrame(step);
+    }
+    ref.current = requestAnimationFrame(step);
+    return () => { if (ref.current) cancelAnimationFrame(ref.current); };
+  }, [numericValue, duration]);
+
+  return <span>{display}{suffix}</span>;
+}
+
+// ─── Floating Background Shapes ───────────────────────────────────────────
+export function FloatingShapes({ count = 6, className = "" }) {
+  const shapes = Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: `${(i * 17 + 5) % 100}%`,
+    delay: `${i * 1.8}s`,
+    duration: `${14 + (i % 3) * 4}s`,
+    size: `${20 + (i % 4) * 10}px`,
+    opacity: 0.04 + (i % 3) * 0.01,
+  }));
+  return (
+    <div className={`floating-shapes ${className}`} aria-hidden="true">
+      {shapes.map((s) => (
+        <span
+          key={s.id}
+          className="floating-shape"
+          style={{
+            left: s.left,
+            animationDelay: s.delay,
+            animationDuration: s.duration,
+            width: s.size,
+            height: s.size,
+            opacity: s.opacity,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Section Label ────────────────────────────────────────────────────────
+export function SectionLabel({ children, className = "" }) {
+  return (
+    <p className={`section-label ${className}`}>{children}</p>
   );
 }

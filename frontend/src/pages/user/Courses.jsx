@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { Badge, Button, ProgressBar } from "../../components/ui/ui";
+import { Badge, Button, ProgressBar, FloatingShapes } from "../../components/ui/ui";
 import {
   ArrowRightIcon,
   BookIcon,
@@ -32,10 +32,6 @@ export default function Courses() {
     },
     {
       label: "Belajar",
-      // Dibaca dari status yang dihitung server. Rumus lamanya
-      // (`completedLessons > 0 && completedLessons < totalLessons`) tidak
-      // pernah bisa benar untuk kursus berisi satu pelajaran, sehingga angka
-      // ini selalu 0 betapapun banyak video yang sudah dibuka.
       value: COURSES.filter((course) => course.learningStatus === "in_progress").length,
       helper: "sedang dipelajari",
       tone: "blue",
@@ -50,29 +46,16 @@ export default function Courses() {
     },
   ], [COURSES]);
 
-  // Keep filtering compatible with the original course data.
-  // Some course records can omit optional text fields, so normalize them
-  // before calling toLowerCase(). This prevents the filter buttons from
-  // crashing the page when a record is incomplete.
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("id-ID");
-
     return COURSES.filter((course) => {
       const title = String(course?.title ?? "").toLocaleLowerCase("id-ID");
       const category = String(course?.category ?? "").toLocaleLowerCase("id-ID");
       const description = String(course?.description ?? "").toLocaleLowerCase("id-ID");
       const level = String(course?.level ?? "").trim();
-
       const matchSearch =
-        !query ||
-        title.includes(query) ||
-        category.includes(query) ||
-        description.includes(query);
-
-      // Preserve the original behavior: a selected level only shows
-      // courses that actually belong to that level.
+        !query || title.includes(query) || category.includes(query) || description.includes(query);
       const matchLevel = filter === "Semua" || level === filter;
-
       return matchSearch && matchLevel;
     });
   }, [COURSES, search, filter]);
@@ -90,11 +73,14 @@ export default function Courses() {
 
   return (
     <div className="courses-page space-y-7 animate-fade-in">
+      <FloatingShapes count={4} />
+
+      {/* Intro Section */}
       <section className="courses-intro">
         <div>
           <p className="courses-kicker">RUANG BELAJARMU</p>
-          <h1>Pilih pembelajaranmu!</h1>
-          <p>Temukan kursus BISINDO yang ingin kamu pelajari hari ini.</p>
+          <h1>Yuk, belajar BISINDO! 🤟</h1>
+          <p>Pilih materi yang ingin kamu pelajari hari ini.</p>
         </div>
         <div className="courses-intro-progress">
           <span>Progress keseluruhan</span>
@@ -106,14 +92,8 @@ export default function Courses() {
             <span
               style={{
                 width: `${(() => {
-                  const total = COURSES.reduce(
-                    (sum, course) => sum + (course.totalLessons ?? 0),
-                    0
-                  );
-                  const completed = COURSES.reduce(
-                    (sum, course) => sum + (course.completedLessons ?? 0),
-                    0
-                  );
+                  const total = COURSES.reduce((sum, course) => sum + (course.totalLessons ?? 0), 0);
+                  const completed = COURSES.reduce((sum, course) => sum + (course.completedLessons ?? 0), 0);
                   return total ? Math.round((completed / total) * 100) : 0;
                 })()}%`,
               }}
@@ -122,6 +102,7 @@ export default function Courses() {
         </div>
       </section>
 
+      {/* Search & Filters */}
       <section className="courses-tools" aria-label="Cari dan filter kursus">
         <label className="courses-search">
           <SearchIcon size={19} aria-hidden="true" />
@@ -144,7 +125,7 @@ export default function Courses() {
                 event.preventDefault();
                 setFilter(level);
               }}
-              className={filter === level ? "is-active" : ""}
+              className={`courses-filter-btn ${filter === level ? "is-active" : ""}`}
               aria-pressed={filter === level}
             >
               {level}
@@ -153,6 +134,7 @@ export default function Courses() {
         </div>
       </section>
 
+      {/* Summary Cards */}
       <section className="courses-summary-grid" aria-label="Ringkasan kursus">
         {summary.map((item) => (
           <article key={item.label} className={`courses-summary-card ${item.tone}`}>
@@ -166,26 +148,30 @@ export default function Courses() {
         ))}
       </section>
 
+      {/* Course Cards */}
       <section>
         <div className="courses-section-heading">
           <div>
             <h2>Pelajaran Untukmu</h2>
             <p>{filtered.length} pilihan belajar ditemukan</p>
           </div>
-          <button type="button" onClick={() => { setSearch(""); setFilter("Semua"); }} className="courses-reset">Lihat semua <ArrowRightIcon size={15} /></button>
+          <button type="button" onClick={() => { setSearch(""); setFilter("Semua"); }} className="courses-reset">
+            Lihat semua <ArrowRightIcon size={15} />
+          </button>
         </div>
 
         {filtered.length > 0 ? (
           <>
             {available.length > 0 ? (
               <div className="courses-card-grid">
-                {available.map((course) => {
+                {available.map((course, i) => {
                   const progress = getProgress(course);
                   const finished = progress === 100;
                   return (
                     <article
                       key={course.id}
-                      className="course-kids-card"
+                      className="course-kids-card animate-slide-up"
+                      style={{ animationDelay: `${i * 60}ms` }}
                       tabIndex={0}
                       onClick={() => openCourse(course)}
                       onKeyDown={(event) => {
@@ -238,11 +224,7 @@ export default function Courses() {
                             openCourse(course);
                           }}
                         >
-                          {finished
-                            ? "Lihat Detail"
-                            : progress > 0
-                              ? "Lanjutkan"
-                              : "Mulai"}
+                          {finished ? "Lihat Detail" : progress > 0 ? "Lanjutkan" : "Mulai"}
                           <ArrowRightIcon size={14} />
                         </Button>
                       </div>
@@ -267,8 +249,8 @@ export default function Courses() {
                       <div className="course-kids-meta">
                         <span>{course.totalLessons} Pelajaran</span>
                         {formatEstimatedHours(course.estimatedHours) && (
-                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
-                          )}
+                          <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                        )}
                       </div>
                       <div className="course-locked-note">
                         <LockIcon size={14} /> Selesaikan kursus sebelumnya
@@ -281,7 +263,7 @@ export default function Courses() {
           </>
         ) : (
           <div className="courses-empty">
-            <SearchIcon size={28} />
+            <div className="courses-empty-mascot">🔍</div>
             <strong>Kursus tidak ditemukan</strong>
             <span>Coba kata kunci lain atau pilih tingkat yang berbeda.</span>
           </div>
@@ -311,11 +293,11 @@ export default function Courses() {
                     <div className="course-kids-meta">
                       <span>{course.totalLessons} Pelajaran</span>
                       {formatEstimatedHours(course.estimatedHours) && (
-                            <span>{formatEstimatedHours(course.estimatedHours)}</span>
-                          )}
+                        <span>{formatEstimatedHours(course.estimatedHours)}</span>
+                      )}
                     </div>
                     <div className="course-locked-note">
-                      <LockIcon size={14} /> Selesaikan kursus sebelumnya
+                      <LockIcon size={14} /> Selesaikan kursus sebelumnya untuk membuka
                     </div>
                   </div>
                 </article>
