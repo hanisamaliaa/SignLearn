@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import * as authService from "../services/authService";
 import { Button, Input, Alert } from "../components/ui/ui";
 import { ArrowLeftIcon, CheckCircleIcon } from "../components/ui/Icons";
@@ -11,10 +11,9 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [devCode, setDevCode] = useState("");
 
   /**
-   * Meminta tautan reset.
+   * Meminta kode reset.
    *
    * Sebelumnya fungsi ini hanya menunggu 800ms lalu menyatakan "email
    * terkirim" — tanpa memanggil API sama sekali. Siapa pun yang lupa kata
@@ -36,10 +35,7 @@ export default function ForgotPassword() {
 
     setLoading(true);
     try {
-      const payload = await authService.requestPasswordReset(email.trim());
-      // Di luar produksi server mengembalikan kodenya langsung, sehingga
-      // alurnya dapat diselesaikan dan diuji tanpa kredensial SMTP.
-      setDevCode(payload?.devCode ?? "");
+      await authService.requestPasswordReset(email.trim());
       setSent(true);
     } catch (requestError) {
       setError(requestError?.message ?? "Permintaan gagal dikirim. Coba lagi sebentar, ya.");
@@ -70,8 +66,8 @@ export default function ForgotPassword() {
               Lupa Kata Sandi?
             </h1>
             <p className="text-sm text-[var(--text-muted)] mb-6">
-              Masukkan alamat email yang terdaftar. Kami akan mengirimkan tautan
-              untuk mengatur ulang kata sandi Anda.
+              Masukkan alamat email yang terdaftar. Kami akan mengirimkan kode
+              6 angka untuk mengatur ulang kata sandi Anda.
             </p>
 
             {error && (
@@ -149,27 +145,6 @@ export default function ForgotPassword() {
             </p>
             <p className="font-semibold text-[var(--text)] mb-5">{email}</p>
 
-            {devCode && (
-              <div className="mb-6 rounded-xl border border-[#F4B400]/40 bg-[var(--warning-light)] p-4 text-left">
-                <p className="text-sm font-semibold text-[var(--text)]">
-                  Mode pengembangan
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                  SMTP belum dikonfigurasi, jadi server menampilkan kodenya
-                  langsung di sini. Di produksi bagian ini tidak pernah muncul.
-                </p>
-                <p className="my-3 text-center text-2xl font-extrabold tracking-[0.4em] text-[var(--primary)]">
-                  {devCode}
-                </p>
-                <Link
-                  to={`/reset-password?email=${encodeURIComponent(email.trim())}`}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  Lanjut masukkan kode
-                </Link>
-              </div>
-            )}
-
             <div className="bg-[var(--surface-2)] rounded-xl p-4 mb-6 text-left text-sm text-[var(--text-muted)]">
               <p className="font-medium text-[var(--text)] mb-2">
                 📌 Langkah selanjutnya:
@@ -183,9 +158,18 @@ export default function ForgotPassword() {
             </div>
 
             <Button
+              fullWidth
+              onClick={() =>
+                navigate(`/reset-password?email=${encodeURIComponent(email.trim())}`)
+              }
+            >
+              Masukkan kode dari email
+            </Button>
+            <Button
               variant="secondary"
               fullWidth
-              onClick={() => { setSent(false); setDevCode(""); }}
+              onClick={() => setSent(false)}
+              className="mt-2"
             >
               Kirim Ulang Permintaan
             </Button>

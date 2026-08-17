@@ -71,9 +71,15 @@ export default function ResetPassword() {
     setLoading(true);
     try {
       await authService.resetPassword(email.trim(), code.trim(), password);
+      setPassword("");
+      setConfirmPassword("");
       setDone(true);
     } catch (resetError) {
-      setError(resetError?.message ?? "Kata sandi gagal diubah. Coba minta kode baru.");
+      setError(
+        resetError?.errors?.[0]?.message ??
+          resetError?.message ??
+          "Kata sandi gagal diubah. Coba minta kode baru.",
+      );
     } finally {
       setLoading(false);
     }
@@ -119,7 +125,7 @@ export default function ResetPassword() {
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && <Alert type="error" message={error} onClose={() => setError("")} />}
+              {error && <Alert type="danger" message={error} onClose={() => setError("")} />}
 
               <Input
                 id="reset-email"

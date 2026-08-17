@@ -176,11 +176,12 @@ export async function logoutAll(userId) {
  * SELALU sukses dari sudut pandang pemanggil, terdaftar atau tidak. Respons
  * yang berbeda akan mengubah endpoint ini menjadi alat enumerasi akun.
  *
- * @returns {Promise<{token: string|null}>} token hanya untuk dev/test
+ * Kode hanya keluar melalui kanal email (atau log backend bila SMTP tidak
+ * tersedia) dan tidak pernah menjadi nilai balik yang dapat mencapai klien.
  */
 export async function requestPasswordReset(email) {
   const user = await userRepo.findByEmailWithSecret(email);
-  if (!user) return { code: null };
+  if (!user) return;
 
   await resetRepo.invalidateForUser(user.id);
 
@@ -202,10 +203,6 @@ export async function requestPasswordReset(email) {
     code,
     expiresMinutes,
   });
-
-  // Kode dikembalikan HANYA di luar produksi, agar alurnya dapat diselesaikan
-  // dan diuji tanpa SMTP.
-  return { code: env.isProduction ? null : code };
 }
 
 /**
@@ -241,15 +238,21 @@ export async function resetPassword({ email, code, password }) {
 
   const passwordHash = await hashPassword(password);
 
-  // Keduanya WAJIB memakai `client` yang sama. Repository yang mengabaikannya
-  // akan berjalan di koneksi lain dari pool, dan transaksi ini menjadi
-  // jaminan kosong: kode reset bisa tetap sah setelah kata sandi berubah.
+  // Konsumsi kode dilakukan lebih dulu di transaksi yang sama. Klausa atomik
+  // pada `consume` memastikan dua submit bersamaan tidak dapat sama-sama
+  // memakai kode yang sama dan saling menimpa kata sandi baru.
   await withTransaction(async (client) => {
-    await userRepo.updatePassword(record.userId, passwordHash, client);
-    await resetRepo.markUsed(record.id, client);
-  });
+    const consumed = await resetRepo.consume(record.id, record.userId, client);
+    if (!consumed) throw invalid();
 
-  await tokenService.revokeAllSessions(record.userId);
+    const updated = await userRepo.updatePassword(record.userId, passwordHash, client);
+    if (!updated) throw invalid();
+
+    // Pencabutan sesi ikut transaksi. API tidak boleh menjawab gagal setelah
+    // password telanjur berubah hanya karena langkah pencabutan berikutnya
+    // gagal pada koneksi terpisah.
+    await tokenService.revokeAllSessions(record.userId, client);
+  });
 }
 
 /** Ganti kata sandi oleh pengguna yang sedang masuk. */
@@ -263,8 +266,12 @@ export async function changePassword(userId, { currentPassword, newPassword }) {
     ]);
   }
 
-  await userRepo.updatePassword(userId, await hashPassword(newPassword));
-  await tokenService.revokeAllSessions(userId);
+  const passwordHash = await hashPassword(newPassword);
+  await withTransaction(async (client) => {
+    const updated = await userRepo.updatePassword(userId, passwordHash, client);
+    if (!updated) throw ApiError.notFound("Pengguna tidak ditemukan.");
+    await tokenService.revokeAllSessions(userId, client);
+  });
 }
 
 export async function getCurrentUser(userId) {

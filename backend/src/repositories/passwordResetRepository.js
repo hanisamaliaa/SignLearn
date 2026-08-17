@@ -66,9 +66,25 @@ export async function registerFailedAttempt(id, maxAttempts) {
   return { attempts: Number(row?.attempts ?? 0), burned: Boolean(row?.used_at) };
 }
 
-export async function markUsed(id, client) {
+/**
+ * Mengonsumsi kode secara atomik.
+ *
+ * `used_at IS NULL` dan pemeriksaan expiry berada di UPDATE, bukan hanya pada
+ * SELECT sebelumnya. Dua request bersamaan akan dikunci PostgreSQL; hanya satu
+ * yang memperoleh rowCount 1 dan request lainnya dibatalkan.
+ */
+export async function consume(id, userId, client) {
   const run = client ? client.query.bind(client) : query;
-  await run(`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, [id]);
+  const { rowCount } = await run(
+    `UPDATE password_reset_tokens
+        SET used_at = NOW()
+      WHERE id = $1
+        AND user_id = $2
+        AND used_at IS NULL
+        AND expires_at > NOW()`,
+    [id, userId],
+  );
+  return rowCount === 1;
 }
 
 /**
