@@ -1,0 +1,124 @@
+import { query, withTransaction } from "../config/database.js";
+
+const iso = (value) => value?.toISOString?.() ?? value ?? null;
+
+export async function activeSubscription(userId, client = { query }) {
+  await client.query(
+    "UPDATE subscriptions SET status='expired' WHERE user_id=$1 AND status='active' AND end_date<=NOW()",
+    [userId],
+  );
+  const { rows } = await client.query(
+    `SELECT s.*, p.name plan_name, p.price, p.duration_days
+       FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id
+      WHERE s.user_id=$1 AND s.status='active' AND s.end_date>NOW()
+      ORDER BY s.end_date DESC LIMIT 1`,
+    [userId],
+  );
+  const row = rows[0];
+  return row ? {
+    id: String(row.id), plan: row.plan_name, status: row.status,
+    startDate: iso(row.start_date), endDate: iso(row.end_date),
+    price: Number(row.price), durationDays: Number(row.duration_days),
+  } : null;
+}
+
+export async function subscriptionMe(userId) {
+  const active = await activeSubscription(userId);
+  const { rows } = await query(
+    "SELECT id,name,price,duration_days FROM subscription_plans WHERE status='active' ORDER BY price",
+  );
+  return {
+    isPremium: Boolean(active), subscription: active,
+    plans: rows.map((row) => ({ id: String(row.id), name: row.name, price: Number(row.price), durationDays: Number(row.duration_days) })),
+  };
+}
+
+export async function createPendingPayment(userId, planId, orderId) {
+  return withTransaction(async (client) => {
+    const plan = await client.query(
+      "SELECT * FROM subscription_plans WHERE id=$1 AND status='active' FOR UPDATE",
+      [planId],
+    );
+    if (!plan.rowCount) return null;
+    const subscription = await client.query(
+      "INSERT INTO subscriptions(user_id,plan_id,status) VALUES($1,$2,'pending') RETURNING id",
+      [userId, planId],
+    );
+    const payment = await client.query(
+      "INSERT INTO payments(user_id,subscription_id,order_id,amount) VALUES($1,$2,$3,$4) RETURNING id",
+      [userId, subscription.rows[0].id, orderId, plan.rows[0].price],
+    );
+    return { id: String(payment.rows[0].id), amount: Number(plan.rows[0].price), plan: plan.rows[0] };
+  });
+}
+
+export const saveSnap = (orderId, token, redirectUrl) =>
+  query("UPDATE payments SET snap_token=$2,redirect_url=$3 WHERE order_id=$1", [orderId, token, redirectUrl]);
+
+export async function paymentHistory(userId) {
+  const { rows } = await query(
+    `SELECT pay.*,p.name plan_name FROM payments pay
+       JOIN subscriptions s ON s.id=pay.subscription_id JOIN subscription_plans p ON p.id=s.plan_id
+      WHERE pay.user_id=$1 ORDER BY pay.created_at DESC`,
+    [userId],
+  );
+  return rows.map((row) => ({ id:String(row.id), orderId:row.order_id, plan:row.plan_name,
+    amount:Number(row.amount), paymentMethod:row.payment_method, status:row.transaction_status,
+    paidAt:iso(row.paid_at), createdAt:iso(row.created_at), redirectUrl:row.redirect_url }));
+}
+
+export async function findUserPayment(userId, orderId) {
+  const { rows } = await query(
+    `SELECT pay.*,p.name plan_name FROM payments pay
+       JOIN subscriptions s ON s.id=pay.subscription_id JOIN subscription_plans p ON p.id=s.plan_id
+      WHERE pay.user_id=$1 AND pay.order_id=$2 LIMIT 1`,
+    [userId, orderId],
+  );
+  const row=rows[0];
+  return row ? { id:String(row.id),orderId:row.order_id,plan:row.plan_name,amount:Number(row.amount),
+    paymentMethod:row.payment_method,status:row.transaction_status,paidAt:iso(row.paid_at),
+    createdAt:iso(row.created_at),redirectUrl:row.redirect_url } : null;
+}
+
+export async function processNotification(notification) {
+  return withTransaction(async (client) => {
+    const found = await client.query(
+      `SELECT pay.*,s.plan_id,p.duration_days FROM payments pay
+       JOIN subscriptions s ON s.id=pay.subscription_id JOIN subscription_plans p ON p.id=s.plan_id
+       WHERE pay.order_id=$1 FOR UPDATE`, [notification.order_id],
+    );
+    if (!found.rowCount) return null;
+    const payment=found.rows[0];
+    if (Math.round(Number(notification.gross_amount)) !== Math.round(Number(payment.amount))) return { amountMismatch:true };
+    const paid=notification.transaction_status==="settlement" || (notification.transaction_status==="capture" && notification.fraud_status==="accept");
+    const mapped=paid?"paid":({pending:"pending",expire:"expired",cancel:"cancelled",deny:"failed",failure:"failed",refund:"refunded"}[notification.transaction_status]??"failed");
+    if (payment.processed_at && payment.transaction_status==="paid") return {duplicate:true,activated:true,status:"paid"};
+    await client.query(
+      `UPDATE payments SET transaction_status=$2,payment_method=$3,transaction_id=$4,
+       paid_at=CASE WHEN $5 THEN COALESCE(paid_at,NOW()) ELSE paid_at END,processed_at=NOW(),raw_notification=$6 WHERE id=$1`,
+      [payment.id,mapped,notification.payment_type,notification.transaction_id,paid,notification],
+    );
+    if (paid) {
+      const current=await activeSubscription(payment.user_id,client);
+      const start=current?.endDate??new Date().toISOString();
+      await client.query(
+        `UPDATE subscriptions SET status='active',start_date=$2::timestamptz,
+         end_date=$2::timestamptz+($3||' days')::interval WHERE id=$1`,
+        [payment.subscription_id,start,payment.duration_days],
+      );
+    } else if (["expired","cancelled","failed"].includes(mapped)) {
+      await client.query("UPDATE subscriptions SET status=$2 WHERE id=$1",[payment.subscription_id,mapped==="expired"?"expired":"cancelled"]);
+    }
+    return {duplicate:false,activated:paid,status:mapped};
+  });
+}
+
+export async function adminSubscriptions() {
+  const {rows}=await query(`SELECT s.*,u.name user_name,u.email,p.name plan_name FROM subscriptions s JOIN users u ON u.id=s.user_id JOIN subscription_plans p ON p.id=s.plan_id ORDER BY s.created_at DESC`);
+  return rows.map(r=>({id:String(r.id),user:{name:r.user_name,email:r.email},plan:r.plan_name,startDate:iso(r.start_date),endDate:iso(r.end_date),status:r.status}));
+}
+
+export async function adminPayments() {
+  const {rows}=await query(`SELECT pay.*,u.name user_name,u.email,p.name plan_name FROM payments pay JOIN users u ON u.id=pay.user_id JOIN subscriptions s ON s.id=pay.subscription_id JOIN subscription_plans p ON p.id=s.plan_id ORDER BY pay.created_at DESC`);
+  return rows.map(r=>({id:String(r.id),orderId:r.order_id,user:{name:r.user_name,email:r.email},plan:r.plan_name,amount:Number(r.amount),paymentMethod:r.payment_method,status:r.transaction_status,createdAt:iso(r.created_at),paidAt:iso(r.paid_at)}));
+}

@@ -81,18 +81,20 @@ test("an unknown question type is refused", () => {
 });
 
 test("submitted answers may carry either an index or recognised text", () => {
+  const sessionId = "123e4567-e89b-42d3-a456-426614174000";
   assert.deepEqual(validateSubmitQuiz({
-    answers: [{ questionId: "1", selectedIndex: 0 }, { questionId: "2", answerText: "PAGI" }],
+    sessionId,
+    answers: [{ questionId: "1", selectedIndex: 0 }, { questionId: "2", answerText: "PAGI" }, { questionId: "3", selectedIndex: 1 }, { questionId: "4", answerText: "SAYA" }, { questionId: "5", selectedIndex: 0 }],
   }), []);
 
   // Melewati soal kamera mengirim teks kosong, dan itu sah: dinilai salah,
   // tetapi kuisnya tetap dapat diselesaikan saat kamera bermasalah.
-  assert.deepEqual(validateSubmitQuiz({ answers: [{ questionId: "1", answerText: "" }] }), []);
+  assert.deepEqual(validateSubmitQuiz({ sessionId, answers: [{ questionId: "1", answerText: "" }, { questionId: "2", answerText: "A" }, { questionId: "3", answerText: "B" }, { questionId: "4", answerText: "C" }, { questionId: "5", answerText: "D" }] }), []);
 });
 
 test("an answer carrying neither an index nor text is refused", () => {
   assert.deepEqual(
-    fieldsOf(validateSubmitQuiz({ answers: [{ questionId: "1" }] })),
+    fieldsOf(validateSubmitQuiz({ sessionId: "123e4567-e89b-42d3-a456-426614174000", answers: [{ questionId: "1" }, { questionId: "2", answerText: "A" }, { questionId: "3", answerText: "B" }, { questionId: "4", answerText: "C" }, { questionId: "5", answerText: "D" }] })),
     ["answers[0]"],
   );
 });

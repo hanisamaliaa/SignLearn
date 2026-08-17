@@ -22,15 +22,17 @@ export async function getQuizById(courseId, quizId) {
   return request({ url: `/courses/${courseId}/quizzes/${quizId}` });
 }
 
+export async function startQuiz(courseId,quizId){return request({method:"post",url:`/courses/${courseId}/quizzes/${quizId}/start`});}
+
 /**
  * @param {Array<{questionId: string, selectedIndex: number}>} answers
  *        SELURUH pertanyaan wajib dijawab — kurang satu pun ditolak 422.
  */
-export async function submitQuiz(courseId, quizId, answers, durationSeconds) {
+export async function submitQuiz(courseId, quizId, sessionId, answers, durationSeconds) {
   const payload = await request({
     method: "post",
     url: `/courses/${courseId}/quizzes/${quizId}/submit`,
-    data: { answers, durationSeconds },
+    data: { sessionId, answers, durationSeconds },
   });
   return payload.result;
 }

@@ -23,7 +23,7 @@ function readStoredSidebarVisibility(key) {
 
 export default function PortalLayout({ variant }) {
   const { pathname } = useLocation();
-  const { logout, currentUser } = useApp();
+  const { logout, currentUser, isPremium } = useApp();
   const isUserPortal = variant === "user";
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(DESKTOP_QUERY).matches : false,
@@ -88,9 +88,9 @@ export default function PortalLayout({ variant }) {
     return () => { document.body.style.overflow = previousOverflow; };
   }, [sidebarOpen, isDesktop]);
 
-  const navItems = (variant === "admin" ? adminNavItems : userNavItems).filter(
-    (item) => !item.roles || item.roles.includes(currentUser?.role),
-  );
+  const navItems = (variant === "admin" ? adminNavItems : userNavItems)
+    .filter((item) => !item.roles || item.roles.includes(currentUser?.role))
+    .map((item)=>item.premiumEntry&&isPremium?{...item,label:"⭐ Premium",path:"/subscription"}:item);
   const title =
     navItems.find((item) => item.path === pathname)?.label ||
     (variant === "admin" ? "Admin Panel" : "SignLearn");

@@ -191,7 +191,9 @@ apiClient.interceptors.response.use(
  * berasal dari backend, jaringan, maupun timeout.
  */
 export function normalizeError(error) {
-  if (error?.code && error?.status && error?.message) return error;
+  // AxiosError juga memiliki `code`, `status`, dan `message`. Respons backend
+  // harus diprioritaskan agar pesan bermakna tidak berubah menjadi teks generik.
+  if (!error?.response && error?.code && error?.status && error?.message) return error;
   if (error?.response?.data?.code) return error.response.data;
 
   if (error?.response?.data) {

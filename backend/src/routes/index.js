@@ -7,6 +7,7 @@ import progressRoutes from "./progressRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import adminRoutes from "./adminRoutes.js";
 import translationRoutes from "./translationRoutes.js";
+import { subscriptionRoutes, paymentRoutes, subscriptionAdminRoutes } from "./subscriptionRoutes.js";
 
 const router = Router();
 
@@ -18,5 +19,8 @@ router.use("/progress", progressRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/admin", adminRoutes);
 router.use("/translations", translationRoutes);
+router.use("/subscription", subscriptionRoutes);
+router.use("/payments", paymentRoutes);
+router.use("/admin", subscriptionAdminRoutes);
 
 export default router;
