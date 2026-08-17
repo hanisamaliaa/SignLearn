@@ -7,6 +7,7 @@ import {
   loginEmailLimiter,
   registerLimiter,
   forgotPasswordLimiter,
+  forgotPasswordEmailLimiter,
   refreshLimiter,
 } from "../middleware/rateLimit.middleware.js";
 import {
@@ -54,7 +55,8 @@ router.post("/logout", authController.logout);
 
 router.post(
   "/forgot-password",
-  forgotPasswordLimiter,
+  forgotPasswordLimiter,       // per IP
+  forgotPasswordEmailLimiter,  // per email — melindungi kotak masuk target
   validate(validateForgotPassword),
   authController.forgotPassword,
 );

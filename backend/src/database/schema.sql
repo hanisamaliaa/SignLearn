@@ -130,10 +130,15 @@ CREATE INDEX idx_refresh_family  ON refresh_tokens (family_id);
 CREATE INDEX idx_refresh_expires ON refresh_tokens (expires_at);
 
 -- ─── Password reset tokens ─────────────────────────────────────
+-- `token_hash` memuat SHA-256 dari `userId:kode`, bukan kode mentah. Kode enam
+-- digit hanya punya sejuta kemungkinan; tanpa mengikatnya ke pemilik, satu
+-- tebakan yang cocok akan membuka reset milik pengguna mana saja yang sedang
+-- aktif. `attempts` membakar kode setelah beberapa tebakan salah.
 CREATE TABLE password_reset_tokens (
   id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash  CHAR(64) NOT NULL UNIQUE,
+  attempts    SMALLINT NOT NULL DEFAULT 0,
   expires_at  TIMESTAMPTZ NOT NULL,
   used_at     TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()

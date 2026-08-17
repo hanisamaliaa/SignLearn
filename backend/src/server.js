@@ -1,6 +1,7 @@
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { testConnection, closePool } from "./config/database.js";
+import { verifyMailTransport } from "./services/mailer.js";
 
 /**
  * Entry point.
@@ -20,6 +21,12 @@ async function start() {
     process.exit(1);
   }
   console.log(`[db] ${db.message}`);
+
+  // Diperiksa saat menyala, tetapi TIDAK memblokir: aplikasi tetap berguna
+  // tanpa email, dan menunggu SMTP yang lambat hanya menunda seluruh startup.
+  verifyMailTransport().then(({ ok, message }) => {
+    console[ok ? "log" : "warn"](`[mail] ${message}`);
+  });
 
   const server = app.listen(env.port, () => {
     console.log(`[server] SignLearn API — http://localhost:${env.port}${env.apiPrefix}`);

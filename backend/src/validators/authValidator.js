@@ -82,9 +82,20 @@ export function validateForgotPassword(body = {}) {
 export function validateResetPassword(body = {}) {
   const errors = [];
 
-  if (!body.token || typeof body.token !== "string") {
-    errors.push(err("token", "Token reset wajib disertakan."));
+  // Email wajib: kode enam digit hanya dapat dicari dengan aman bila terikat
+  // ke satu pengguna. Tanpa email, pencarian lewat kode saja akan cocok dengan
+  // reset milik pengguna mana pun yang sedang aktif.
+  if (!body.email || !String(body.email).trim()) {
+    errors.push(err("email", "Email wajib diisi."));
   }
+
+  const code = String(body.code ?? "").trim();
+  if (!code) {
+    errors.push(err("code", "Kode reset wajib diisi."));
+  } else if (!/^[0-9]{6}$/.test(code)) {
+    errors.push(err("code", "Kode reset terdiri dari 6 angka."));
+  }
+
   errors.push(...validatePassword(body.password));
 
   return errors;

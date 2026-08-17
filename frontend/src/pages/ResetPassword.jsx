@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, Alert } from "../components/ui/ui";
-import { ArrowLeftIcon, CheckCircleIcon, LockIcon } from "../components/ui/Icons";
+import { ArrowLeftIcon, CheckCircleIcon, LockIcon, MailIcon } from "../components/ui/Icons";
 import BrandLogo from "../components/common/BrandLogo";
 import * as authService from "../services/authService";
 
 /**
- * Menyetel kata sandi baru dari tautan reset.
+ * Menyetel kata sandi baru dengan kode dari email.
  *
- * Halaman ini sebelumnya TIDAK ADA. `/forgot-password` menjanjikan "klik
- * tautan reset kata sandi", tetapi tautan itu tidak menuju ke mana pun di
- * aplikasi ini — sehingga alur lupa kata sandi mustahil diselesaikan meski
- * backend-nya sudah lengkap.
+ * Halaman ini sebelumnya TIDAK ADA. `/forgot-password` menjanjikan langkah
+ * lanjutan yang tidak menuju ke mana pun, sehingga alur lupa kata sandi
+ * mustahil diselesaikan meski backend-nya sudah lengkap.
+ *
+ * Email ikut dikirim bersama kode karena server mencarinya per pengguna: kode
+ * enam digit yang dicari lewat hash-nya sendiri akan cocok dengan reset milik
+ * siapa saja yang sedang aktif.
  *
  * Syarat kata sandi dicerminkan dari `passwordPolicy.js` seperti pada halaman
  * pendaftaran: menampilkannya sambil mengetik jauh lebih baik daripada
@@ -21,7 +24,11 @@ export default function ResetPassword() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
-  const token = params.get("token") ?? "";
+  // Email boleh datang dari tautan agar tidak perlu diketik ulang, tetapi
+  // tetap dapat disunting: pengguna bisa membuka halaman ini dari perangkat
+  // lain, tanpa membawa apa pun di URL.
+  const [email, setEmail] = useState(params.get("email") ?? "");
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +51,14 @@ export default function ResetPassword() {
     if (loading) return;
 
     setError("");
+    if (!email.trim()) {
+      setError("Masukkan email yang kamu pakai saat meminta kode.");
+      return;
+    }
+    if (!/^[0-9]{6}$/.test(code.trim())) {
+      setError("Kode reset terdiri dari 6 angka.");
+      return;
+    }
     if (!meetsPolicy) {
       setError("Kata sandi belum memenuhi seluruh syarat di bawah.");
       return;
@@ -55,10 +70,10 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      await authService.resetPassword(token, password);
+      await authService.resetPassword(email.trim(), code.trim(), password);
       setDone(true);
     } catch (resetError) {
-      setError(resetError?.message ?? "Kata sandi gagal diubah. Coba minta tautan baru.");
+      setError(resetError?.message ?? "Kata sandi gagal diubah. Coba minta kode baru.");
     } finally {
       setLoading(false);
     }
@@ -99,42 +114,49 @@ export default function ResetPassword() {
               Atur Kata Sandi Baru
             </h1>
             <p className="mb-6 text-sm text-[var(--text-muted)]">
-              Pilih kata sandi yang belum pernah kamu pakai di tempat lain.
+              Masukkan kode 6 angka dari emailmu, lalu pilih kata sandi yang
+              belum pernah kamu pakai di tempat lain.
             </p>
 
-            {/* Tanpa token halaman ini tidak bisa berbuat apa-apa, jadi
-                formulirnya tidak ditampilkan sama sekali. */}
-            {!token ? (
-              <>
-                <Alert
-                  type="error"
-                  message="Tautan reset tidak lengkap atau sudah tidak berlaku. Minta tautan baru untuk melanjutkan."
-                />
-                <Button
-                  fullWidth
-                  className="mt-4"
-                  onClick={() => navigate("/forgot-password")}
-                >
-                  Minta tautan baru
-                </Button>
-              </>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {error && <Alert type="error" message={error} onClose={() => setError("")} />}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <Alert type="error" message={error} onClose={() => setError("")} />}
 
-                <Input
-                  id="reset-password"
-                  label="Kata sandi baru"
-                  type="password"
-                  icon={LockIcon}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  placeholder="Kata sandi baru"
-                />
+              <Input
+                id="reset-email"
+                label="Email"
+                type="email"
+                icon={MailIcon}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="contoh@email.com"
+              />
 
-                <ul className="space-y-1">
-                  {checks.map((check) => (
+              <Input
+                id="reset-code"
+                label="Kode dari email"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/[^0-9]/g, ""))}
+                autoComplete="one-time-code"
+                placeholder="6 angka"
+              />
+
+              <Input
+                id="reset-password"
+                label="Kata sandi baru"
+                type="password"
+                icon={LockIcon}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                placeholder="Kata sandi baru"
+              />
+
+              <ul className="space-y-1">
+                {checks.map((check) => (
                     <li
                       key={check.id}
                       className={`flex items-center gap-2 text-xs ${
@@ -145,27 +167,24 @@ export default function ResetPassword() {
                       {check.label}
                     </li>
                   ))}
-                </ul>
+              </ul>
 
-                <Input
-                  id="reset-confirm"
-                  label="Ulangi kata sandi baru"
+              <Input
+                id="reset-confirm"
+                label="Ulangi kata sandi baru"
                   type="password"
                   icon={LockIcon}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
                   autoComplete="new-password"
-                  placeholder="Ulangi kata sandi"
-                  error={
-                    confirmPassword && !matches ? "Konfirmasi belum sama." : undefined
-                  }
-                />
+                placeholder="Ulangi kata sandi"
+                error={confirmPassword && !matches ? "Konfirmasi belum sama." : undefined}
+              />
 
-                <Button type="submit" fullWidth disabled={loading}>
-                  {loading ? "Menyimpan…" : "Simpan kata sandi baru"}
-                </Button>
-              </form>
-            )}
+              <Button type="submit" fullWidth disabled={loading}>
+                {loading ? "Menyimpan…" : "Simpan kata sandi baru"}
+              </Button>
+            </form>
           </div>
         )}
       </div>

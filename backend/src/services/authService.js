@@ -2,11 +2,17 @@ import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ERROR_CODES } from "../constants/errorCodes.js";
-import { generateOpaqueToken, hashToken } from "../utils/crypto.js";
+import {
+  generateOpaqueToken,
+  generateResetCode,
+  hashResetCode,
+  hashToken,
+} from "../utils/crypto.js";
 import { withTransaction } from "../config/database.js";
 import * as userRepo from "../repositories/userRepository.js";
 import * as resetRepo from "../repositories/passwordResetRepository.js";
 import * as tokenService from "./tokenService.js";
+import { sendPasswordResetCode } from "./mailer.js";
 
 /**
  * Auth service — seluruh aturan bisnis autentikasi.
@@ -174,20 +180,32 @@ export async function logoutAll(userId) {
  */
 export async function requestPasswordReset(email) {
   const user = await userRepo.findByEmailWithSecret(email);
-  if (!user) return { token: null };
+  if (!user) return { code: null };
 
   await resetRepo.invalidateForUser(user.id);
 
-  const token = generateOpaqueToken(32);
+  const code = generateResetCode();
+  const expiresMinutes = env.security.passwordResetTtlMinutes;
   await resetRepo.insert({
     userId: user.id,
-    tokenHash: hashToken(token),
-    expiresAt: new Date(Date.now() + env.security.passwordResetTtlMinutes * 60_000),
+    // Hash MENGIKAT kode ke penggunanya; lihat `hashResetCode`.
+    tokenHash: hashResetCode(user.id, code),
+    expiresAt: new Date(Date.now() + expiresMinutes * 60_000),
   });
 
-  // TODO(BE): kirim email berisi tautan reset.
-  // Token dikembalikan HANYA di non-produksi agar dapat diuji tanpa SMTP.
-  return { token: env.isProduction ? null : token };
+  // Kegagalan pengiriman tidak dilempar. Controller membalas hal yang sama
+  // entah email terkirim atau tidak, karena membedakannya akan membocorkan
+  // email mana yang memiliki akun; `sendMail` sudah mencatat galatnya.
+  await sendPasswordResetCode({
+    to: user.email,
+    name: user.name,
+    code,
+    expiresMinutes,
+  });
+
+  // Kode dikembalikan HANYA di luar produksi, agar alurnya dapat diselesaikan
+  // dan diuji tanpa SMTP.
+  return { code: env.isProduction ? null : code };
 }
 
 /**
@@ -197,20 +215,35 @@ export async function requestPasswordReset(email) {
  * karena curiga akunnya diretas, membiarkan sesi penyerang tetap hidup
  * membuat seluruh tindakan itu sia-sia.
  */
-export async function resetPassword({ token, password }) {
-  const record = await resetRepo.findValidByHash(hashToken(token));
-  if (!record) {
-    throw ApiError.unauthorized(
-      "Token reset tidak valid atau sudah kedaluwarsa.",
+export async function resetPassword({ email, code, password }) {
+  // Pesan tunggal untuk email tidak dikenal, kode salah, kode kedaluwarsa,
+  // kode sudah terpakai, dan kode yang habis percobaan. Membedakannya memberi
+  // tahu penyerang bahwa kodenya PERNAH benar, atau bahwa emailnya terdaftar.
+  const invalid = () =>
+    ApiError.unauthorized(
+      "Kode reset tidak valid atau sudah kedaluwarsa. Minta kode baru untuk melanjutkan.",
       ERROR_CODES.TOKEN_INVALID,
     );
+
+  const user = await userRepo.findByEmailWithSecret(email);
+  if (!user) throw invalid();
+
+  const record = await resetRepo.findActiveForUser(user.id);
+  if (!record) throw invalid();
+
+  if (record.tokenHash !== hashResetCode(user.id, code)) {
+    await resetRepo.registerFailedAttempt(
+      record.id,
+      env.security.passwordResetMaxAttempts,
+    );
+    throw invalid();
   }
 
   const passwordHash = await hashPassword(password);
 
   // Keduanya WAJIB memakai `client` yang sama. Repository yang mengabaikannya
   // akan berjalan di koneksi lain dari pool, dan transaksi ini menjadi
-  // jaminan kosong: token reset bisa tetap sah setelah kata sandi berubah.
+  // jaminan kosong: kode reset bisa tetap sah setelah kata sandi berubah.
   await withTransaction(async (client) => {
     await userRepo.updatePassword(record.userId, passwordHash, client);
     await resetRepo.markUsed(record.id, client);

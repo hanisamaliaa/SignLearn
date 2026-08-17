@@ -44,3 +44,40 @@ export function safeEqual(a, b) {
 export function randomUuid() {
   return crypto.randomUUID();
 }
+
+/** Panjang kode reset yang dikirim lewat email. */
+export const RESET_CODE_LENGTH = 6;
+
+/**
+ * Kode reset enam digit.
+ *
+ * `crypto.randomInt` dipakai, bukan `Math.random`: yang terakhir bukan CSPRNG
+ * dan keadaannya dapat dipulihkan dari beberapa keluaran, sehingga kode
+ * berikutnya menjadi dapat diramalkan.
+ *
+ * Hasilnya diberi nol di depan. Tanpa itu satu dari sepuluh kode akan lebih
+ * pendek, dan pengguna yang menerima "48291" akan mengira ada digit hilang.
+ */
+export function generateResetCode() {
+  return String(crypto.randomInt(0, 10 ** RESET_CODE_LENGTH)).padStart(
+    RESET_CODE_LENGTH,
+    "0",
+  );
+}
+
+/**
+ * Hash kode yang TERIKAT pada pemiliknya.
+ *
+ * Kode enam digit hanya punya sejuta kemungkinan. Bila yang disimpan adalah
+ * hash kode mentah, pencarian "cari baris dengan hash ini" akan cocok dengan
+ * reset milik pengguna MANA SAJA yang sedang aktif — penyerang cukup menebak
+ * angka tanpa perlu menargetkan siapa pun, dan peluangnya membesar seiring
+ * banyaknya pengguna yang sedang mereset.
+ *
+ * Menyertakan `userId` di dalam hash membuat kode yang sama menghasilkan hash
+ * berbeda untuk tiap pengguna, sehingga tebakan hanya berarti bila penyerang
+ * sudah tahu email targetnya.
+ */
+export function hashResetCode(userId, code) {
+  return hashToken(`${userId}:${String(code).trim()}`);
+}
