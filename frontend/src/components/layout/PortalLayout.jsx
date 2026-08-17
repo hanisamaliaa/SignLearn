@@ -90,7 +90,19 @@ export default function PortalLayout({ variant }) {
 
   const navItems = (variant === "admin" ? adminNavItems : userNavItems)
     .filter((item) => !item.roles || item.roles.includes(currentUser?.role))
-    .map((item)=>item.premiumEntry&&isPremium?{...item,label:"⭐ Premium",path:"/subscription"}:item);
+    .map((item) =>
+      item.premiumEntry && isPremium
+        ? { ...item, label: "⭐ Premium", path: "/subscription" }
+        : item,
+    );
+  const visibleUserNavSections = userNavSections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .map((item) => navItems.find((candidate) => candidate.page === item.page))
+        .filter(Boolean),
+    }))
+    .filter((section) => section.items.length > 0);
   const title =
     navItems.find((item) => item.path === pathname)?.label ||
     (variant === "admin" ? "Admin Panel" : "SignLearn");
@@ -115,7 +127,7 @@ export default function PortalLayout({ variant }) {
       <PortalSidebar
         variant={variant}
         navItems={navItems}
-        navSections={variant === "user" ? userNavSections : undefined}
+        navSections={isUserPortal ? visibleUserNavSections : undefined}
         sidebarOpen={sidebarOpen}
         onClose={closeSidebar}
         onToggleSidebar={toggleSidebar}

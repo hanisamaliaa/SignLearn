@@ -68,6 +68,8 @@ frontend/
 | `/courses` | Daftar kursus |
 | `/course-detail` | Detail kursus dan status pelajaran |
 | `/lesson` | Konten pelajaran |
+| `/dictionary` | Kamus alfabet A-Z dan bank kata terkelompok |
+| `/translator` | Teks/suara ke ejaan BISINDO dan kamera BISINDO ke teks |
 | `/quiz` | Kuis fullscreen |
 | `/quiz-result` | Hasil kuis |
 | `/progress` | Progres, nilai, dan pencapaian |
@@ -93,7 +95,8 @@ frontend/
 
 - `PortalLayout`, `PortalHeader`, dan `PortalSidebar` membentuk shell portal pengguna/admin.
 - `AccessibilityMenu` menyediakan dialog preferensi aksesibilitas yang digunakan dari halaman publik maupun portal.
-- `BisindoTranslator` menyediakan tab teks-ke-BISINDO dan kamera-ke-teks.
+- `BisindoTranslator` menyediakan tab teks/suara-ke-ejaan-BISINDO dan kamera-ke-teks.
+- `Dictionary` menampilkan 26 kartu HD dari lembar BISINDO yang disetujui proyek serta kata aktif dari API, dikelompokkan per kategori.
 - `CameraPracticePanel` menampilkan permission state, pratinjau kamera, status deteksi, dan hasil stabil.
 - `ProtectedRoute` dan `RoleBasedLayout` menangani auth/role guard.
 - `components/ui/ui.jsx` berisi primitive UI seperti dialog, toggle, toast, badge, dan tombol.
@@ -253,6 +256,11 @@ Unit test frontend mencakup:
 - konfigurasi navigasi landing;
 - EMA, majority voting, threshold, dan release lock pada prediksi BISINDO;
 - operasi buffer terjemahan.
+- pemisahan kata/ejaan A-Z, pencarian kamus, dan pengelompokan kategori.
+
+`npm run assets:bisindo` memotong ulang canvas yang telah disetujui dan hash-nya
+dikunci, menghasilkan 26 WebP lossless 1024×1024 beserta manifest verifikasi.
+Rincian atribusi tersimpan bersama aset.
 
 Pengujian kamera fisik, matrix browser/device, dan audit aksesibilitas formal tetap membutuhkan QA manual.
 

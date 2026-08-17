@@ -415,3 +415,14 @@ export const SunIcon = icon(
 export const MoonIcon = icon(
   <path d="M20.5 14.3A8.4 8.4 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8Z" />,
 );
+
+export const MicIcon = icon(
+  <>
+    <rect x="9" y="2" width="6" height="12" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8.5 22h7" />
+  </>,
+);
+
+export const BookmarkIcon = icon(
+  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
+);

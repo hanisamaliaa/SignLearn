@@ -34,6 +34,7 @@ ai/__pycache__/
 ai/app/__pycache__/
 ai/training/__pycache__/
 ai/tests/__pycache__/
+scripts/__pycache__/
 ai/data/raw/**
 !ai/data/raw/.gitkeep
 ai/data/cache/**
@@ -50,3 +51,16 @@ ai/models/candidates/*.npz
 ai/models/external/**
 kaggle.json
 **/kaggle.json
+
+# Kandidat aset lama tidak lagi menjadi sumber kebenaran dan tidak boleh ikut
+# build/commit. Sumber aktif yang hash-nya dikunci memakai nama `canvas-approved`.
+scripts/assets/bisindo-alphabet-poster.jpg
+scripts/assets/contact-sheet.webp
+scripts/assets/bisindo-contact-sheet.webp
+scripts/assets/bisindo-alphabet-animated-sheet.png
+scripts/assets/bisindo-animated-contact-sheet.webp
+scripts/assets/bisindo-authoritative-source.jpg
+scripts/assets/bisindo-authoritative-contact-sheet.webp
+frontend/src/assets/bisindo/contact-sheet.webp
+scripts/assets/bisindo-reference/
+scripts/assets/bisindo-reference-contact-sheet.webp

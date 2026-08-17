@@ -11,6 +11,13 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  build: {
+    // OXC/Lightning CSS pada toolchain Vite 8 gagal mengalokasikan memori pada
+    // sebagian mesin Windows. Esbuild adalah minifier resmi yang didukung Vite
+    // dan menghasilkan build production yang deterministik di Node 20/22/24.
+    minify: "esbuild",
+    cssMinify: "esbuild",
+  },
   server: {
     host: "0.0.0.0",
     port: parseInt(process.env.PORT || "4789"),

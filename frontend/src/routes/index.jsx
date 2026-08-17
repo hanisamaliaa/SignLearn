@@ -15,6 +15,8 @@ import UserDashboard from "../pages/user/Dashboard";
 import UserCourses from "../pages/user/Courses";
 import CourseDetail from "../pages/user/CourseDetail";
 import Lesson from "../pages/user/Lesson";
+import Translator from "../pages/user/Translator";
+import Dictionary from "../pages/user/Dictionary";
 import Quiz from "../pages/user/Quiz";
 import QuizResult from "../pages/user/QuizResult";
 import Progress from "../pages/user/Progress";
@@ -70,6 +72,8 @@ export default function AppRoutes() {
             <Route path="/courses" element={<UserCourses />} />
             <Route path="/course-detail" element={<CourseDetail />} />
             <Route path="/lesson" element={<Lesson />} />
+            <Route path="/translator" element={<Translator />} />
+            <Route path="/dictionary" element={<Dictionary />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<UserSettings />} />

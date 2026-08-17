@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/ui";
 import { XIcon, ClockIcon } from "../../components/ui/Icons";
 import BrandLogo from "../../components/common/BrandLogo";
 import SpellCameraQuestion from "../../features/quiz/SpellCameraQuestion";
+import { quizService } from "../../services";
 
 export default function Quiz() {
   const {
@@ -46,7 +47,6 @@ export default function Quiz() {
       }
 
       try {
-        const { quizService } = await import("../../services");
         const payload = await quizService.startQuiz(selectedCourseId, targetQuiz.id);
         if (cancelled) return;
 
