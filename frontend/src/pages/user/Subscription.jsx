@@ -112,6 +112,7 @@ export default function Subscription() {
                 <th>Order ID</th>
                 <th>Paket</th>
                 <th>Jumlah</th>
+                <th>Provider</th>
                 <th>Status</th>
                 <th>Tanggal</th>
               </tr>
@@ -123,6 +124,7 @@ export default function Subscription() {
                     <td className="font-mono text-xs">{p.orderId}</td>
                     <td>{p.plan}</td>
                     <td>{money.format(p.amount)}</td>
+                    <td>{p.provider === "mock" ? "Demo" : "Midtrans"}</td>
                     <td>
                       <Badge variant={statusVariant(p.status)}>
                         {statusLabel(p.status)}
@@ -133,7 +135,7 @@ export default function Subscription() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5">Belum ada pembayaran.</td>
+                  <td colSpan="6">Belum ada pembayaran.</td>
                 </tr>
               )}
             </tbody>

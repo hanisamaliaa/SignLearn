@@ -7,6 +7,7 @@ import {
 } from "../config/cookies.js";
 import * as authService from "../services/authService.js";
 import * as tokenService from "../services/tokenService.js";
+import { env } from "../config/env.js";
 
 /**
  * Auth controller — HTTP saja.
@@ -58,8 +59,31 @@ export const register = asyncHandler(async (req, res) => {
     requestContext(req),
   );
 
+  if (result.verificationRequired) {
+    created(res, result, "Akun dibuat. Periksa email untuk kode verifikasi.");
+    return;
+  }
+
   setRefreshCookie(res, result.refreshToken);
   created(res, sessionPayload(result), "Pendaftaran berhasil.");
+});
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+  const result = await authService.verifyEmail(
+    { email: req.body.email, code: req.body.code },
+    requestContext(req),
+  );
+  setRefreshCookie(res, result.refreshToken);
+  success(res, sessionPayload(result), "Email berhasil diverifikasi.");
+});
+
+export const resendEmailVerification = asyncHandler(async (req, res) => {
+  await authService.resendEmailVerification(req.body.email);
+  success(
+    res,
+    { resendCooldownSeconds: env.security.emailVerificationResendCooldownSeconds },
+    "Bila akun masih menunggu verifikasi, kode baru telah dikirim.",
+  );
 });
 
 // ─── POST /auth/login ────────────────────────────────────────────────────

@@ -156,13 +156,21 @@ async function main() {
   check("admin dapat login", adminLogin.response.status === 200, `${adminLogin.response.status}`);
   adminToken = adminLogin.data.accessToken;
 
-  const registration = await call("/auth/register", {
-    method: "POST",
-    body: { name: "Cloudinary Smoke User", email: userEmail, password },
+  const user = await userRepository.create({
+    name: "Cloudinary Smoke User",
+    email: userEmail,
+    passwordHash: await hashPassword(password),
+    profile: "general",
+    role: "user",
   });
-  check("user sementara dapat registrasi", registration.response.status === 201, `${registration.response.status}`);
-  userToken = registration.data.accessToken;
-  const userId = registration.data.user.id;
+  await userRepository.markEmailVerified(user.id);
+  const userLogin = await call("/auth/login", {
+    method: "POST",
+    body: { email: userEmail, password },
+  });
+  check("user terverifikasi dapat login", userLogin.response.status === 200, `${userLogin.response.status}`);
+  userToken = userLogin.data.accessToken;
+  const userId = user.id;
 
   console.log("\n  Foto profil");
   const firstAvatar = await call("/users/profile/avatar", {

@@ -211,16 +211,41 @@ export function AppProvider({ children }) {
   const register = useCallback(
     async (data) => {
       try {
-        const user = await authService.register(data);
+        const result = await authService.register(data);
+        if (result.verificationRequired) {
+          return { success: true, ...result };
+        }
+        const user = result.user;
         setCurrentUser(toUiUser(user));
         await loadFor(user);
-        return { success: true, message: "" };
+        return { success: true, verificationRequired: false, message: "" };
       } catch (error) {
         const e = normalizeError(error);
         return { success: false, message: e.message, code: e.code, errors: e.errors };
       }
     },
     [loadFor],
+  );
+
+  const verifyEmail = useCallback(
+    async (email, code) => {
+      try {
+        const user = await authService.verifyEmail(email, code);
+        setCurrentUser(toUiUser(user));
+        await loadFor(user);
+        navigate("/dashboard");
+        return { success: true, user };
+      } catch (error) {
+        const failure = normalizeError(error);
+        return {
+          success: false,
+          message: failure.message,
+          code: failure.code,
+          errors: failure.errors,
+        };
+      }
+    },
+    [loadFor, navigate],
   );
 
   /**
@@ -446,6 +471,7 @@ export function AppProvider({ children }) {
       login,
       logout,
       register,
+      verifyEmail,
       updateProfile,
       uploadProfileAvatar,
       updateUserSettings,
@@ -461,7 +487,7 @@ export function AppProvider({ children }) {
     [
       currentUser, booting, users, courses, quizHistory, badges, stats, dashboard,
       progress, selectedCourseId, selectedLessonId, selectedCourse, quizScore,
-      quizPassed, subscriptionState, subscriptionLoading, navigate, login, logout, register, updateProfile,
+      quizPassed, subscriptionState, subscriptionLoading, navigate, login, logout, register, verifyEmail, updateProfile,
       uploadProfileAvatar,
       updateUserSettings, startLesson, completeLesson, submitQuiz, selectCourse, selectLesson,
       setQuizResult, loadLearnerData, refreshSubscription,

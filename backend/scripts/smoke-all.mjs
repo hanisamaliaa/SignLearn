@@ -12,7 +12,9 @@
  *
  *   1. Server berjalan          (npm run dev)
  *   2. Database sudah di-seed   (npm run seed)
- *   3. SEED_ADMIN_PASSWORD ada di environment
+ *
+ * Bila kredensial admin seed tidak tersedia, runner membuat admin sementara
+ * yang hanya hidup selama suite. Secret pengujian tidak ditanam di repo.
  *
  * ── Kenapa NODE_ENV=test disarankan untuk server ──────────────────────
  *
@@ -24,13 +26,18 @@
  */
 
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { closePool, query } from "../src/config/database.js";
+import * as userRepository from "../src/repositories/userRepository.js";
+import { hashPassword } from "../src/services/authService.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 const SUITES = [
   ["Autentikasi", "smoke-auth.mjs"],
+  ["Checkout Premium", "smoke-subscription.mjs"],
   ["Users & profil", "smoke-users.mjs"],
   ["Konten & progres", "smoke-content.mjs"],
   ["Dashboard & admin", "smoke-dashboard.mjs"],
@@ -56,24 +63,47 @@ function run(file) {
 }
 
 const results = [];
+let temporaryAdminId = null;
 
-// Berurutan, bukan paralel: seluruh suite berbagi satu database, dan yang
-// berjalan bersamaan akan saling mengubah angka yang sedang diperiksa
-// suite lain.
-for (const [label, file] of SUITES) {
-  results.push([label, await run(file)]);
+try {
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    const suffix = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    const password = `Smoke#Admin9-${crypto.randomBytes(8).toString("hex")}`;
+    const admin = await userRepository.create({
+      name: "Smoke Suite Admin",
+      email: `smoke-admin-${suffix}@signlearn.test`,
+      passwordHash: await hashPassword(password),
+      profile: "general",
+      role: "admin",
+    });
+    await userRepository.markEmailVerified(admin.id);
+    temporaryAdminId = admin.id;
+    process.env.SEED_ADMIN_EMAIL = admin.email;
+    process.env.SEED_ADMIN_PASSWORD = password;
+    console.log(c.dim("\n  Admin sementara dibuat untuk smoke suite."));
+  }
+
+  // Berurutan, bukan paralel: seluruh suite berbagi satu database, dan yang
+  // berjalan bersamaan akan saling mengubah angka yang sedang diperiksa.
+  for (const [label, file] of SUITES) {
+    results.push([label, await run(file)]);
+  }
+
+  console.log(c.b("\n═══ Hasil seluruh suite ═══\n"));
+  for (const [label, ok] of results) {
+    console.log(`  ${ok ? c.ok("LULUS") : c.no("GAGAL")}  ${label}`);
+  }
+
+  const failed = results.filter(([, ok]) => !ok).length;
+  console.log(
+    failed
+      ? c.no(`\n  ${failed} dari ${results.length} suite gagal.\n`)
+      : c.ok(`\n  Seluruh ${results.length} suite lulus.\n`),
+  );
+  process.exitCode = failed ? 1 : 0;
+} finally {
+  if (temporaryAdminId) {
+    await query("DELETE FROM users WHERE id=$1", [temporaryAdminId]).catch(() => {});
+  }
+  await closePool();
 }
-
-console.log(c.b("\n═══ Hasil seluruh suite ═══\n"));
-for (const [label, ok] of results) {
-  console.log(`  ${ok ? c.ok("LULUS") : c.no("GAGAL")}  ${label}`);
-}
-
-const failed = results.filter(([, ok]) => !ok).length;
-console.log(
-  failed
-    ? c.no(`\n  ${failed} dari ${results.length} suite gagal.\n`)
-    : c.ok(`\n  Seluruh ${results.length} suite lulus.\n`),
-);
-
-process.exitCode = failed ? 1 : 0;

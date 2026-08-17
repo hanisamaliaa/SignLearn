@@ -6,6 +6,8 @@ import {
   loginLimiter,
   loginEmailLimiter,
   registerLimiter,
+  emailVerificationLimiter,
+  emailVerificationResendLimiter,
   forgotPasswordLimiter,
   forgotPasswordEmailLimiter,
   refreshLimiter,
@@ -16,6 +18,8 @@ import {
   validateForgotPassword,
   validateResetPassword,
   validateChangePassword,
+  validateVerifyEmail,
+  validateResendEmailVerification,
 } from "../validators/authValidator.js";
 
 const router = Router();
@@ -37,6 +41,20 @@ router.post(
   registerLimiter,
   validate(validateRegister),
   authController.register,
+);
+
+router.post(
+  "/verify-email",
+  emailVerificationLimiter,
+  validate(validateVerifyEmail),
+  authController.verifyEmail,
+);
+
+router.post(
+  "/verify-email/resend",
+  emailVerificationResendLimiter,
+  validate(validateResendEmailVerification),
+  authController.resendEmailVerification,
 );
 
 router.post(

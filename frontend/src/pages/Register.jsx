@@ -169,6 +169,17 @@ export default function Register() {
         return;
       }
 
+      if (result.verificationRequired) {
+        navigate("/verify-email", {
+          replace: true,
+          state: {
+            email: result.email || email.trim(),
+            resendCooldownSeconds: result.resendCooldownSeconds,
+          },
+        });
+        return;
+      }
+
       setSuccess(true);
       setLoading(false);
     } catch {

@@ -14,6 +14,7 @@
     "db:reset-content": "node src/database/resetContent.js",
     "smoke": "node scripts/smoke-auth.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:subscription": "node scripts/smoke-subscription.mjs",
     "smoke:password-reset": "node scripts/smoke-password-reset.mjs",
     "smoke:cloudinary": "node scripts/smoke-cloudinary.mjs",
     "smoke:users": "node scripts/smoke-users.mjs",
@@ -23,7 +24,7 @@
     "smoke:all": "node scripts/smoke-all.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "db:schema": "psql \"$DATABASE_URL\" -f src/database/schema.sql",
-    "db:migrate": "psql \"$DATABASE_URL\" -f src/database/migrate.sql",
+    "db:migrate": "node scripts/migrate.mjs",
     "gen:secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
     "seed:wordbank": "node src/database/seedWordBank.js",
     "smoke:wordbank": "node scripts/smoke-wordbank.mjs"

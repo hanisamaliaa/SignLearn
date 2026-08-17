@@ -11,7 +11,7 @@
 
 import {
   call, check, section, summary, requireServer,
-  registerUser, loginAdmin, c,
+  registerUser, loginAdmin, grantPremiumFixture, closeHarnessDatabase, c,
 } from "./lib/harness.mjs";
 
 /** Menyiapkan data: satu kursus + pelajaran + kuis, lalu dikerjakan learner. */
@@ -48,25 +48,36 @@ async function seedActivity(admin, learner) {
   });
   const quizId = quiz.data.quiz?.id ?? quiz.data.id;
 
-  const question = await call(`/courses/${courseId}/quizzes/${quizId}/questions`, {
-    token: admin.token,
-    method: "POST",
-    body: {
-      question: "Berapa hasil 1 + 1?",
-      options: ["1", "2", "3", "4"],
-      correctIndex: 1,
-    },
-  });
-  const questionId = question.data.question?.id ?? question.data.id;
+  const questionIds = [];
+  for (let index = 0; index < 5; index += 1) {
+    const question = await call(`/courses/${courseId}/quizzes/${quizId}/questions`, {
+      token: admin.token,
+      method: "POST",
+      body: {
+        question: `Soal dashboard ${index + 1}`,
+        options: ["1", "2", "3", "4"],
+        correctIndex: 1,
+      },
+    });
+    questionIds.push(question.data.question?.id ?? question.data.id);
+  }
 
   // Learner menyelesaikan pelajaran pertama dan lulus kuisnya.
   await call(`/progress/lessons/${lessonIds[0]}`, {
     token: learner.token, method: "PUT", body: { status: "completed" },
   });
+  const started = await call(`/courses/${courseId}/quizzes/${quizId}/start`, {
+    token: learner.token,
+    method: "POST",
+  });
   const submitted = await call(`/courses/${courseId}/quizzes/${quizId}/submit`, {
     token: learner.token,
     method: "POST",
-    body: { answers: [{ questionId, selectedIndex: 1 }], durationSeconds: 30 },
+    body: {
+      sessionId: started.data?.session?.id,
+      answers: questionIds.map((questionId) => ({ questionId, selectedIndex: 1 })),
+      durationSeconds: 30,
+    },
   });
 
   return { courseId, lessonIds, quizId, submitted };
@@ -79,6 +90,7 @@ async function main() {
   const admin = await loginAdmin();
   const learner = await registerUser("dash");
   const freshUser = await registerUser("baru");
+  await grantPremiumFixture(learner.id);
   const fixture = await seedActivity(admin, learner);
 
   // §8.12 menetapkan 201: satu baris `quiz_results` benar-benar dibuat.
@@ -359,4 +371,4 @@ async function main() {
 main().catch((err) => {
   console.error(`\n  ${c.no("Test berhenti:")} ${err.message}\n`);
   process.exitCode = 1;
-});
+}).finally(() => closeHarnessDatabase());

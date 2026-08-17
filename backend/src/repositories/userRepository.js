@@ -10,6 +10,7 @@ import { query } from "../config/database.js";
 
 const USER_COLUMNS = `
   u.id, u.name, u.email, u.phone, u.avatar, u.profile, u.status,
+  u.email_verified_at,
   u.failed_login_attempts, u.locked_until,
   u.join_date, u.created_at, u.updated_at,
   r.name AS role
@@ -36,6 +37,8 @@ export function toUserDto(row) {
     avatar: row.avatar ?? null,
     profile: row.profile,
     status: row.status,
+    emailVerified: Boolean(row.email_verified_at),
+    emailVerifiedAt: row.email_verified_at?.toISOString?.() ?? null,
     joinDate: row.join_date
       ? new Date(row.join_date).toISOString().slice(0, 10)
       : null,
@@ -50,8 +53,9 @@ export function toUserDto(row) {
  * Hanya untuk alur login. Namanya panjang dan eksplisit supaya tidak ada yang
  * memakainya secara tidak sengaja lalu membocorkan hash ke respons API.
  */
-export async function findByEmailWithSecret(email) {
-  const { rows } = await query(
+export async function findByEmailWithSecret(email, client) {
+  const run = client ? client.query.bind(client) : query;
+  const { rows } = await run(
     `SELECT ${USER_COLUMNS}, u.password_hash
        FROM users u
        JOIN roles r ON r.id = u.role_id
@@ -69,8 +73,9 @@ export async function findByEmailWithSecret(email) {
   };
 }
 
-export async function findById(id) {
-  const { rows } = await query(
+export async function findById(id, client) {
+  const run = client ? client.query.bind(client) : query;
+  const { rows } = await run(
     `SELECT ${USER_COLUMNS}
        FROM users u
        JOIN roles r ON r.id = u.role_id
@@ -94,8 +99,9 @@ export async function findByIdWithSecret(id) {
   return { ...toUserDto(rows[0]), passwordHash: rows[0].password_hash };
 }
 
-export async function emailExists(email) {
-  const { rows } = await query(
+export async function emailExists(email, client) {
+  const run = client ? client.query.bind(client) : query;
+  const { rows } = await run(
     `SELECT 1 FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email],
   );
@@ -109,14 +115,30 @@ export async function emailExists(email) {
  * tidak dikenal menghasilkan pelanggaran NOT NULL alih-alih membuat pengguna
  * tanpa peran.
  */
-export async function create({ name, email, passwordHash, profile = "general", role = "user" }) {
-  const { rows } = await query(
+export async function create(
+  { name, email, passwordHash, profile = "general", role = "user" },
+  client,
+) {
+  const run = client ? client.query.bind(client) : query;
+  const { rows } = await run(
     `INSERT INTO users (role_id, name, email, password_hash, profile)
      VALUES ((SELECT id FROM roles WHERE name = $1), $2, LOWER($3), $4, $5)
      RETURNING id`,
     [role, name.trim(), email.trim(), passwordHash, profile],
   );
-  return findById(rows[0].id);
+  return findById(rows[0].id, client);
+}
+
+export async function markEmailVerified(userId, client) {
+  const run = client ? client.query.bind(client) : query;
+  const { rowCount } = await run(
+    `UPDATE users
+        SET email_verified_at = COALESCE(email_verified_at, NOW()),
+            updated_at = NOW()
+      WHERE id = $1`,
+    [userId],
+  );
+  return rowCount === 1;
 }
 
 /**

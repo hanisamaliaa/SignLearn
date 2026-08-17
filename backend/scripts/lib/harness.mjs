@@ -11,6 +11,10 @@
  * bekerja sebagai satu kesatuan.
  */
 
+import { closePool, query } from "../../src/config/database.js";
+import * as userRepository from "../../src/repositories/userRepository.js";
+import { hashPassword } from "../../src/services/authService.js";
+
 const BASE = (process.env.API_URL || "http://localhost:4788").replace(/\/$/, "");
 export const API = `${BASE}${process.env.API_PREFIX || "/api/v1"}`;
 export const HEALTH_URL = `${BASE}/api/health`;
@@ -131,23 +135,57 @@ export async function registerUser(label = "user") {
   const email = `${label}+${stamp}@signlearn.test`;
   const jar = new Jar();
 
-  const res = await call("/auth/register", {
+  // Suite selain smoke autentikasi membutuhkan akun siap pakai sebagai
+  // fixture, bukan kotak masuk email. Membuatnya langsung mencegah puluhan
+  // email dummy terkirim ketika SMTP nyata sedang aktif. Alur registrasi dan
+  // verifikasi tetap diuji end-to-end oleh smoke-auth.mjs.
+  const user = await userRepository.create({
+    name: `Uji ${label}`,
+    email,
+    passwordHash: await hashPassword(TEST_PASSWORD),
+    profile: "general",
+    role: "user",
+  });
+  await userRepository.markEmailVerified(user.id);
+
+  const res = await call("/auth/login", {
     method: "POST",
     jar,
-    body: { name: `Uji ${label}`, email, password: TEST_PASSWORD },
+    body: { email, password: TEST_PASSWORD },
   });
 
-  if (res.status !== 201) {
-    throw new Error(`register gagal (${res.status}): ${JSON.stringify(res.body)}`);
+  if (res.status !== 200) {
+    await query("DELETE FROM users WHERE id = $1", [user.id]);
+    throw new Error(`login fixture gagal (${res.status}): ${JSON.stringify(res.body)}`);
   }
 
   return {
     email,
     jar,
-    id: res.data.user.id,
+    id: user.id,
     token: res.data.accessToken,
     user: res.data.user,
   };
+}
+
+/** Memberi entitlement Premium langsung sebagai fixture untuk suite non-payment. */
+export async function grantPremiumFixture(userId) {
+  const { rows } = await query(
+    `INSERT INTO subscriptions (user_id, plan_id, start_date, end_date, status)
+     SELECT $1, id, NOW(), NOW() + (duration_days || ' days')::interval, 'active'
+       FROM subscription_plans
+      WHERE status='active'
+      ORDER BY price
+      LIMIT 1
+     RETURNING id`,
+    [userId],
+  );
+  if (!rows[0]) throw new Error("paket Premium fixture tidak tersedia");
+  return String(rows[0].id);
+}
+
+export function closeHarnessDatabase() {
+  return closePool();
 }
 
 /**

@@ -47,6 +47,7 @@ export function randomUuid() {
 
 /** Panjang kode reset yang dikirim lewat email. */
 export const RESET_CODE_LENGTH = 6;
+export const EMAIL_VERIFICATION_CODE_LENGTH = 6;
 
 /**
  * Kode reset enam digit.
@@ -80,4 +81,23 @@ export function generateResetCode() {
  */
 export function hashResetCode(userId, code) {
   return hashToken(`${userId}:${String(code).trim()}`);
+}
+
+/** Kode verifikasi email memakai CSPRNG yang sama, tetapi domain hash berbeda. */
+export function generateEmailVerificationCode() {
+  return String(crypto.randomInt(0, 10 ** EMAIL_VERIFICATION_CODE_LENGTH)).padStart(
+    EMAIL_VERIFICATION_CODE_LENGTH,
+    "0",
+  );
+}
+
+export function hashEmailVerificationCode(userId, code, pepper) {
+  if (!pepper) throw new TypeError("Verification code pepper is required.");
+  // Enam digit dapat di-brute-force dari dump database bila hanya memakai
+  // SHA-256. HMAC membutuhkan secret aplikasi yang tidak tersimpan di DB,
+  // sehingga token tetap terlindungi ketika hanya database yang bocor.
+  return crypto
+    .createHmac("sha256", pepper)
+    .update(`email-verification:${userId}:${String(code).trim()}`)
+    .digest("hex");
 }

@@ -19,8 +19,23 @@ export async function register({ name, email, password, profile }) {
   const payload = await request({
     method: "post", url: "/auth/register", data: { name, email, password, profile },
   });
+  if (payload.verificationRequired) return payload;
+  setAccessToken(payload.accessToken);
+  return { user: payload.user, verificationRequired: false };
+}
+
+export async function verifyEmail(email, code) {
+  const payload = await request({
+    method: "post", url: "/auth/verify-email", data: { email, code },
+  });
   setAccessToken(payload.accessToken);
   return payload.user;
+}
+
+export function resendEmailVerification(email) {
+  return request({
+    method: "post", url: "/auth/verify-email/resend", data: { email },
+  });
 }
 
 /**
