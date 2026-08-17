@@ -4,6 +4,7 @@ import * as lessonRepo from "../repositories/lessonRepository.js";
 import { ApiError } from "../utils/ApiError.js";
 import { paginate, meta } from "../utils/pagination.js";
 import { normalizeSpellTarget } from "../validators/quizValidator.js";
+import crypto from "node:crypto";
 
 /**
  * Quiz service — aturan bisnis kuis, pertanyaan, dan penilaian.
@@ -72,6 +73,10 @@ export async function getById(courseId, quizId, viewer = null) {
   }
   return result;
 }
+
+function chooseFive(pool){const chosen=new Map();const add=(items,count)=>{for(const item of items){if(chosen.size>=5||count<=0||chosen.has(item.id))continue;chosen.set(item.id,item);count--;}};const weak=[...pool].filter(q=>q.wrongCount>0).sort((a,b)=>b.wrongCount-a.wrongCount);const review=[...pool].filter(q=>q.seenCount>0).sort((a,b)=>(a.lastSeenAt??"").localeCompare(b.lastSeenAt??""));const unseen=[...pool].filter(q=>q.seenCount===0);if(pool.every(q=>q.seenCount===0))add(pool,5);else{add(weak,3);add(review,1);add(unseen,1);}add(pool,5-chosen.size);return[...chosen.values()].slice(0,5);}
+
+export async function start(courseId,quizId,userId){const quiz=await requireQuizInCourse(courseId,quizId);const pool=await quizRepo.findAdaptiveQuestionPool(quizId,userId);if(pool.length<5)throw ApiError.conflict(`Quiz belum siap. Minimal 5 soal diperlukan; saat ini tersedia ${pool.length}.`);const questions=chooseFive(pool);const session=await quizRepo.createQuizSession({id:crypto.randomUUID(),userId,quizId,questionIds:questions.map(q=>q.id)});return{quiz:{...quiz,totalQuestions:5},questions,session};}
 
 export async function create(courseId, data) {
   await requireCourse(courseId);
@@ -213,9 +218,11 @@ export async function reorderQuestions(courseId, quizId, orderedIds) {
  *     score  = round(correctCount / totalQuestions * 100)   // half-up
  *     passed = score >= quiz.minPassingScore
  */
-export async function submit(courseId, quizId, userId, { answers, durationSeconds }) {
+export async function submit(courseId, quizId, userId, { sessionId, answers, durationSeconds }) {
   const quiz = await requireQuizInCourse(courseId, quizId);
-  const answerKey = await quizRepo.findAnswerKey(quizId);
+  const session=await quizRepo.findQuizSession(sessionId,userId,quizId);
+  if(!session||session.status!=="active"||new Date(session.expiresAt)<=new Date())throw ApiError.conflict("Sesi quiz sudah tidak berlaku. Mulai quiz kembali.");
+  const answerKey = await quizRepo.findAnswerKeyByIds(quizId,session.questionIds);
 
   if (answerKey.length === 0) {
     throw ApiError.conflict("Kuis ini belum memiliki pertanyaan.");
@@ -278,11 +285,9 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
   const score = Math.round((correctCount / answerKey.length) * 100);
   const passed = score >= quiz.minPassingScore;
 
-  const saved = await quizRepo.saveResult({
-    userId,
-    quizId,
-    score,
-    passed,
+  let saved;
+  try{saved=await quizRepo.saveSessionResult({
+    sessionId,userId,quizId,score,passed,
     // Tiap tipe menyimpan bentuk jawabannya sendiri; `answers` bertipe JSONB
     // sehingga riwayat soal kamera tetap terbaca tanpa kolom tambahan.
     answers: review.map(({ questionId, questionType, selectedIndex, answerText, mistakes, isCorrect }) =>
@@ -290,7 +295,7 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
         ? { questionId, questionType, answerText, mistakes, isCorrect }
         : { questionId, questionType, selectedIndex, isCorrect },
     ),
-  });
+  });}catch(error){if(error.code==="QUIZ_SESSION_INVALID")throw ApiError.conflict("Sesi quiz sudah dikirim atau kedaluwarsa.");throw error;}
 
   return {
     id: saved.id,
@@ -308,4 +313,3 @@ export async function submit(courseId, quizId, userId, { answers, durationSecond
     review,
   };
 }
-

@@ -394,6 +394,52 @@
   CREATE TRIGGER trg_translations_updated_at BEFORE UPDATE ON translations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+  -- ═══ Premium & pembayaran Midtrans (additive) ════════════════
+  CREATE TABLE IF NOT EXISTS subscription_plans (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(100) NOT NULL, price NUMERIC(12,2) NOT NULL CHECK(price>=0),
+    duration_days INT NOT NULL CHECK(duration_days>0),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_id BIGINT NOT NULL REFERENCES subscription_plans(id),
+    start_date TIMESTAMPTZ,end_date TIMESTAMPTZ,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','active','expired','cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS payments (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id BIGINT NOT NULL REFERENCES subscriptions(id),
+    order_id VARCHAR(100) NOT NULL UNIQUE,amount NUMERIC(12,2) NOT NULL,
+    payment_method VARCHAR(80),transaction_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    transaction_id VARCHAR(120),snap_token TEXT,redirect_url TEXT,
+    paid_at TIMESTAMPTZ,processed_at TIMESTAMPTZ,raw_notification JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS lesson_quiz_sessions (
+    id UUID PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    quiz_id BIGINT NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+    question_ids BIGINT[] NOT NULL CHECK(array_length(question_ids,1)=5),
+    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK(status IN ('active','submitted','expired')),
+    expires_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),submitted_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id,end_date DESC);
+  CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id,created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_lesson_quiz_sessions_user ON lesson_quiz_sessions(user_id,created_at DESC);
+  INSERT INTO subscription_plans(name,price,duration_days,status)
+  SELECT 'Premium',29000,30,'active'
+  WHERE NOT EXISTS(SELECT 1 FROM subscription_plans WHERE name='Premium' AND duration_days=30);
+  DROP TRIGGER IF EXISTS trg_plans_updated_at ON subscription_plans;
+  DROP TRIGGER IF EXISTS trg_subscriptions_updated_at ON subscriptions;
+  DROP TRIGGER IF EXISTS trg_payments_updated_at ON payments;
+  CREATE TRIGGER trg_plans_updated_at BEFORE UPDATE ON subscription_plans FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  CREATE TRIGGER trg_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  CREATE TRIGGER trg_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
   COMMIT;
 
   -- ── Verifikasi ─────────────────────────────────────────────────

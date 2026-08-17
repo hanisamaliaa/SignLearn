@@ -25,15 +25,9 @@ import { ERROR_CODES } from "../constants/errorCodes.js";
  * Fungsi ini PURE — dapat diuji tanpa database.
  */
 export function computeAccess(info) {
-  if (!info.isLocked) return { accessible: true, reason: null };
-  if (!info.prevId) return { accessible: true, reason: null };
-
-  if (info.prevStatus !== "completed") {
-    return { accessible: false, reason: "PREVIOUS_LESSON_INCOMPLETE" };
-  }
-  if (info.prevHasQuiz && !info.prevQuizPassed) {
-    return { accessible: false, reason: "PREVIOUS_QUIZ_NOT_PASSED" };
-  }
+  // Model freemium: seluruh course, lesson, dan video selalu terbuka.
+  // Quiz Premium tidak boleh menjadi syarat akses materi berikutnya.
+  void info;
   return { accessible: true, reason: null };
 }
 

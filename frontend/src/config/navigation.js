@@ -32,6 +32,14 @@ export const userNavItems = [
     roles: ["user"],
   },
   {
+    label: "⭐ Jadi Premium",
+    page: "user/premium",
+    path: "/premium",
+    icon: GridIcon,
+    roles: ["user"],
+    premiumEntry: true,
+  },
+  {
     label: "Profil",
     page: "user/profile",
     path: "/profile",

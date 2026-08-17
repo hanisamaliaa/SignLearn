@@ -133,6 +133,30 @@ export async function findQuestions(quizId, includeAnswer = false) {
   return rows.map((r) => toQuestionDto(r, includeAnswer));
 }
 
+export async function findAdaptiveQuestionPool(quizId,userId){
+  const {rows}=await query(`WITH performance AS(
+    SELECT (answer->>'questionId')::bigint question_id,COUNT(*)::int seen_count,
+      COUNT(*) FILTER(WHERE COALESCE((answer->>'isCorrect')::boolean,false)=false)::int wrong_count,
+      MAX(qr.taken_at) last_seen
+    FROM quiz_results qr CROSS JOIN LATERAL jsonb_array_elements(COALESCE(qr.answers,'[]'::jsonb)) answer
+    WHERE qr.quiz_id=$1 AND qr.user_id=$2 GROUP BY (answer->>'questionId')::bigint)
+    SELECT q.id,q.quiz_id,q.question,q.question_type,q.options,q.correct_index,q.answer_text,q.sort_order,
+      COALESCE(p.seen_count,0)::int seen_count,COALESCE(p.wrong_count,0)::int wrong_count,p.last_seen
+    FROM quiz_questions q LEFT JOIN performance p ON p.question_id=q.id
+    WHERE q.quiz_id=$1 ORDER BY q.sort_order,q.id`,[quizId,userId]);
+  return rows.map(row=>({...toQuestionDto(row,false),seenCount:Number(row.seen_count),wrongCount:Number(row.wrong_count),lastSeenAt:row.last_seen?.toISOString()??null}));
+}
+
+export async function createQuizSession({id,userId,quizId,questionIds}){
+  const {rows}=await query(`INSERT INTO lesson_quiz_sessions(id,user_id,quiz_id,question_ids,expires_at)
+    VALUES($1,$2,$3,$4,NOW()+INTERVAL '30 minutes') RETURNING id,expires_at`,[id,userId,quizId,questionIds]);
+  return{id:rows[0].id,expiresAt:rows[0].expires_at.toISOString()};
+}
+
+export async function findQuizSession(id,userId,quizId){const{rows}=await query(`SELECT id,question_ids,status,expires_at FROM lesson_quiz_sessions WHERE id=$1 AND user_id=$2 AND quiz_id=$3 LIMIT 1`,[id,userId,quizId]);const row=rows[0];return row?{id:row.id,questionIds:row.question_ids.map(String),status:row.status,expiresAt:row.expires_at.toISOString()}:null;}
+
+export async function findAnswerKeyByIds(quizId,questionIds){const{rows}=await query(`SELECT id,question_type,correct_index,answer_text,jsonb_array_length(options) option_count FROM quiz_questions WHERE quiz_id=$1 AND id=ANY($2::bigint[]) ORDER BY array_position($2::bigint[],id)`,[quizId,questionIds]);return rows.map(r=>({id:String(r.id),questionType:r.question_type,correctIndex:Number(r.correct_index),answerText:r.answer_text??null,optionCount:Number(r.option_count)}));}
+
 /**
  * Kunci jawaban saja — untuk penilaian di server.
  *
@@ -376,6 +400,8 @@ export async function saveResult({ userId, quizId, score, passed, answers }) {
     takenAt: r.taken_at.toISOString(),
   };
 }
+
+export async function saveSessionResult({sessionId,userId,quizId,score,passed,answers}){return withTransaction(async client=>{const consumed=await client.query(`UPDATE lesson_quiz_sessions SET status='submitted',submitted_at=NOW() WHERE id=$1 AND user_id=$2 AND quiz_id=$3 AND status='active' AND expires_at>NOW() RETURNING id`,[sessionId,userId,quizId]);if(!consumed.rowCount){const error=new Error("QUIZ_SESSION_INVALID");error.code="QUIZ_SESSION_INVALID";throw error;}const{rows}=await client.query(`INSERT INTO quiz_results(user_id,quiz_id,score,passed,answers) VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id,quiz_id,score,passed,taken_at`,[userId,quizId,score,passed,JSON.stringify(answers)]);const r=rows[0];return{id:String(r.id),quizId:String(r.quiz_id),score:Number(r.score),passed:r.passed,takenAt:r.taken_at.toISOString()};});}
 
 export async function findBestAttempt(quizId, userId) {
   const { rows } = await query(

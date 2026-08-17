@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { Card, Button, Badge } from "../../components/ui/ui";
@@ -10,6 +11,7 @@ import {
   BookIcon,
 } from "../../components/ui/Icons";
 import { formatEstimatedHours } from "../../features/lesson/courseMeta";
+import PremiumModal from "../../components/premium/PremiumModal";
 
 const COURSE_INFO = [
   { label: "Kategori", value: "" },
@@ -21,8 +23,9 @@ const COURSE_INFO = [
 ];
 
 export default function CourseDetail() {
-  const { selectedCourse, setSelectedLesson } = useApp();
+  const { selectedCourse, setSelectedLesson, isPremium } = useApp();
   const navigate = useNavigate();
+  const [premiumOpen,setPremiumOpen]=useState(false);
 
   const course = selectedCourse || {
     lessons: [],
@@ -40,6 +43,7 @@ export default function CourseDetail() {
   }
 
   const currentLesson = course.lessons.find((l) => l.status === "current");
+  const quizForLesson=(lessonId)=>course.quizzes?.find((quiz)=>quiz.lessonId===lessonId)??null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -139,7 +143,7 @@ export default function CourseDetail() {
                         ? "border-[#4F8EF7] bg-[var(--primary-light)]"
                         : lesson.status === "completed"
                           ? "border-[var(--border)] bg-[var(--surface-2)] hover:border-[#2ECC71]/40"
-                          : "border-[var(--border)] bg-[var(--surface)] opacity-60 cursor-not-allowed"
+                          : "border-[var(--border)] bg-[var(--surface)] hover:border-[#4F8EF7]/40"
                     }`}
                   >
                     <div
@@ -169,6 +173,9 @@ export default function CourseDetail() {
                         {lesson.status === "locked" && (
                           <Badge variant="muted">Terkunci</Badge>
                         )}
+                        {lesson.status === "available" && (
+                          <Badge variant="info">Tersedia</Badge>
+                        )}
                       </div>
                       <p
                         className={`font-semibold truncate ${
@@ -187,8 +194,12 @@ export default function CourseDetail() {
                           </span>
                         )}
                       </p>
+                      <div className="lesson-access-lines">
+                        <span>▶ Video & materi <strong>Gratis</strong></span>
+                        <span>🔒 Quiz evaluasi <strong>5 soal · Premium</strong></span>
+                      </div>
                     </div>
-                    {lesson.status === "current" && (
+                    {(lesson.status === "current" || lesson.status === "available") && (
                       <Button
                         size="sm"
                         onClick={() => {
@@ -216,6 +227,9 @@ export default function CourseDetail() {
                         <LockIcon size={16} />
                       </div>
                     )}
+                    <Button variant="secondary" size="sm" onClick={()=>{setSelectedLesson(lesson.id);const quiz=quizForLesson(lesson.id);if(!isPremium){setPremiumOpen(true);return;}if(quiz)navigate("/quiz");else navigate("/lesson");}}>
+                      {isPremium?"Mulai Quiz":"🔒 Quiz"}
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -266,9 +280,8 @@ export default function CourseDetail() {
                   Aturan Belajar
                 </p>
                 <p className="text-xs text-[#9A7300] leading-relaxed">
-                  Anda harus menyelesaikan setiap pelajaran dan lulus kuis
-                  (nilai ≥70) sebelum dapat mengakses pelajaran berikutnya.
-                  Pelajaran tidak dapat dilewati.
+                  Semua lesson dan video terbuka gratis. Quiz 5 soal setelah
+                  pelajaran tersedia untuk Premium sebagai evaluasi tambahan.
                 </p>
               </div>
             </div>
@@ -288,6 +301,7 @@ export default function CourseDetail() {
           )}
         </div>
       </div>
+      <PremiumModal open={premiumOpen} onClose={()=>setPremiumOpen(false)}/>
     </div>
   );
 }

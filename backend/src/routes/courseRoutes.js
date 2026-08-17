@@ -4,6 +4,7 @@ import * as lessonController from "../controllers/lessonController.js";
 import * as quizController from "../controllers/quizController.js";
 import { authenticate, optionalAuthenticate } from "../middleware/auth.middleware.js";
 import { requireAdmin, requireUser } from "../middleware/rbac.middleware.js";
+import { requirePremium, requirePremiumOrAdmin } from "../middleware/premium.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
   validateCreateLesson,
@@ -146,12 +147,18 @@ router.post(
   "/:courseId/quizzes/:quizId/submit",
   authenticate,
   requireUser,
+  requirePremium,
   validate(validateSubmitQuiz),
   quizController.submitQuiz,
 );
 
+router.post(
+  "/:courseId/quizzes/:quizId/start",
+  authenticate,requireUser,requirePremium,quizController.startQuiz,
+);
+
 router.get("/:courseId/quizzes", optionalAuthenticate, quizController.getQuizzesByCourse);
-router.get("/:courseId/quizzes/:quizId", optionalAuthenticate, quizController.getQuizById);
+router.get("/:courseId/quizzes/:quizId", authenticate, requirePremiumOrAdmin, quizController.getQuizById);
 
 router.post(
   "/:courseId/quizzes",

@@ -47,6 +47,7 @@ export default function Quiz() {
   const navigate = useNavigate();
 
   const [quiz, setQuiz] = useState(null);
+  const [sessionId,setSessionId]=useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -85,11 +86,12 @@ export default function Quiz() {
 
       try {
         const { quizService } = await import("../../services");
-        const payload = await quizService.getQuizById(selectedCourseId, targetQuiz.id);
+        const payload = await quizService.startQuiz(selectedCourseId, targetQuiz.id);
         if (cancelled) return;
 
         setQuiz(payload.quiz);
         setQuestions(payload.questions ?? []);
+        setSessionId(payload.session?.id??null);
         setAnswers(Array(payload.questions?.length ?? 0).fill(null));
         setTimeLeft(payload.quiz?.durationSeconds ?? 300);
         setLoading(false);
@@ -131,7 +133,7 @@ export default function Quiz() {
     );
 
     const spent = (quiz?.durationSeconds ?? 300) - timeLeft;
-    const outcome = await submitQuiz(selectedCourseId, quiz.id, payload, spent);
+    const outcome = await submitQuiz(selectedCourseId, quiz.id, sessionId, payload, spent);
 
     if (!outcome.success) {
       setSubmitError(outcome.message);
@@ -143,7 +145,7 @@ export default function Quiz() {
     navigate("/quiz-result");
   }, [
     submitted, total, answers, questions, quiz, timeLeft,
-    submitQuiz, selectedCourseId, setQuizResult, navigate,
+    submitQuiz, selectedCourseId, sessionId, setQuizResult, navigate,
   ]);
 
   useEffect(() => {
