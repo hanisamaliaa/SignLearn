@@ -6652,6 +6652,13 @@ textarea,
 .courses-search-clear:hover { background: var(--surface-3); color: var(--cp-text); }
 .courses-search-clear:active { transform: scale(.92); }
 
+/* ── Course detail page ──────────────────────────────────────────────── */
+.course-detail { max-width: 1100px; margin: 0 auto; }
+.course-lesson-row:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.course-lesson-row:active { transform: scale(.995); }
+.course-quiz-card { transition: transform .18s ease, box-shadow .18s ease; }
+.course-quiz-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgb(40 85 140 / .08); }
+
 /* ── Courses cards section wrapper ────────────────────────────────────── */
 .courses-cards-section { scroll-margin-top: 24px; }
 
@@ -6912,6 +6919,8 @@ textarea,
 [data-theme="dark"] .courses-pagination-btn:hover:not(:disabled):not(.is-active) { border-color: #5577a8; color: #eef4fb; }
 [data-theme="dark"] .courses-pagination-btn.is-active { border-color: #087b70; background: #087b70; color: #fff; }
 [data-theme="dark"] .courses-pagination-mobile-info { color: #eef4fb; }
+[data-theme="dark"] .course-quiz-card { border-color: #2c3d54; }
+[data-theme="dark"] .course-lesson-row:focus-visible { outline-color: #60a5fa; }
 
 @media (max-width: 900px) {
   .courses-summary-grid { grid-template-columns: 1fr; }

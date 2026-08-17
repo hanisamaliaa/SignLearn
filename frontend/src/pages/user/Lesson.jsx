@@ -11,7 +11,6 @@ import {
 } from "../../components/ui/Icons";
 import YouTubeLesson from "../../features/lesson/YouTubeLesson";
 import { formatDuration } from "../../features/lesson/youtube";
-import PremiumModal from "../../components/premium/PremiumModal";
 
 /**
  * Halaman pelajaran.
@@ -24,7 +23,7 @@ import PremiumModal from "../../components/premium/PremiumModal";
  * mengajarkan isyarat yang keliru lebih buruk daripada tidak mengajarkannya.
  */
 export default function Lesson() {
-  const { selectedCourse, selectedLessonId, selectLesson, startLesson, completeLesson, isPremium } =
+  const { selectedCourse, selectedLessonId, selectLesson, startLesson, completeLesson } =
     useApp();
   const navigate = useNavigate();
 
@@ -32,7 +31,6 @@ export default function Lesson() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [justCompleted, setJustCompleted] = useState(false);
-  const [premiumOpen,setPremiumOpen]=useState(false);
 
   const course = selectedCourse || { lessons: [] };
   const lessons = course.lessons ?? [];
@@ -213,21 +211,8 @@ export default function Lesson() {
             </Card>
           )}
 
-          <Card className="border-2 border-[#4F8EF7] bg-[var(--primary-light)]">
-            <div className="text-center">
-              <div className="mb-2 text-3xl">📝</div>
-              <h2 className="mb-1 font-bold text-[var(--text)]">Siap untuk kuis?</h2>
-              <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
-                Materi tetap gratis. Quiz evaluasi 5 soal dan riwayat hasil tersedia untuk Premium.
-              </p>
-              <Button fullWidth onClick={() => isPremium?navigate("/quiz"):setPremiumOpen(true)}>
-                {isPremium?"Mulai quiz":"🔒 Mulai Quiz — Premium"} <ArrowRightIcon size={14} />
-              </Button>
-            </div>
-          </Card>
         </div>
       </div>
-      <PremiumModal open={premiumOpen} onClose={()=>setPremiumOpen(false)}/>
     </div>
   );
 }

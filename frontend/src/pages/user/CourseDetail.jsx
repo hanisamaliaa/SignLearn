@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/app";
 import { Card, Button, Badge } from "../../components/ui/ui";
@@ -13,40 +13,66 @@ import {
 import { formatEstimatedHours } from "../../features/lesson/courseMeta";
 import PremiumModal from "../../components/premium/PremiumModal";
 
-const COURSE_INFO = [
-  { label: "Kategori", value: "" },
-  { label: "Level", value: "" },
-  { label: "Total Pelajaran", value: "" },
-  { label: "Durasi Estimasi", value: "" },
-  { label: "Nilai KKM", value: "70 / 100" },
-  { label: "Tipe Konten", value: "Video + Kuis" },
-];
-
 export default function CourseDetail() {
   const { selectedCourse, setSelectedLesson, isPremium } = useApp();
   const navigate = useNavigate();
-  const [premiumOpen,setPremiumOpen]=useState(false);
+  const [premiumOpen, setPremiumOpen] = useState(false);
 
   const course = selectedCourse || {
     lessons: [],
     totalLessons: 0,
     completedLessons: 0,
+    quizzes: [],
   };
+
   const pct = course.totalLessons
     ? Math.round((course.completedLessons / course.totalLessons) * 100)
     : 0;
 
-  function statusBg(status) {
-    if (status === "completed") return "bg-[#2ECC71]";
-    if (status === "current") return "bg-[#4F8EF7]";
-    return "bg-[#E2E8F0]";
-  }
-
+  const courseQuiz = course.quizzes?.[0] ?? null;
   const currentLesson = course.lessons.find((l) => l.status === "current");
-  const quizForLesson=(lessonId)=>course.quizzes?.find((quiz)=>quiz.lessonId===lessonId)??null;
+  const allLessonsCompleted =
+    course.lessons.length > 0 &&
+    course.lessons.every((l) => l.status === "completed");
+
+  const handleLessonClick = (lesson) => {
+    if (lesson.status === "locked") return;
+    setSelectedLesson(lesson.id);
+    navigate("/lesson");
+  };
+
+  const handleQuizClick = () => {
+    if (!isPremium) {
+      setPremiumOpen(true);
+      return;
+    }
+    setSelectedLesson(null);
+    navigate("/quiz");
+  };
+
+  const handleCta = () => {
+    if (allLessonsCompleted && courseQuiz) {
+      handleQuizClick();
+    } else if (currentLesson) {
+      setSelectedLesson(currentLesson.id);
+      navigate("/lesson");
+    }
+  };
+
+  const ctaLabel = useMemo(() => {
+    if (allLessonsCompleted && courseQuiz) {
+      return isPremium ? "Mulai Quiz Akhir" : "Buka Quiz dengan Premium";
+    }
+    if (currentLesson) {
+      const idx = course.lessons.findIndex((l) => l.id === currentLesson.id);
+      return `Lanjutkan Pelajaran ${idx + 1}`;
+    }
+    if (course.lessons.length > 0) return "Mulai Belajar";
+    return null;
+  }, [currentLesson, allLessonsCompleted, courseQuiz, isPremium, course.lessons]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="course-detail space-y-6 animate-fade-in">
       <button
         onClick={() => navigate("/courses")}
         className="flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
@@ -55,8 +81,8 @@ export default function CourseDetail() {
         Kembali ke Katalog Kursus
       </button>
 
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-[#1A2332] to-[#2D3748] rounded-2xl overflow-hidden">
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      <div className="course-hero bg-gradient-to-br from-[#1A2332] to-[#2D3748] rounded-2xl overflow-hidden">
         <div className="flex flex-col lg:flex-row">
           <div className="lg:w-2/5 relative">
             <img
@@ -90,22 +116,23 @@ export default function CourseDetail() {
               </div>
               {formatEstimatedHours(course.estimatedHours) && (
                 <div className="flex items-center gap-1.5">
-                  <ClockIcon size={15} /> {formatEstimatedHours(course.estimatedHours)} estimasi
+                  <ClockIcon size={15} />{" "}
+                  {formatEstimatedHours(course.estimatedHours)} estimasi
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <span>📊</span> Nilai KKM: 70
+                <span>🎯</span> Nilai KKM: 70
               </div>
             </div>
-            <div className="mb-2">
+            <div>
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-white/70">Progress Keseluruhan</span>
+                <span className="text-white/70">Progress Belajar</span>
                 <span className="font-semibold">
-                  {course.completedLessons}/{course.totalLessons} selesai ({pct}
-                  %)
+                  {course.completedLessons}/{course.totalLessons} selesai (
+                  {pct}%)
                 </span>
               </div>
-              <div className="h-2 bg-[var(--surface)]/20 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#4F8EF7] rounded-full transition-all duration-500"
                   style={{ width: `${pct}%` }}
@@ -116,9 +143,11 @@ export default function CourseDetail() {
         </div>
       </div>
 
+      {/* ── Main grid ────────────────────────────────────────────────── */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Lessons */}
-        <div className="lg:col-span-2">
+        {/* ── Left column: Lessons + Quiz ────────────────────────────── */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Daftar Pelajaran */}
           <Card>
             <h2 className="text-lg font-bold text-[var(--text)] mb-5">
               Daftar Pelajaran
@@ -136,172 +165,269 @@ export default function CourseDetail() {
             ) : (
               <div className="space-y-3">
                 {course.lessons.map((lesson, idx) => (
-                  <div
+                  <LessonRow
                     key={lesson.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                      lesson.status === "current"
-                        ? "border-[#4F8EF7] bg-[var(--primary-light)]"
-                        : lesson.status === "completed"
-                          ? "border-[var(--border)] bg-[var(--surface-2)] hover:border-[#2ECC71]/40"
-                          : "border-[var(--border)] bg-[var(--surface)] hover:border-[#4F8EF7]/40"
-                    }`}
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${statusBg(
-                        lesson.status,
-                      )} ${lesson.status === "locked" ? "text-[var(--text-subtle)]" : "text-white"}`}
-                    >
-                      {lesson.status === "locked" ? (
-                        <LockIcon size={15} />
-                      ) : lesson.status === "completed" ? (
-                        <CheckCircleIcon size={16} />
-                      ) : (
-                        idx + 1
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-medium text-[var(--text-subtle)]">
-                          Pelajaran {idx + 1}
-                        </span>
-                        {lesson.status === "completed" && (
-                          <Badge variant="success">Selesai</Badge>
-                        )}
-                        {lesson.status === "current" && (
-                          <Badge variant="primary">Aktif</Badge>
-                        )}
-                        {lesson.status === "locked" && (
-                          <Badge variant="muted">Terkunci</Badge>
-                        )}
-                        {lesson.status === "available" && (
-                          <Badge variant="info">Tersedia</Badge>
-                        )}
-                      </div>
-                      <p
-                        className={`font-semibold truncate ${
-                          lesson.status === "locked"
-                            ? "text-[var(--text-subtle)]"
-                            : "text-[var(--text)]"
-                        }`}
-                      >
-                        {lesson.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-subtle)] flex items-center gap-1 mt-0.5">
-                        <ClockIcon size={11} /> {lesson.duration}
-                        {lesson.status === "locked" && (
-                          <span className="ml-2">
-                            • Selesaikan pelajaran sebelumnya
-                          </span>
-                        )}
-                      </p>
-                      <div className="lesson-access-lines">
-                        <span>▶ Video & materi <strong>Gratis</strong></span>
-                        <span>🔒 Quiz evaluasi <strong>5 soal · Premium</strong></span>
-                      </div>
-                    </div>
-                    {(lesson.status === "current" || lesson.status === "available") && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedLesson(lesson.id);
-                          navigate("/lesson");
-                        }}
-                      >
-                        <PlayIcon size={13} /> Mulai
-                      </Button>
-                    )}
-                    {lesson.status === "completed" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedLesson(lesson.id);
-                          navigate("/lesson");
-                        }}
-                      >
-                        Ulangi
-                      </Button>
-                    )}
-                    {lesson.status === "locked" && (
-                      <div className="text-[var(--text-subtle)]">
-                        <LockIcon size={16} />
-                      </div>
-                    )}
-                    <Button variant="secondary" size="sm" onClick={()=>{setSelectedLesson(lesson.id);const quiz=quizForLesson(lesson.id);if(!isPremium){setPremiumOpen(true);return;}if(quiz)navigate("/quiz");else navigate("/lesson");}}>
-                      {isPremium?"Mulai Quiz":"🔒 Quiz"}
-                    </Button>
-                  </div>
+                    lesson={lesson}
+                    index={idx}
+                    onClick={() => handleLessonClick(lesson)}
+                  />
                 ))}
               </div>
             )}
           </Card>
+
+          {/* Evaluasi — quiz is a separate section */}
+          {courseQuiz && (
+            <Card>
+              <h2 className="text-lg font-bold text-[var(--text)] mb-2">
+                Evaluasi
+              </h2>
+              <p className="text-sm text-[var(--text-muted)] mb-5">
+                Uji kemampuanmu setelah menyelesaikan seluruh materi.
+              </p>
+              <QuizCard
+                quiz={courseQuiz}
+                isPremium={isPremium}
+                onAction={handleQuizClick}
+              />
+            </Card>
+          )}
         </div>
 
-        {/* Sidebar */}
+        {/* ── Right column: Sidebar ──────────────────────────────────── */}
         <div className="space-y-4">
+          {/* Informasi Kursus */}
           <Card>
             <h3 className="font-bold text-[var(--text)] mb-4">
               Informasi Kursus
             </h3>
             <div className="space-y-3">
-              {COURSE_INFO.map((info) => {
-                const value =
-                  info.label === "Kategori"
-                    ? course.category
-                    : info.label === "Level"
-                      ? course.level
-                      : info.label === "Total Pelajaran"
-                        ? `${course.totalLessons} pelajaran`
-                        : info.label === "Durasi Estimasi"
-                          ? (formatEstimatedHours(course.estimatedHours) ?? "—")
-                          : info.value;
-                return (
-                  <div
-                    key={info.label}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-[var(--text-muted)]">
-                      {info.label}
-                    </span>
-                    <span className="font-medium text-[var(--text)]">
-                      {value}
-                    </span>
-                  </div>
-                );
-              })}
+              <InfoRow label="Kategori" value={course.category} />
+              <InfoRow label="Level" value={course.level} />
+              <InfoRow
+                label="Total Pelajaran"
+                value={`${course.totalLessons} pelajaran`}
+              />
+              <InfoRow
+                label="Durasi Estimasi"
+                value={formatEstimatedHours(course.estimatedHours) ?? "—"}
+              />
+              <InfoRow label="Nilai KKM" value="70 / 100" />
+              <InfoRow label="Tipe Konten" value="Video + Quiz + AI Practice" />
             </div>
           </Card>
 
-          <Card className="bg-[var(--warning-light)] border-[#F4B400]/30">
+          {/* Cara Belajar */}
+          <Card className="bg-[var(--primary-light)] border-[#4F8EF7]/20">
             <div className="flex items-start gap-3">
               <span className="text-xl">📌</span>
               <div>
-                <p className="font-semibold text-[#7A5A00] text-sm mb-1">
-                  Aturan Belajar
+                <p className="font-semibold text-[var(--primary)] text-sm mb-2">
+                  Cara Belajar
                 </p>
-                <p className="text-xs text-[#9A7300] leading-relaxed">
-                  Semua lesson dan video terbuka gratis. Quiz 5 soal setelah
-                  pelajaran tersedia untuk Premium sebagai evaluasi tambahan.
-                </p>
+                <ul className="space-y-1.5 text-xs text-[var(--text-muted)] leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#2ECC71] mt-0.5">✓</span>
+                    Video pembelajaran dapat diakses gratis
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#2ECC71] mt-0.5">✓</span>
+                    Progress tersimpan otomatis
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#F4B400] mt-0.5">⭐</span>
+                    Quiz &amp; latihan AI tersedia untuk Premium
+                  </li>
+                </ul>
               </div>
             </div>
           </Card>
 
-          {currentLesson && (
-            <Button
-              fullWidth
-              size="lg"
-              onClick={() => {
-                setSelectedLesson(currentLesson.id);
-                navigate("/lesson");
-              }}
-            >
-              <PlayIcon size={16} /> Lanjutkan Belajar
+          {/* Context-aware CTA */}
+          {ctaLabel && (
+            <Button fullWidth size="lg" onClick={handleCta}>
+              {allLessonsCompleted && courseQuiz ? (
+                isPremium ? "🧠 " : "🔒 "
+              ) : (
+                <PlayIcon size={16} />
+              )}
+              {ctaLabel}
             </Button>
           )}
         </div>
       </div>
-      <PremiumModal open={premiumOpen} onClose={()=>setPremiumOpen(false)}/>
+
+      <PremiumModal
+        open={premiumOpen}
+        onClose={() => setPremiumOpen(false)}
+      />
+    </div>
+  );
+}
+
+/* ── Lesson row ──────────────────────────────────────────────────────── */
+
+function LessonRow({ lesson, index, onClick }) {
+  const isCompleted = lesson.status === "completed";
+  const isCurrent = lesson.status === "current";
+
+  return (
+    <div
+      className={`course-lesson-row flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+        isCurrent
+          ? "border-[#4F8EF7] bg-[var(--primary-light)]"
+          : isCompleted
+            ? "border-[var(--border)] bg-[var(--surface-2)] hover:border-[#2ECC71]/40"
+            : "border-[var(--border)] bg-[var(--surface)] hover:border-[#4F8EF7]/40"
+      }`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={`Pelajaran ${index + 1}: ${lesson.title}`}
+    >
+      {/* Number / status indicator */}
+      <div
+        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+          isCompleted
+            ? "bg-[#2ECC71] text-white"
+            : isCurrent
+              ? "bg-[#4F8EF7] text-white"
+              : "bg-[#E2E8F0] text-[var(--text-muted)]"
+        }`}
+      >
+        {isCompleted ? (
+          <CheckCircleIcon size={16} />
+        ) : (
+          index + 1
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-xs font-medium text-[var(--text-subtle)]">
+            Pelajaran {index + 1}
+          </span>
+          {isCompleted && <Badge variant="success">Selesai</Badge>}
+          {isCurrent && (
+            <Badge variant="primary">Sedang Dipelajari</Badge>
+          )}
+        </div>
+        <p className="font-semibold truncate text-[var(--text)]">
+          {lesson.title}
+        </p>
+        <p className="text-xs text-[var(--text-subtle)] flex items-center gap-1 mt-0.5">
+          <ClockIcon size={11} /> {lesson.duration}
+          <span className="mx-1">•</span>
+          Video • Gratis
+        </p>
+      </div>
+
+      {/* Action button */}
+      <div className="flex-shrink-0">
+        {isCompleted ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            Pelajari Lagi
+          </Button>
+        ) : isCurrent ? (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            <PlayIcon size={13} /> Lanjutkan
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            <PlayIcon size={13} /> Mulai
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Quiz card (Evaluasi section) ────────────────────────────────────── */
+
+function QuizCard({ quiz, isPremium, onAction }) {
+  return (
+    <div
+      className={`course-quiz-card rounded-xl border-2 p-5 transition-all ${
+        isPremium
+          ? "border-[#4F8EF7]/30 bg-[var(--primary-light)]"
+          : "border-[#F4B400]/30 bg-[var(--warning-light)]"
+      }`}
+    >
+      <div className="flex items-start gap-4">
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${
+            isPremium ? "bg-[#4F8EF7]/10" : "bg-[#F4B400]/10"
+          }`}
+        >
+          🧠
+        </div>
+        <div className="flex-1">
+          <h3 className="font-bold text-[var(--text)] mb-1">
+            Quiz Akhir
+          </h3>
+          <p className="text-sm text-[var(--text-muted)] mb-3">
+            {quiz.totalQuestions ?? 5} soal pilihan + praktik bahasa isyarat
+            menggunakan AI Camera
+          </p>
+          <div className="flex items-center gap-3 mb-4">
+            <Badge variant={isPremium ? "primary" : "warning"}>
+              {isPremium ? "Premium" : "⭐ Premium"}
+            </Badge>
+            <span className="text-xs text-[var(--text-subtle)]">
+              Nilai minimum: {quiz.minPassingScore ?? 70}
+            </span>
+          </div>
+          {isPremium ? (
+            <Button onClick={onAction}>Mulai Quiz</Button>
+          ) : (
+            <div>
+              <p className="text-xs text-[#7A5A00] mb-3">
+                🔒 Berlangganan untuk membuka quiz dan latihan AI
+              </p>
+              <Button variant="secondary" onClick={onAction}>
+                Buka dengan Premium
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Info row helper ─────────────────────────────────────────────────── */
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-[var(--text-muted)]">{label}</span>
+      <span className="font-medium text-[var(--text)]">{value}</span>
     </div>
   );
 }
