@@ -130,6 +130,7 @@
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS category        VARCHAR(100) DEFAULT 'Umum';
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS status          VARCHAR(20) DEFAULT 'active';
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS sign_image      VARCHAR(500);
+  ALTER TABLE translations ADD COLUMN IF NOT EXISTS sign_image_public_id VARCHAR(500);
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS sign_video      VARCHAR(500);
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS aliases         TEXT[] DEFAULT '{}';
   ALTER TABLE translations ADD COLUMN IF NOT EXISTS created_at      TIMESTAMPTZ DEFAULT NOW();
@@ -143,7 +144,9 @@
   -- ── users ──────────────────────────────────────────────────────
   ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id               INT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone                 VARCHAR(30);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar                VARCHAR(20);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar                VARCHAR(500);
+  ALTER TABLE users ALTER COLUMN avatar TYPE VARCHAR(500);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_public_id      VARCHAR(500);
   ALTER TABLE users ADD COLUMN IF NOT EXISTS profile               VARCHAR(50) DEFAULT 'general';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS status                VARCHAR(20) DEFAULT 'active';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT    DEFAULT 0;
@@ -167,6 +170,7 @@
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS level           VARCHAR(20)  DEFAULT 'Pemula';
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS description     TEXT;
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS thumbnail       VARCHAR(500);
+  ALTER TABLE courses ADD COLUMN IF NOT EXISTS thumbnail_public_id VARCHAR(500);
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS total_lessons   INT          DEFAULT 0;
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS estimated_hours NUMERIC(4,1) DEFAULT 0;
   ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_locked       BOOLEAN      DEFAULT FALSE;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../../context/app";
 import { Card, Button, Input, Alert, AnimatedCounter, FloatingShapes } from "../../components/ui/ui";
 import { CheckCircleIcon } from "../../components/ui/Icons";
@@ -9,6 +9,10 @@ import {
 } from "../../components/common/SignLearnAvatar";
 import * as authService from "../../services/authService";
 import { normalizeError } from "../../services/api";
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  validateImageFile,
+} from "../../features/media/imageUpload";
 
 const PROFILE_OPTIONS = [
   { id: "parent", label: "Orang Tua", emoji: "👨‍👩‍👧" },
@@ -36,13 +40,15 @@ function formatJoinDate(value) {
 }
 
 export default function Profile() {
-  const { currentUser, updateProfile, logout, stats } = useApp();
+  const { currentUser, updateProfile, uploadProfileAvatar, logout, stats } = useApp();
 
   const [name, setName] = useState(currentUser?.name || "");
   const [email] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
   const [profile, setProfile] = useState(currentUser?.profileType || "general");
   const [avatar, setAvatar] = useState(resolveAvatarId(currentUser?.avatar));
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -53,6 +59,13 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [passError, setPassError] = useState("");
   const [changingPass, setChangingPass] = useState(false);
+
+  useEffect(
+    () => () => {
+      if (avatarPreview.startsWith("blob:")) URL.revokeObjectURL(avatarPreview);
+    },
+    [avatarPreview],
+  );
 
   function flash(message) {
     setSaved(message);
@@ -71,13 +84,44 @@ export default function Profile() {
       profileType: profile,
     });
 
-    setSaving(false);
-
     if (!outcome?.success) {
+      setSaving(false);
       setSaveError(outcome?.message || "Gagal menyimpan perubahan.");
       return;
     }
+
+    if (avatarFile) {
+      const upload = await uploadProfileAvatar(avatarFile);
+      if (!upload?.success) {
+        setSaving(false);
+        setSaveError(
+          `Informasi profil tersimpan, tetapi foto gagal diunggah: ${upload?.message || "Coba lagi."}`,
+        );
+        return;
+      }
+      setAvatar(resolveAvatarId(upload.user?.avatar));
+      setAvatarFile(null);
+      setAvatarPreview("");
+    }
+
+    setSaving(false);
     flash("Perubahan berhasil disimpan! Informasi Anda telah diperbarui.");
+  }
+
+  function handleAvatarFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      validateImageFile(file);
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+      setSaveError("");
+    } catch (error) {
+      setAvatarFile(null);
+      setSaveError(error.message);
+    } finally {
+      event.target.value = "";
+    }
   }
 
   async function handleChangePassword(e) {
@@ -158,7 +202,7 @@ export default function Profile() {
         <div className="space-y-4">
           <Card interactive className="overflow-hidden border-[#d4e0e7] text-center profile-avatar-card">
             <div className="rounded-2xl bg-[#fff8df] p-5">
-              <SignLearnAvatar id={avatar} size="xl" className="mx-auto" />
+              <SignLearnAvatar id={avatarPreview || avatar} size="xl" className="mx-auto" />
             </div>
             <h2 className="mt-4 text-lg font-extrabold text-[var(--text)]">
               {currentUser?.name}
@@ -230,20 +274,36 @@ export default function Profile() {
                 <legend className="mb-3 text-sm font-bold text-[var(--text)]">
                   Avatar SignLearn
                 </legend>
+                <label className="mb-4 block rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface-2)] p-4 text-sm text-[var(--text)]">
+                  <span className="mb-2 block font-bold">Unggah foto sendiri</span>
+                  <input
+                    type="file"
+                    accept={IMAGE_UPLOAD_ACCEPT}
+                    onChange={handleAvatarFile}
+                    className="block w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-[#2e86bf] file:px-3 file:py-2 file:font-bold file:text-white"
+                  />
+                  <span className="mt-2 block text-xs text-[var(--text-subtle)]">
+                    JPEG, PNG, atau WebP maksimal 5 MB. Foto disimpan di Cloudinary.
+                  </span>
+                </label>
                 <div
                   className="grid grid-cols-3 gap-3"
                   role="radiogroup"
                   aria-label="Pilih avatar profil"
                 >
                   {SIGNLEARN_AVATARS.map((item) => {
-                    const selected = avatar === item.id;
+                    const selected = !avatarFile && avatar === item.id;
                     return (
                       <button
                         key={item.id}
                         type="button"
                         role="radio"
                         aria-checked={selected}
-                        onClick={() => setAvatar(item.id)}
+                        onClick={() => {
+                          setAvatar(item.id);
+                          setAvatarFile(null);
+                          setAvatarPreview("");
+                        }}
                         className={`profile-avatar-option min-h-36 rounded-2xl border-2 p-3 text-center transition-all focus-visible:outline-4 ${
                           selected
                             ? "border-[#2e86bf] bg-[#eef8fd] shadow-sm"

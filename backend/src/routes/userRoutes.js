@@ -4,6 +4,8 @@ import * as profileController from "../controllers/profileController.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { requireAdmin } from "../middleware/rbac.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
+import { uploadSingleImage } from "../middleware/imageUpload.middleware.js";
+import { imageUploadLimiter } from "../middleware/rateLimit.middleware.js";
 import {
   validateUpdateProfile,
   validateAdminUpdateUser,
@@ -28,6 +30,13 @@ router.put(
   authenticate,
   validate(validateUpdateProfile),
   profileController.updateProfile,
+);
+router.post(
+  "/profile/avatar",
+  authenticate,
+  imageUploadLimiter,
+  uploadSingleImage,
+  profileController.uploadAvatar,
 );
 
 // ─── Administrasi pengguna — admin saja ──────────────────────────────────

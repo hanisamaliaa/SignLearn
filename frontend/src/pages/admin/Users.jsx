@@ -9,6 +9,7 @@ import {
   fieldErrors,
 } from "../../hooks/useAdminResource";
 import { useApp } from "../../context/app";
+import { SignLearnAvatar } from "../../components/common/SignLearnAvatar";
 
 /**
  * Manajemen pengguna — API Contract §7.3-7.6.
@@ -302,9 +303,7 @@ export default function AdminUsers() {
                 >
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-[#4F8EF7] rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                        {(user.avatar || user.name || "?").slice(0, 2).toUpperCase()}
-                      </div>
+                      <SignLearnAvatar id={user.avatar} size="sm" />
                       <div>
                         <p className="text-sm font-semibold text-[var(--text)]">
                           {user.name}

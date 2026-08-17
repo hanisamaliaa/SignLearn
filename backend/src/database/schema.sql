@@ -72,7 +72,8 @@ CREATE TABLE users (
   email          VARCHAR(190) NOT NULL,
   password_hash  VARCHAR(255) NOT NULL,
   phone          VARCHAR(30),
-  avatar         VARCHAR(20),
+  avatar         VARCHAR(500),
+  avatar_public_id VARCHAR(500),
   profile        VARCHAR(50) NOT NULL DEFAULT 'general'
                  CHECK (profile IN ('parent', 'deaf', 'general')),
   status         VARCHAR(20) NOT NULL DEFAULT 'active'
@@ -160,6 +161,7 @@ CREATE TABLE courses (
                    CHECK (level IN ('Pemula', 'Menengah', 'Lanjutan')),
   description      TEXT,
   thumbnail        VARCHAR(500),
+  thumbnail_public_id VARCHAR(500),
   total_lessons    INT NOT NULL DEFAULT 0,
   estimated_hours  NUMERIC(4,1) NOT NULL DEFAULT 0,
   is_locked        BOOLEAN NOT NULL DEFAULT FALSE,
@@ -323,6 +325,7 @@ CREATE TABLE translations (
   status          VARCHAR(20) NOT NULL DEFAULT 'active'
                   CHECK (status IN ('active', 'inactive')),
   sign_image      VARCHAR(500),
+  sign_image_public_id VARCHAR(500),
   sign_video      VARCHAR(500),
   aliases         TEXT[] NOT NULL DEFAULT '{}',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

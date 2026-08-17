@@ -1,4 +1,5 @@
 import { request } from "./api";
+import { uploadImage } from "./mediaService";
 
 /**
  * Profil sendiri & administrasi pengguna — API Contract §7.
@@ -18,6 +19,11 @@ export async function getProfile() {
 /** `email`, `role`, `status` diabaikan server secara diam-diam (§7.2). */
 export async function updateProfile(data) {
   const payload = await request({ method: "put", url: "/users/profile", data });
+  return payload.user;
+}
+
+export async function uploadProfileAvatar(file) {
+  const payload = await uploadImage("/users/profile/avatar", file);
   return payload.user;
 }
 

@@ -317,6 +317,7 @@ export async function update(id, data) {
     if (data[key] !== undefined) {
       values.push(key === "title" ? String(data[key]).trim() : data[key]);
       sets.push(`${column} = $${values.length}`);
+      if (key === "thumbnail") sets.push("thumbnail_public_id = NULL");
     }
   }
 
@@ -325,6 +326,29 @@ export async function update(id, data) {
   const { rows } = await query(
     `UPDATE courses SET ${sets.join(", ")} WHERE id = $1 RETURNING ${COLUMNS}`,
     values,
+  );
+  return toCourseDto(rows[0]);
+}
+
+export async function findThumbnailMedia(id) {
+  const { rows } = await query(
+    "SELECT thumbnail, thumbnail_public_id FROM courses WHERE id = $1 LIMIT 1",
+    [id],
+  );
+  if (!rows[0]) return null;
+  return {
+    url: rows[0].thumbnail ?? null,
+    publicId: rows[0].thumbnail_public_id ?? null,
+  };
+}
+
+export async function updateThumbnailMedia(id, url, publicId, expectedPublicId) {
+  const { rows } = await query(
+    `UPDATE courses
+        SET thumbnail = $2, thumbnail_public_id = $3
+      WHERE id = $1 AND thumbnail_public_id IS NOT DISTINCT FROM $4
+      RETURNING ${COLUMNS}`,
+    [id, url, publicId, expectedPublicId],
   );
   return toCourseDto(rows[0]);
 }

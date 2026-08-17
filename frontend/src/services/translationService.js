@@ -1,4 +1,5 @@
 import { request } from "./api";
+import { uploadImage } from "./mediaService";
 
 export async function getTranslations(params = {}) {
   return request({ url: "/translations", params });
@@ -26,6 +27,11 @@ export async function createTranslation(data) {
 
 export async function updateTranslation(id, data) {
   const payload = await request({ method: "put", url: `/translations/${id}`, data });
+  return payload.translation;
+}
+
+export async function uploadTranslationImage(id, file) {
+  const payload = await uploadImage(`/translations/${id}/image`, file);
   return payload.translation;
 }
 

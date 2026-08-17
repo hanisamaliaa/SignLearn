@@ -23,6 +23,8 @@ API memakai prefix `/api/v1`; health check berada di luar prefix pada `/api/heal
 | helmet, cors | HTTP hardening dan cross-origin policy |
 | express-rate-limit | Rate limiter global dan autentikasi |
 | morgan | Request logging pada development |
+| Cloudinary Node SDK | Object storage dan transformasi gambar |
+| Multer | Parsing multipart di memory dengan batas ukuran |
 | nodemon | Development reload |
 
 ## Arsitektur
@@ -198,6 +200,22 @@ Untuk Supabase, template merekomendasikan transaction pooler port `6543`. Percen
 
 Pada development, backend membuat JWT secret acak sementara jika `JWT_ACCESS_SECRET` kosong. Akibatnya seluruh sesi menjadi tidak valid setelah restart. Isi secret stabil untuk development berkelanjutan.
 
+### Penyimpanan gambar Cloudinary
+
+| Variabel | Fungsi |
+| --- | --- |
+| `CLOUDINARY_CLOUD_NAME` | Nama cloud Cloudinary |
+| `CLOUDINARY_API_KEY` | API key server-side |
+| `CLOUDINARY_API_SECRET` | API secret server-side; jangan pernah dikirim ke frontend |
+| `CLOUDINARY_FOLDER` | Folder induk aset, bawaan `signlearn` |
+| `UPLOAD_IMAGE_MAX_BYTES` | Batas upload, bawaan 5 MiB |
+
+Ketiga kredensial wajib di production dan harus diisi bersama. Upload hanya
+menerima satu field multipart bernama `image` dengan format JPEG, PNG, atau
+WebP. Backend memeriksa MIME serta magic bytes, melakukan signed upload, lalu
+menyimpan URL HTTPS dan public ID untuk cleanup ketika aset diganti atau data
+dihapus.
+
 ### Keamanan, CORS, seed, dan feature flags
 
 | Variabel | Fungsi |
@@ -275,6 +293,7 @@ Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check b
 | Method | Endpoint | Deskripsi | Akses |
 | --- | --- | --- | --- |
 | GET, PUT | `/users/profile` | Baca/perbarui profil sendiri | Auth |
+| POST | `/users/profile/avatar` | Upload/ganti foto profil | Auth |
 | GET | `/users` | List/filter pengguna | Admin |
 | GET, PUT, DELETE | `/users/:id` | Detail, update, atau nonaktifkan pengguna | Admin |
 
@@ -286,6 +305,7 @@ Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check b
 | GET | `/courses` | List kursus; progres bila terautentikasi | Publik/opsional auth |
 | GET | `/courses/:id` | Detail kursus | Publik/opsional auth |
 | POST, PUT, DELETE | `/courses`, `/courses/:id` | CRUD kursus | Admin |
+| POST | `/courses/:id/thumbnail` | Upload/ganti thumbnail kursus | Admin |
 | GET | `/courses/:courseId/lessons` | List pelajaran suatu kursus | Publik/opsional auth |
 | GET | `/courses/:courseId/lessons/:lessonId` | Detail pelajaran | Publik/opsional auth |
 | POST, PUT, DELETE | `/courses/:courseId/lessons[...]` | CRUD pelajaran bersarang | Admin |
@@ -322,6 +342,7 @@ Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check b
 | GET | `/translations` | List/search/filter bank kata | Publik/opsional auth |
 | GET | `/translations/:id` | Detail terjemahan | Publik/opsional auth |
 | POST, PUT, DELETE | `/translations`, `/translations/:id` | CRUD bank kata | Admin |
+| POST | `/translations/:id/image` | Upload/ganti gambar bank kata | Admin |
 
 Dokumentasi request, example response, auth variables, dan skenario negatif tersedia di [panduan Postman](postman/README.md).
 
@@ -384,6 +405,7 @@ Smoke suites menembak server dan PostgreSQL nyata:
 ```bash
 npm --prefix backend run smoke:auth
 npm --prefix backend run smoke:password-reset
+npm --prefix backend run smoke:cloudinary
 npm --prefix backend run smoke:users
 npm --prefix backend run smoke:content
 npm --prefix backend run smoke:dashboard
@@ -394,15 +416,21 @@ npm --prefix backend run smoke:all
 `smoke:password-reset` menyalakan aplikasi pada port acak, membuat akun uji,
 memastikan kode tidak bocor lewat HTTP, mengganti hash di PostgreSQL, menguji
 login lama/baru dan replay kode, lalu menghapus akun uji. `smoke:db` menguji
-transaksi repository secara langsung. Keduanya tidak memerlukan server yang
+transaksi repository secara langsung. `smoke:cloudinary` mengunggah melalui
+endpoint profil, kursus, dan bank kata, memeriksa URL CDN dan public ID di
+PostgreSQL, menguji replace/delete, lalu membersihkan seluruh aset dan data uji.
+Ketiganya menyalakan atau mengakses dependensinya sendiri tanpa server yang
 sudah berjalan, tetapi tetap menulis sementara ke database yang dikonfigurasi.
 
 Prasyarat:
 
-1. Untuk suite selain `smoke:password-reset` dan `smoke:db`, server berjalan
-   dengan `NODE_ENV=test`.
+1. Untuk suite selain `smoke:password-reset`, `smoke:cloudinary`, dan
+   `smoke:db`, server berjalan dengan `NODE_ENV=test`.
 2. Database test sudah mendapat schema/migration dan seed.
 3. `SEED_ADMIN_PASSWORD` tersedia pada environment proses test.
+4. `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, dan
+   `CLOUDINARY_API_SECRET` tersedia untuk `smoke:cloudinary`; suite ini memakai
+   provider nyata dan membutuhkan koneksi internet.
 
 Gunakan PostgreSQL throwaway. Contoh lokal dengan Docker:
 
@@ -461,7 +489,7 @@ Pada Git Bash Windows, set `MSYS2_ENV_CONV_EXCL='*'` sebelum menjalankan server 
 
 ## Status implementasi
 
-Backend akun, pengguna, kursus, pelajaran, kuis, progres, dashboard, laporan, dan translations telah memiliki route, controller, service, serta repository PostgreSQL. Dua endpoint AI administratif masih placeholder dan sengaja membalas `501`. Modul dictionary/practice/media/job yang disebut di panduan Postman belum tersedia sebagai route backend.
+Backend akun, pengguna, kursus, pelajaran, kuis, progres, dashboard, laporan, translations, dan upload media Cloudinary telah memiliki route, controller, service, serta repository PostgreSQL. Dua endpoint AI administratif masih placeholder dan sengaja membalas `501`. Modul job yang disebut di panduan Postman belum tersedia sebagai route backend.
 
 ## Dokumentasi terkait
 

@@ -9,15 +9,16 @@ feature scope remain marked blocked/not run and are never counted as passed.
 
 | Check | Result |
 |---|---|
-| Backend unit/contract tests | 50/50 passed |
-| Frontend behavior tests | 87/87 passed |
+| Backend unit/contract tests | 59/59 passed |
+| Frontend behavior tests | 90/90 passed |
 | Camera/AI service tests | 13/13 passed |
-| Live PostgreSQL + HTTP smoke test | Word bank 11/11; password-reset DB 12/12 and HTTP 6/6; temporary rows deleted |
+| Live PostgreSQL + HTTP smoke test | Media schema + repository DB 14/14; multipart auth/format/size/RBAC paths passed; word bank 11/11; password-reset DB 12/12 and HTTP 6/6; real Cloudinary upload/replace/delete lifecycle passed; temporary rows and assets deleted |
 | SMTP transport verification | Gmail STARTTLS transport authenticated and ready; secrets not logged |
 | Frontend lint | 0 errors and 0 warnings |
-| Vite production build | Passed; 614 modules transformed |
+| Vite production build | Passed; 616 modules transformed |
 | BISINDO assets in production output | Exactly A–Z (26 lossless 1024×1024 WebP files); audit sheet excluded |
 | Dependency audit | 0 known vulnerabilities in root, backend, and frontend |
+| Cloudinary configuration | Production fail-fast and real provider smoke passed for profile avatar, course thumbnail, and word-bank image; persisted `secure_url`/`public_id` and CDN responses verified |
 | Approved-canvas reproduction | Passed via `npm run assets:bisindo`; source hash locked |
 | Production preview smoke | `/forgot-password` and `/reset-password` return HTTP 200; previous public/user route smoke remains passed |
 
@@ -53,6 +54,13 @@ feature scope remain marked blocked/not run and are never counted as passed.
 | AST-001 | Alphabet media | Regenerate A–Z from approved canvas | Deterministic lossless 1024×1024 cards plus manifest | Source hash, pixel round-trip, dimensions, and 26-file assertion pass | Pass | User-approved imagegen canvas is the locked production source |
 | AI-001 | AI | Temporal smoothing and duplicate suppression | Stable output, no spam | 13 recognition tests pass | Pass | EMA, majority vote, release lock |
 | AI-002 | AI | Camera route cleanup | Tracks stop on unmount | Hook cleanup inspected | Pass | Physical camera test not available |
+| MED-001 | Image upload | Upload valid JPEG/PNG/WebP | Signed server-side stream with bounded transform | Cloudinary adapter and lifecycle unit tests pass | Pass | API secret never reaches frontend |
+| MED-002 | Image upload | Spoof MIME or upload SVG | Reject before provider call | HTTP 415 `UNSUPPORTED_MEDIA_TYPE` | Pass | Both declared MIME and magic bytes checked |
+| MED-003 | Image upload | Upload over 5 MiB | Reject while parsing multipart | HTTP 413 `PAYLOAD_TOO_LARGE` | Pass | Buffer never reaches Cloudinary service |
+| MED-004 | Image upload | User uploads admin-owned course image | Deny before parsing/upload | HTTP 403 `FORBIDDEN` | Pass | Course and bank-word routes require admin |
+| MED-005 | Image lifecycle | Replace/delete managed image | Store new public ID and clean previous asset | Success, DB-failure, and concurrent-stale paths unit-tested | Pass | Compare-and-swap prevents concurrent orphan writes |
+| MED-006 | Database migration | Apply media migration repeatedly | Preserve data and remain idempotent | Two consecutive migration runs pass; all media columns verified | Pass | `users.avatar` expanded to 500 characters |
+| MED-007 | Cloudinary provider | Upload a real asset to configured cloud | Return real `secure_url` and persist it | Profile PNG/WebP, course PNG, and word-bank WebP returned HTTPS CDN URLs; DB public IDs matched; replacement and deletion removed managed assets | Pass | `npm --prefix backend run smoke:cloudinary`; cleanup left no temporary rows or provider assets |
 
 ## UAT simulations
 

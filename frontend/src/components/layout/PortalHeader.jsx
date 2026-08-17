@@ -25,7 +25,7 @@ export default function PortalHeader({
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
   const notifRef = useRef(null);
-  const userAvatar = resolveAvatarId(currentUser?.profile?.avatar);
+  const userAvatar = resolveAvatarId(currentUser?.avatar ?? currentUser?.profile?.avatar);
   const firstName = currentUser?.name?.split(" ")[0] || "User";
   const userEmail = currentUser?.email || "";
 

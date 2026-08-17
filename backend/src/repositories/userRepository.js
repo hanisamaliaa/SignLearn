@@ -198,6 +198,7 @@ export async function updateProfile(userId, fields) {
     if (fields[key] !== undefined) {
       values.push(key === "name" ? String(fields[key]).trim() : fields[key]);
       sets.push(`${key} = $${values.length}`);
+      if (key === "avatar") sets.push("avatar_public_id = NULL");
     }
   }
 
@@ -205,6 +206,25 @@ export async function updateProfile(userId, fields) {
 
   await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, values);
   return findById(userId);
+}
+
+export async function findAvatarMedia(userId) {
+  const { rows } = await query(
+    "SELECT avatar, avatar_public_id FROM users WHERE id = $1 LIMIT 1",
+    [userId],
+  );
+  if (!rows[0]) return null;
+  return { url: rows[0].avatar ?? null, publicId: rows[0].avatar_public_id ?? null };
+}
+
+export async function updateAvatarMedia(userId, url, publicId, expectedPublicId) {
+  const { rowCount } = await query(
+    `UPDATE users
+        SET avatar = $2, avatar_public_id = $3
+      WHERE id = $1 AND avatar_public_id IS NOT DISTINCT FROM $4`,
+    [userId, url, publicId, expectedPublicId],
+  );
+  return rowCount > 0 ? findById(userId) : null;
 }
 
 // ─── Administrasi pengguna (API Contract §7.3-7.6) ───────────────────────
@@ -340,6 +360,7 @@ export async function adminUpdate(userId, fields) {
     if (fields[key] !== undefined) {
       values.push(key === "name" ? String(fields[key]).trim() : fields[key]);
       sets.push(`${column} = $${values.length}`);
+      if (key === "avatar") sets.push("avatar_public_id = NULL");
     }
   }
 

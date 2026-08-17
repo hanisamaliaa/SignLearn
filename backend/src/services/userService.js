@@ -2,6 +2,7 @@ import * as userRepo from "../repositories/userRepository.js";
 import * as tokenService from "./tokenService.js";
 import { ApiError } from "../utils/ApiError.js";
 import { paginate, meta } from "../utils/pagination.js";
+import { destroyImageBestEffort } from "./cloudinaryService.js";
 
 /**
  * User service — profil sendiri dan administrasi pengguna (API Contract §7).
@@ -47,7 +48,19 @@ export async function getProfile(userId) {
  * mengirimnya juga bukan error — kontrak menuntut keduanya sekaligus.
  */
 export async function updateProfile(userId, payload) {
-  return userRepo.updateProfile(userId, payload);
+  const patch = { ...payload };
+  const previous = patch.avatar !== undefined
+    ? await userRepo.findAvatarMedia(userId)
+    : null;
+
+  // Mengirim ulang URL yang sama tidak boleh melepaskan public_id asetnya.
+  if (previous && patch.avatar === previous.url) delete patch.avatar;
+
+  const user = await userRepo.updateProfile(userId, patch);
+  if (previous?.publicId && patch.avatar !== undefined) {
+    await destroyImageBestEffort(previous.publicId);
+  }
+  return user;
 }
 
 // ─── Administrasi (admin saja) ───────────────────────────────────────────
@@ -94,6 +107,9 @@ export async function getById(id) {
  */
 export async function updateByAdmin(id, payload, actor) {
   const target = await requireUser(id);
+  const previousAvatar = payload.avatar !== undefined
+    ? await userRepo.findAvatarMedia(id)
+    : null;
   const isSelf = String(target.id) === String(actor.id);
 
   const changingRole = payload.role !== undefined && payload.role !== target.role;
@@ -122,7 +138,13 @@ export async function updateByAdmin(id, payload, actor) {
     );
   }
 
-  const updated = await userRepo.adminUpdate(id, payload);
+  const patch = { ...payload };
+  if (previousAvatar && patch.avatar === previousAvatar.url) delete patch.avatar;
+  const updated = await userRepo.adminUpdate(id, patch);
+
+  if (previousAvatar?.publicId && patch.avatar !== undefined) {
+    await destroyImageBestEffort(previousAvatar.publicId);
+  }
 
   if (changingRole || payload.status !== undefined) {
     await tokenService.revokeAllSessions(id);

@@ -264,23 +264,35 @@ export function AppProvider({ children }) {
         profile: data.profileType ?? undefined,
       });
 
-      // Beberapa respons API hanya mengembalikan sebagian blok profile.
-      // Gabungkan dengan state lama agar avatar/sidebar langsung konsisten.
+      // DTO profil memakai field datar (`phone`, `avatar`, `profile`). Gabungkan
+      // dengan state lama agar sidebar langsung konsisten bila respons parsial.
       setCurrentUser((previous) =>
         toUiUser({
+          ...previous,
           ...user,
-          profile: {
-            ...previous?.profile,
-            ...user?.profile,
-            ...(phone !== undefined ? { phone } : {}),
-            ...(avatar !== undefined ? { avatar } : {}),
-          },
+          ...(phone !== undefined ? { phone } : {}),
+          ...(avatar !== undefined ? { avatar } : {}),
         }),
       );
       return { success: true, message: "" };
     } catch (error) {
       const e = normalizeError(error);
       return { success: false, message: e.message, errors: e.errors };
+    }
+  }, []);
+
+  const uploadProfileAvatar = useCallback(async (file) => {
+    try {
+      const user = await userService.uploadProfileAvatar(file);
+      setCurrentUser((previous) => toUiUser({ ...previous, ...user }));
+      return { success: true, user };
+    } catch (error) {
+      const failure = normalizeError(error);
+      return {
+        success: false,
+        message: failure.message,
+        errors: failure.errors,
+      };
     }
   }, []);
 
@@ -432,6 +444,7 @@ export function AppProvider({ children }) {
       logout,
       register,
       updateProfile,
+      uploadProfileAvatar,
       updateUserSettings,
       startLesson,
       completeLesson,
@@ -446,6 +459,7 @@ export function AppProvider({ children }) {
       currentUser, booting, users, courses, quizHistory, badges, stats, dashboard,
       progress, selectedCourseId, selectedLessonId, selectedCourse, quizScore,
       quizPassed, subscriptionState, subscriptionLoading, navigate, login, logout, register, updateProfile,
+      uploadProfileAvatar,
       updateUserSettings, startLesson, completeLesson, submitQuiz, selectCourse, selectLesson,
       setQuizResult, loadLearnerData, refreshSubscription,
     ],
