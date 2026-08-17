@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../context/app";
-import { adminNavItems, userNavItems } from "../../config/navigation";
+import { adminNavItems, userNavItems, userNavSections } from "../../config/navigation";
 import PortalHeader from "./PortalHeader";
 import PortalSidebar from "./PortalSidebar";
 import AccessibilityMenu from "../landing/AccessibilityMenu";
@@ -115,6 +115,7 @@ export default function PortalLayout({ variant }) {
       <PortalSidebar
         variant={variant}
         navItems={navItems}
+        navSections={variant === "user" ? userNavSections : undefined}
         sidebarOpen={sidebarOpen}
         onClose={closeSidebar}
         onToggleSidebar={toggleSidebar}

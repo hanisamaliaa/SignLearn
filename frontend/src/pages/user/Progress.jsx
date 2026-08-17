@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, Badge, ProgressBar, StatCard } from "../../components/ui/ui";
+import { Card, Badge, ProgressBar, StatCard, FloatingShapes, AnimatedCounter } from "../../components/ui/ui";
 import { useApp } from "../../context/app";
 import {
   TrophyIcon,
@@ -76,9 +76,6 @@ export default function Progress() {
     (s, c) => s + (c.completedLessons ?? 0),
     0,
   );
-  // Rata-rata dari nilai TERBAIK tiap kuis, bukan dari seluruh percobaan:
-  // mengulang kuis untuk belajar tidak seharusnya menurunkan gambaran
-  // kemampuan seseorang.
   const avgScore = history?.summary?.averageBestScore ?? 0;
 
   const todayIndex = (new Date().getDay() + 6) % 7;
@@ -149,17 +146,21 @@ export default function Progress() {
     }`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      <FloatingShapes count={3} />
+
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-[var(--text)]">
           Progress Belajar
         </h1>
         <p className="text-[var(--text-muted)] mt-1">
-          Pantau perkembangan belajar BISINDO Anda
+          Pantau perkembangan belajar BISINDO kamu
         </p>
       </div>
 
-      <Card interactive className="relative overflow-hidden border-[#c9dceb] bg-[#fffdf3] group">
+      {/* Hero Progress */}
+      <Card interactive className="progress-hero-card relative overflow-hidden border-[#c9dceb] bg-[#fffdf3] group">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#ffe8a6]/70 transition-transform duration-500 group-hover:scale-125" />
         <div className="absolute -bottom-16 left-8 h-32 w-32 rounded-full bg-[#dff3ff] transition-transform duration-500 group-hover:scale-125" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -175,7 +176,7 @@ export default function Progress() {
           <div className="w-full lg:max-w-xl">
             <div className="mb-2 flex items-center justify-between text-sm font-extrabold text-[#214e72]">
               <span>Progress keseluruhan</span>
-              <span className="transition-transform duration-200 group-hover:scale-110">{overallPct}%</span>
+              <span className="transition-transform duration-200 group-hover:scale-110"><AnimatedCounter value={overallPct} suffix="%" /></span>
             </div>
             <div
               className="h-4 overflow-hidden rounded-full bg-white shadow-inner"
@@ -198,21 +199,23 @@ export default function Progress() {
         </div>
       </Card>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="transition-transform duration-200 hover:-translate-y-1">
-          <StatCard interactive label="Kursus Aktif" value={activeCourses} icon={<ChartIcon size={20} />} color="#4F8EF7" />
+        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "0ms" }}>
+          <StatCard interactive label="Kursus Aktif" value={<AnimatedCounter value={activeCourses} />} icon={<ChartIcon size={20} />} color="#4F8EF7" />
         </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1">
-          <StatCard interactive label="Kuis Terbaru" value={QUIZ_HISTORY.length} icon={<TrophyIcon size={20} />} color="#F4B400" />
+        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "60ms" }}>
+          <StatCard interactive label="Kuis Terbaru" value={<AnimatedCounter value={QUIZ_HISTORY.length} />} icon={<TrophyIcon size={20} />} color="#F4B400" />
         </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1">
-          <StatCard interactive label="Rata-rata Skor" value={`${avgScore}%`} icon={<StarIcon size={20} />} color="#2ECC71" />
+        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "120ms" }}>
+          <StatCard interactive label="Rata-rata Skor" value={<><AnimatedCounter value={avgScore} suffix="%" /></>} icon={<StarIcon size={20} />} color="#2ECC71" />
         </div>
-        <div className="transition-transform duration-200 hover:-translate-y-1">
-          <StatCard interactive label="Streak Belajar" value={`${stats?.streakDays ?? 0} hari`} icon={<FireIcon size={20} />} color="#E74C3C" />
+        <div className="transition-transform duration-200 hover:-translate-y-1 animate-slide-up" style={{ animationDelay: "180ms" }}>
+          <StatCard interactive label="Streak Belajar" value={<><AnimatedCounter value={stats?.streakDays ?? 0} /> <span className="text-sm">hari</span></>} icon={<FireIcon size={20} />} color="#E74C3C" />
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex w-full min-w-0 flex-wrap gap-1 p-1 bg-[var(--surface-3)] rounded-xl">
         {TABS.map((tab) => (
           <button
@@ -227,6 +230,7 @@ export default function Progress() {
         ))}
       </div>
 
+      {/* Overview Tab */}
       {activeTab === "overview" && (
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-5">
           <Card interactive className="overflow-visible">
@@ -319,6 +323,7 @@ export default function Progress() {
         </div>
       )}
 
+      {/* Courses Tab */}
       {activeTab === "courses" && (
         <div className="space-y-4">
           {AVAILABLE_COURSES.length === 0 ? (
@@ -363,6 +368,7 @@ export default function Progress() {
         </div>
       )}
 
+      {/* Quizzes Tab */}
       {activeTab === "quizzes" && (
         <div className="space-y-5">
           <Card>
@@ -422,6 +428,7 @@ export default function Progress() {
         </div>
       )}
 
+      {/* Achievements Tab */}
       {activeTab === "achievements" && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {badges.map((a) => {
@@ -442,7 +449,7 @@ export default function Progress() {
                     <p className="font-bold text-[var(--text)] text-sm">{a.title}</p>
                     <p className="text-xs text-[var(--text-muted)] mt-0.5">{a.description}</p>
                     {a.earned ? (
-                      <p className="text-xs text-[#2ECC71] mt-1">✓ Diperoleh</p>
+                      <p className="text-xs text-[#2ECC71] mt-1 font-medium">✓ Diperoleh</p>
                     ) : (
                       <p className="text-xs text-[var(--text-subtle)] mt-1">Belum diperoleh</p>
                     )}

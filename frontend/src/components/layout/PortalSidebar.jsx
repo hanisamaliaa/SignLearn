@@ -7,12 +7,15 @@ export default function PortalSidebar({
   variant,
   currentUser,
   navItems,
+  navSections,
   sidebarOpen,
   onClose,
   onToggleSidebar,
   onLogout,
 }) {
   const isAdmin = variant === "admin";
+  const isUser = variant === "user";
+
   return (
     <aside
       className={`portal-sidebar ${isAdmin ? "admin-sidebar" : "user-sidebar"} fixed lg:relative z-30 flex h-full w-72 flex-col transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -21,7 +24,6 @@ export default function PortalSidebar({
           : "-translate-x-full lg:translate-x-0 user-sidebar-desktop-closed lg:w-0 lg:min-w-0 lg:overflow-hidden"
       }`}
     >
-
       <div
         className={`flex items-center h-16 px-5 border-b justify-between ${
           variant === "admin" ? "admin-sidebar-border" : "border-[var(--border)]"
@@ -42,28 +44,80 @@ export default function PortalSidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Navigasi utama">
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.page}
-                to={item.path}
-                onClick={() => {
-                  if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                    onClose();
+        {isUser && navSections ? (
+          <div className="space-y-5">
+            {navSections
+              .filter(
+                (section) =>
+                  !section.items ||
+                  section.items.some(
+                    (item) => !item.roles || item.roles.includes(currentUser?.role),
+                  ),
+              )
+              .map((section) => (
+                <div key={section.label}>
+                  <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-subtle)] select-none">
+                    {section.label}
+                  </p>
+                  <div className="space-y-0.5">
+                    {section.items
+                      .filter(
+                        (item) => !item.roles || item.roles.includes(currentUser?.role),
+                      )
+                      .map((item) => {
+                        const Icon = item.icon;
+                        const isPremiumItem = item.premiumEntry;
+                        return (
+                          <NavLink
+                            key={item.page}
+                            to={item.path}
+                            onClick={() => {
+                              if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                                onClose();
+                              }
+                            }}
+                            className={({ isActive }) =>
+                              `user-nav-link flex w-full items-center gap-3 px-3 py-2.5 text-sm font-bold transition-all duration-200 ${
+                                isActive ? "is-active" : ""
+                              } ${isPremiumItem ? "user-nav-premium" : ""}`
+                            }
+                          >
+                            <Icon size={18} className="shrink-0 user-nav-icon" />
+                            <span className="user-nav-label">{item.label}</span>
+                            {isPremiumItem && (
+                              <span className="user-nav-premium-sparkle" aria-hidden="true">✦</span>
+                            )}
+                          </NavLink>
+                        );
+                      })}
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.page}
+                  to={item.path}
+                  onClick={() => {
+                    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                      onClose();
+                    }
+                  }}
+                  className={({ isActive }) =>
+                    `user-nav-link flex w-full items-center gap-3 px-3 py-3 text-sm font-bold transition-all duration-200 ${isActive ? "is-active" : ""}`
                   }
-                }}
-                className={({ isActive }) =>
-                  `user-nav-link flex w-full items-center gap-3 px-3 py-3 text-sm font-bold transition-all duration-200 ${isActive ? "is-active" : ""}`
-                }
-              >
-                <Icon size={18} className="shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </div>
+                >
+                  <Icon size={18} className="shrink-0 user-nav-icon" />
+                  <span className="user-nav-label">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <div className="user-sidebar-footer shrink-0">
