@@ -15,6 +15,21 @@ const TYPE_FILTERS = [
   { key: "vocabulary", label: "Kosakata" },
 ];
 
+function buildPageRange(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push("...");
+  if (total > 1) pages.push(total);
+  return pages;
+}
+
 export default function Dictionary() {
   const reducedMotion = useReducedMotion();
   const vocabRef = useRef(null);
@@ -37,10 +52,8 @@ export default function Dictionary() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-
     const params = { limit: 200 };
     if (search) params.q = search;
-
     translationService.getTranslations(params)
       .then((payload) => {
         if (cancelled) return;
@@ -53,7 +66,6 @@ export default function Dictionary() {
         setWordsError(error?.message ?? "Daftar kata gagal dimuat.");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [search]);
 
@@ -85,7 +97,7 @@ export default function Dictionary() {
 
   const showAlphabet = activeType === "all" || activeType === "alphabet";
   const showVocabulary = activeType === "all" || activeType === "vocabulary";
-  const nothingFound = !letters.length && !filteredWords.length && !loading && !wordsError;
+  const nothingFound = !letters.length && !filteredWords.length && !loading && !wordsError && !search;
 
   const handleClearSearch = () => {
     setSearchInput("");
@@ -116,6 +128,7 @@ export default function Dictionary() {
 
   const pageStart = filteredWords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const pageEnd = Math.min(safePage * PAGE_SIZE, filteredWords.length);
+  const pageRange = useMemo(() => buildPageRange(safePage, totalPages), [safePage, totalPages]);
 
   return (
     <div className="dictionary-page space-y-6">
@@ -155,6 +168,7 @@ export default function Dictionary() {
             </button>
           )}
         </div>
+        <p className="dictionary-search-hint">Contoh: A, makan, teman</p>
       </div>
 
       {/* Type filter */}
@@ -175,14 +189,27 @@ export default function Dictionary() {
 
       {/* Search info */}
       {search && (
-        <p className="text-sm text-[var(--text-muted)]">
+        <p className="dictionary-search-info">
           Hasil untuk &ldquo;{search}&rdquo;
-          {filteredWords.length > 0 && ` — ${filteredWords.length} kata ditemukan`}
+          {filteredWords.length > 0 && (
+            <span> — {filteredWords.length} kata ditemukan</span>
+          )}
         </p>
       )}
 
       {/* Nothing found */}
       {nothingFound && (
+        <Card>
+          <div className="dictionary-empty">
+            <p className="text-[var(--text-muted)]">
+              Tidak ada yang cocok. Coba kata lain atau periksa kembali ejaannya.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Search empty result */}
+      {search && !filteredWords.length && !letters.length && !loading && !wordsError && (
         <Card>
           <div className="dictionary-empty">
             <p className="text-[var(--text-muted)]">
@@ -255,7 +282,17 @@ export default function Dictionary() {
           )}
 
           {/* Vocabulary grid */}
-          {paginatedWords.length > 0 ? (
+          {loading ? (
+            <div className="bisindo-word-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bisindo-word-card dictionary-skeleton-card">
+                  <div className="dictionary-skeleton-line dictionary-skeleton-title" />
+                  <div className="dictionary-skeleton-line dictionary-skeleton-spelling" />
+                  <div className="dictionary-skeleton-line dictionary-skeleton-desc" />
+                </div>
+              ))}
+            </div>
+          ) : paginatedWords.length > 0 ? (
             <div className="bisindo-word-grid">
               {paginatedWords.map((item) => (
                 <button
@@ -271,7 +308,7 @@ export default function Dictionary() {
                 </button>
               ))}
             </div>
-          ) : !loading && !wordsError ? (
+          ) : !wordsError ? (
             <Card>
               <div className="dictionary-empty">
                 <p className="text-[var(--text-muted)]">Belum ada kata di kategori ini.</p>
@@ -280,7 +317,7 @@ export default function Dictionary() {
           ) : null}
 
           {/* Pagination */}
-          {filteredWords.length > PAGE_SIZE && (
+          {!loading && filteredWords.length > PAGE_SIZE && (
             <nav className="dictionary-pagination" aria-label="Navigasi halaman kosakata">
               <p className="dictionary-pagination-info">
                 Menampilkan {pageStart}–{pageEnd} dari {filteredWords.length} kata
@@ -295,19 +332,26 @@ export default function Dictionary() {
                 >
                   <ArrowLeftIcon size={15} /> Sebelumnya
                 </button>
-                <div className="dictionary-pagination-pages">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      type="button"
-                      key={page}
-                      className={`dictionary-pagination-page${page === safePage ? " is-active" : ""}`}
-                      onClick={() => handlePageChange(page)}
-                      aria-label={`Halaman ${page}`}
-                      aria-current={page === safePage ? "page" : undefined}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                <div className="dictionary-pagination-pages" role="list">
+                  {pageRange.map((page, i) =>
+                    page === "..." ? (
+                      <span key={`ellipsis-${i}`} className="dictionary-pagination-ellipsis" aria-hidden="true">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        key={page}
+                        role="listitem"
+                        className={`dictionary-pagination-page${page === safePage ? " is-active" : ""}`}
+                        onClick={() => handlePageChange(page)}
+                        aria-label={`Halaman ${page}`}
+                        aria-current={page === safePage ? "page" : undefined}
+                      >
+                        {page}
+                      </button>
+                    )
+                  )}
                 </div>
                 <button
                   type="button"
