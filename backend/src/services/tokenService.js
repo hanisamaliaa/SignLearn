@@ -146,8 +146,8 @@ export async function revokeRefreshToken(rawToken) {
   return refreshRepo.revokeByHash(hashToken(rawToken));
 }
 
-export async function revokeAllSessions(userId) {
-  return refreshRepo.revokeAllForUser(userId);
+export async function revokeAllSessions(userId, client) {
+  return refreshRepo.revokeAllForUser(userId, client);
 }
 
 export async function listSessions(userId) {

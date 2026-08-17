@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { normalizeAlertType } from "./alertType";
 
 // ─── Button ─────────────────────────────────────────────────────────────────
 export function Button({
@@ -309,7 +310,8 @@ export function Alert({ type, message, onClose }) {
       icon: "ℹ",
     },
   };
-  const s = styles[type];
+  // Normalisasi menjaga tipe tak dikenal agar tidak merobohkan seluruh halaman.
+  const s = styles[normalizeAlertType(type)];
   return (
     <div
       className={`flex items-center gap-3 p-3.5 rounded-xl border ${s.bg} ${s.border} ${s.text} text-sm`}
