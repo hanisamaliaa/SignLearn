@@ -120,7 +120,7 @@ export default function Quiz() {
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const timerColor =
-    timeLeft < 60 ? "#E74C3C" : timeLeft < 120 ? "#F4B400" : "#4F8EF7";
+    timeLeft < 60 ? "var(--danger)" : timeLeft < 120 ? "var(--warning)" : "var(--primary)";
 
   function recordAnswer(index, value) {
     if (submitted) return;
@@ -231,7 +231,7 @@ export default function Quiz() {
         <div className="flex items-center gap-4">
           <div
             className="quiz-timer flex items-center gap-2 px-4 py-2 rounded-xl font-mono font-bold text-sm"
-            style={{ background: `${timerColor}18`, color: timerColor }}
+            style={{ background: `color-mix(in srgb, ${timerColor} 12%, transparent)`, color: timerColor }}
           >
             <ClockIcon size={15} />
             {String(minutes).padStart(2, "0")}:

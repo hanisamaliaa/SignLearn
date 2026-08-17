@@ -9,7 +9,7 @@ import {
 import * as progressService from "../../services/progressService";
 
 const scoreTone = (score, passing) =>
-  score >= passing ? "#2ECC71" : score >= passing * 0.6 ? "#F4B400" : "#E74C3C";
+  score >= passing ? "var(--chart-green)" : score >= passing * 0.6 ? "var(--chart-yellow)" : "var(--chart-red)";
 
 const formatWhen = (iso) => {
   const date = new Date(iso);
@@ -63,7 +63,7 @@ export default function QuizHistory({ quizzes }) {
               <div className="flex flex-wrap items-center gap-3 p-4">
                 <div
                   className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-base font-extrabold"
-                  style={{ background: `${tone}1A`, color: tone }}
+                  style={{ background: `color-mix(in srgb, ${tone} 10.2%, transparent)`, color: tone }}
                 >
                   {quiz.bestScore}
                 </div>
