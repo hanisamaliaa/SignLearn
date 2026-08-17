@@ -39,6 +39,7 @@ async function main() {
       profile: "general",
       role: "user",
     });
+    await userRepo.markEmailVerified(user.id);
     await resetRepo.insert({
       userId: user.id,
       tokenHash: hashResetCode(user.id, RESET_CODE),

@@ -150,6 +150,7 @@ async function main() {
       profile: "general",
       role: "user",
     });
+    await userRepo.markEmailVerified(resetUser.id);
     await authService.login({ email: resetEmail, password: oldPassword });
 
     const beforeReset = await userRepo.findByEmailWithSecret(resetEmail);

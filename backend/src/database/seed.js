@@ -111,8 +111,8 @@ async function seedAdmin() {
   const passwordHash = await bcrypt.hash(password, env.security.bcryptRounds);
 
   await query(
-    `INSERT INTO users (role_id, name, email, password_hash, profile, status)
-     VALUES ((SELECT id FROM roles WHERE name = 'admin'), $1, LOWER($2), $3, 'general', 'active')`,
+    `INSERT INTO users (role_id, name, email, password_hash, profile, status, email_verified_at)
+     VALUES ((SELECT id FROM roles WHERE name = 'admin'), $1, LOWER($2), $3, 'general', 'active', NOW())`,
     [ADMIN_NAME, ADMIN_EMAIL, passwordHash],
   );
 

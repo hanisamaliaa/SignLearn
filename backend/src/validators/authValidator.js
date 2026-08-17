@@ -75,6 +75,20 @@ export function validateLogin(body = {}) {
   return errors;
 }
 
+export function validateVerifyEmail(body = {}) {
+  const errors = [...validateEmail(body.email)];
+  const code = String(body.code ?? "").trim();
+  if (!code) errors.push(err("code", "Kode verifikasi wajib diisi."));
+  else if (!/^[0-9]{6}$/.test(code)) {
+    errors.push(err("code", "Kode verifikasi terdiri dari 6 angka."));
+  }
+  return errors;
+}
+
+export function validateResendEmailVerification(body = {}) {
+  return validateEmail(body.email);
+}
+
 export function validateForgotPassword(body = {}) {
   return validateEmail(body.email);
 }

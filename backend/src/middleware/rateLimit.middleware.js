@@ -90,6 +90,33 @@ export const registerLimiter = make({
   message: "Terlalu banyak pendaftaran dari perangkat ini. Coba lagi dalam 1 jam.",
 });
 
+export const emailVerificationLimiter = make({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    return email ? `verify:${email}` : `verify-ip:${req.ip || "unknown"}`;
+  },
+  message: "Terlalu banyak percobaan verifikasi. Minta kode baru dalam 15 menit.",
+});
+
+export const emailVerificationResendLimiter = make({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    return email ? `verify-resend:${email}` : `verify-resend-ip:${req.ip || "unknown"}`;
+  },
+  message: "Terlalu banyak permintaan kode verifikasi. Coba lagi dalam 1 jam.",
+});
+
+export const paymentCheckoutLimiter = make({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => `checkout:${req.user?.id ?? req.ip ?? "unknown"}`,
+  message: "Terlalu banyak transaksi dibuat. Coba lagi dalam 1 jam.",
+});
+
 /**
  * Forgot password: batas ketat.
  *

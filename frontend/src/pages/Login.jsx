@@ -63,6 +63,10 @@ export default function Login() {
     try {
       const result = await login(email.trim(), password);
       if (!result.success) {
+        if (result.code === "EMAIL_NOT_VERIFIED") {
+          navigate("/verify-email", { state: { email: email.trim() } });
+          return;
+        }
         setAuthError("Email atau kata sandi belum cocok. Coba lagi, ya.");
         setLoading(false);
         return;

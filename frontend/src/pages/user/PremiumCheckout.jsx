@@ -19,6 +19,7 @@ export default function PremiumCheckout() {
   const plan = subscriptionState?.plans?.[0];
   const paymentReady = Boolean(subscriptionState?.paymentConfigured);
   const isSandbox = subscriptionState?.paymentEnvironment === "sandbox";
+  const isMock = subscriptionState?.paymentProvider === "mock";
 
   async function pay() {
     if (!plan || !paymentReady || creating) return;
@@ -57,15 +58,28 @@ export default function PremiumCheckout() {
       </button>
 
       <div>
-        <Badge variant="success">Checkout Aman</Badge>
+        <Badge variant={isMock ? "warning" : "success"}>
+          {isMock ? "Simulasi Checkout" : "Checkout Aman"}
+        </Badge>
         <h1>Ringkasan Pembelian</h1>
-        <p>Selesaikan pembayaran untuk mengaktifkan Premium.</p>
+        <p>
+          {isMock
+            ? "Mode demo: tidak ada uang yang ditagih dan Premium diaktifkan melalui simulasi."
+            : "Selesaikan pembayaran untuk mengaktifkan Premium."}
+        </p>
       </div>
 
       {isSandbox && (
         <Badge variant="outline" size="md">
           Sandbox
         </Badge>
+      )}
+
+      {isMock && (
+        <Alert
+          type="warning"
+          message="Ini adalah pembayaran mock untuk demonstrasi. Jangan menganggap transaksi ini sebagai bukti pembayaran uang nyata."
+        />
       )}
 
       {!paymentReady && (
@@ -132,7 +146,9 @@ export default function PremiumCheckout() {
                 Menyiapkan pembayaran...
               </>
             ) : paymentReady ? (
-              `Bayar ${money.format(plan?.price ?? 29000)}`
+              isMock
+                ? "Lanjutkan Simulasi"
+                : `Bayar ${money.format(plan?.price ?? 29000)}`
             ) : (
               "Coba Lagi"
             )}
@@ -152,7 +168,9 @@ export default function PremiumCheckout() {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span>Pembayaran aman via Midtrans</span>
+            <span>
+              {isMock ? "Simulasi internal SignLearn — tanpa transaksi uang" : "Pembayaran aman via Midtrans"}
+            </span>
           </div>
         </Card>
       </div>

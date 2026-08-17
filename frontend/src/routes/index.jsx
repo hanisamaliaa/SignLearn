@@ -6,6 +6,7 @@ import RoleBasedLayout from "../components/common/RoleBasedLayout";
 import Landing from "../pages/Landing";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import VerifyEmail from "../pages/VerifyEmail";
 import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ParentGuide from "../pages/ParentGuide";
@@ -33,6 +34,7 @@ import AdminTranslations from "../pages/admin/Translations";
 import Premium from "../pages/user/Premium";
 import PremiumCheckout from "../pages/user/PremiumCheckout";
 import PaymentResult from "../pages/user/PaymentResult";
+import MockPayment from "../pages/user/MockPayment";
 import Subscription from "../pages/user/Subscription";
 
 export default function AppRoutes() {
@@ -47,6 +49,7 @@ export default function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/parent-guide" element={<ParentGuide />} />
@@ -80,6 +83,7 @@ export default function AppRoutes() {
             <Route path="/premium" element={<Premium />} />
             <Route path="/premium/checkout" element={<PremiumCheckout />} />
             <Route path="/premium/payment" element={<PaymentResult />} />
+            <Route path="/premium/mock-payment" element={<MockPayment />} />
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/payments" element={<Subscription />} />
           </Route>

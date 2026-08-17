@@ -151,6 +151,56 @@ if (!Number.isInteger(imageMaxBytes) || imageMaxBytes < 1024) {
   errors.push("UPLOAD_IMAGE_MAX_BYTES harus berupa bilangan bulat minimal 1024 byte.");
 }
 
+const paymentProvider = (
+  process.env.PAYMENT_PROVIDER || (process.env.MIDTRANS_SERVER_KEY ? "midtrans" : "mock")
+).trim().toLowerCase();
+if (!["mock", "midtrans"].includes(paymentProvider)) {
+  errors.push("PAYMENT_PROVIDER harus bernilai mock atau midtrans.");
+}
+const mockPaymentsEnabled = bool(process.env.ALLOW_MOCK_PAYMENTS, !isProduction);
+if (paymentProvider === "midtrans" && isProduction && !process.env.MIDTRANS_SERVER_KEY) {
+  errors.push("MIDTRANS_SERVER_KEY wajib diisi ketika PAYMENT_PROVIDER=midtrans di produksi.");
+}
+if (paymentProvider === "mock" && isProduction && !mockPaymentsEnabled) {
+  warnings.push(
+    "Checkout mock nonaktif di produksi. Isi gateway nyata atau setel ALLOW_MOCK_PAYMENTS=true hanya untuk deployment demo.",
+  );
+}
+
+const emailVerificationEnabled = bool(process.env.EMAIL_VERIFICATION_ENABLED, true);
+const emailVerificationTtlMinutes = num(process.env.EMAIL_VERIFICATION_TTL_MINUTES, 15);
+const emailVerificationMaxAttempts = num(process.env.EMAIL_VERIFICATION_MAX_ATTEMPTS, 5);
+const emailVerificationResendCooldownSeconds = num(
+  process.env.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+  60,
+);
+if (
+  !Number.isInteger(emailVerificationTtlMinutes) ||
+  emailVerificationTtlMinutes < 5 ||
+  emailVerificationTtlMinutes > 60
+) {
+  errors.push("EMAIL_VERIFICATION_TTL_MINUTES harus bilangan bulat antara 5 dan 60.");
+}
+if (
+  !Number.isInteger(emailVerificationMaxAttempts) ||
+  emailVerificationMaxAttempts < 3 ||
+  emailVerificationMaxAttempts > 10
+) {
+  errors.push("EMAIL_VERIFICATION_MAX_ATTEMPTS harus bilangan bulat antara 3 dan 10.");
+}
+if (
+  !Number.isInteger(emailVerificationResendCooldownSeconds) ||
+  emailVerificationResendCooldownSeconds < 30 ||
+  emailVerificationResendCooldownSeconds > 3600
+) {
+  errors.push(
+    "EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS harus bilangan bulat antara 30 dan 3600.",
+  );
+}
+if (isProduction && emailVerificationEnabled && !process.env.SMTP_HOST) {
+  errors.push("SMTP_HOST wajib diisi di produksi ketika verifikasi email registrasi aktif.");
+}
+
 // ─── Konfigurasi ───────────────────────────────────────────────────────
 export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV || "development",
@@ -162,6 +212,10 @@ export const env = Object.freeze({
   midtrans: {
     serverKey: process.env.MIDTRANS_SERVER_KEY || "",
     isProduction: bool(process.env.MIDTRANS_IS_PRODUCTION, false),
+  },
+  payment: {
+    provider: paymentProvider,
+    mockEnabled: paymentProvider === "mock" && mockPaymentsEnabled,
   },
 
   cloudinary: {
@@ -219,6 +273,10 @@ export const env = Object.freeze({
     passwordResetTtlMinutes: num(process.env.PASSWORD_RESET_TTL_MINUTES, 15),
     // Kode dibakar setelah sekian tebakan salah.
     passwordResetMaxAttempts: num(process.env.PASSWORD_RESET_MAX_ATTEMPTS, 5),
+    emailVerificationEnabled,
+    emailVerificationTtlMinutes,
+    emailVerificationMaxAttempts,
+    emailVerificationResendCooldownSeconds,
   },
 
   /**

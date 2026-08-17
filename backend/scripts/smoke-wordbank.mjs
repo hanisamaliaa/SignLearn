@@ -19,7 +19,7 @@
 
 import {
   call, check, section, summary, requireServer,
-  registerUser, loginAdmin, c,
+  registerUser, loginAdmin, closeHarnessDatabase, c,
 } from "./lib/harness.mjs";
 
 async function main() {
@@ -86,14 +86,14 @@ async function main() {
   });
   check("tautan YouTube diterima di kolom video", youtubeAsVideo.status === 201,
     `${youtubeAsVideo.status}`);
-  const createdId = youtubeAsVideo.body?.translation?.id;
+  const createdId = youtubeAsVideo.data?.translation?.id;
 
   // ── Bacaan publik ──────────────────────────────────────────────────────
   section("Kamus — bacaan untuk siswa");
 
   const list = await call("/translations?limit=100", { token: learner.token });
   check("siswa dapat membaca daftar kata", list.status === 200, `${list.status}`);
-  const items = list.body?.items ?? [];
+  const items = list.data?.items ?? [];
   check("daftar berisi kata hasil seed", items.length >= 30, `${items.length} kata`);
 
   const brokenMedia = items.filter(
@@ -116,19 +116,19 @@ async function main() {
   const categories = await call("/translations/categories", { token: learner.token });
   check("kategori dapat dibaca", categories.status === 200, `${categories.status}`);
   check("kata terkelompok dalam beberapa kategori",
-    (categories.body?.items?.length ?? 0) >= 4,
-    `${categories.body?.items?.length} kategori`);
+    (categories.data?.items?.length ?? 0) >= 4,
+    `${categories.data?.items?.length} kategori`);
 
   const lookup = await call("/translations/lookup?word=halo");
   check("lookup kata menemukan entri", lookup.status === 200, `${lookup.status}`);
   check("baris 'halo' yang dulu rusak kini bersih media",
-    !lookup.body?.translation?.signImage && !lookup.body?.translation?.signVideo,
-    `${lookup.body?.translation?.signImage ?? "-"} / ${lookup.body?.translation?.signVideo ?? "-"}`);
+    !lookup.data?.translation?.signImage && !lookup.data?.translation?.signVideo,
+    `${lookup.data?.translation?.signImage ?? "-"} / ${lookup.data?.translation?.signVideo ?? "-"}`);
 
   const alias = await call("/translations/lookup?word=makasih");
   check("lookup lewat alias menemukan kata induknya",
-    alias.status === 200 && alias.body?.translation?.word === "Terima kasih",
-    alias.body?.translation?.word);
+    alias.status === 200 && alias.data?.translation?.word === "Terima kasih",
+    alias.data?.translation?.word);
 
   const missing = await call("/translations/lookup?word=zzzbukankata");
   check("kata tak dikenal menjawab 404, bukan galat server",
@@ -147,4 +147,6 @@ async function main() {
   return summary("Bank Kata & Kamus");
 }
 
-main().then((ok) => { process.exitCode = ok ? 0 : 1; });
+main()
+  .then((ok) => { process.exitCode = ok ? 0 : 1; })
+  .finally(() => closeHarnessDatabase());

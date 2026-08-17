@@ -62,19 +62,22 @@ function refreshExpiryDate() {
  * Menerbitkan refresh token baru dalam family baru — dipakai saat login.
  * @returns {Promise<{token: string, familyId: string, expiresAt: Date}>}
  */
-export async function issueRefreshToken(userId, context = {}) {
+export async function issueRefreshToken(userId, context = {}, client) {
   const token = generateOpaqueToken(env.refreshToken.bytes);
   const familyId = randomUuid();
   const expiresAt = refreshExpiryDate();
 
-  await refreshRepo.insert({
-    userId,
-    tokenHash: hashToken(token),
-    familyId,
-    expiresAt,
-    userAgent: context.userAgent,
-    ipAddress: context.ipAddress,
-  });
+  await refreshRepo.insert(
+    {
+      userId,
+      tokenHash: hashToken(token),
+      familyId,
+      expiresAt,
+      userAgent: context.userAgent,
+      ipAddress: context.ipAddress,
+    },
+    client,
+  );
 
   return { token, familyId, expiresAt };
 }

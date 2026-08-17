@@ -74,6 +74,7 @@ CREATE TABLE users (
   phone          VARCHAR(30),
   avatar         VARCHAR(500),
   avatar_public_id VARCHAR(500),
+  email_verified_at TIMESTAMPTZ,
   profile        VARCHAR(50) NOT NULL DEFAULT 'general'
                  CHECK (profile IN ('parent', 'deaf', 'general')),
   status         VARCHAR(20) NOT NULL DEFAULT 'active'
@@ -150,6 +151,20 @@ CREATE TABLE password_reset_tokens (
 );
 
 CREATE INDEX idx_reset_user ON password_reset_tokens (user_id);
+
+-- ─── Registration email verification ──────────────────────────
+CREATE TABLE email_verification_tokens (
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  CHAR(64) NOT NULL UNIQUE,
+  attempts    SMALLINT NOT NULL DEFAULT 0,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_email_verification_user
+  ON email_verification_tokens (user_id, created_at DESC);
 
 -- ─── Courses, Lessons, Quizzes ─────────────────────────────────
 CREATE TABLE courses (
@@ -302,6 +317,8 @@ CREATE TABLE payments (
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscription_id BIGINT NOT NULL REFERENCES subscriptions(id),
   order_id VARCHAR(100) NOT NULL UNIQUE, amount NUMERIC(12,2) NOT NULL,
+  provider VARCHAR(30) NOT NULL DEFAULT 'midtrans'
+           CONSTRAINT chk_payments_provider CHECK (provider IN ('mock','midtrans')),
   payment_method VARCHAR(80), transaction_status VARCHAR(30) NOT NULL DEFAULT 'pending',
   transaction_id VARCHAR(120), snap_token TEXT, redirect_url TEXT,
   paid_at TIMESTAMPTZ, processed_at TIMESTAMPTZ, raw_notification JSONB,

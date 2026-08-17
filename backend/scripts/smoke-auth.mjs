@@ -12,6 +12,10 @@
  * yang bertanya "apakah backend-nya sudah jalan?".
  */
 
+import { closePool, query } from "../src/config/database.js";
+import { env } from "../src/config/env.js";
+import { hashEmailVerificationCode } from "../src/utils/crypto.js";
+
 const BASE = (process.env.API_URL || "http://localhost:4788").replace(/\/$/, "");
 const API = `${BASE}${process.env.API_PREFIX || "/api/v1"}`;
 
@@ -126,16 +130,127 @@ async function main() {
     body: { name: "Smoke Test", email: TEST_EMAIL, password: TEST_PASSWORD },
   });
   check("register berhasil", reg.status === 201, `${reg.status}`);
-  check("id berupa string", typeof reg.body?.data?.user?.id === "string", `${typeof reg.body?.data?.user?.id}`);
-  check("peran default 'user'", reg.body?.data?.user?.role === "user");
+  check("verifikasi diwajibkan", reg.body?.data?.verificationRequired === true);
+  check("email dinormalisasi", reg.body?.data?.email === TEST_EMAIL.toLowerCase());
+  check("access token belum diterbitkan", !reg.body?.data?.accessToken);
   check("refreshToken TIDAK di body", !("refreshToken" in (reg.body?.data ?? {})));
-  check("hash kata sandi tidak bocor",
-    !Object.keys(reg.body?.data?.user ?? {}).some((k) => /password/i.test(k)));
+  check("kode verifikasi tidak bocor ke frontend",
+    !Object.keys(reg.body?.data ?? {}).some((k) => /code|token/i.test(k)));
 
   const cookieLine = reg.setCookie[0] ?? "";
-  check("cookie HttpOnly dipasang", /HttpOnly/i.test(cookieLine));
-  check("cookie dibatasi ke path auth", /Path=\/api\/v1\/auth/i.test(cookieLine),
-    cookieLine.match(/Path=[^;]+/i)?.[0] ?? "");
+  check("cookie sesi belum dipasang", cookieLine === "");
+
+  const storedUser = await query(
+    `SELECT id, email_verified_at FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`,
+    [TEST_EMAIL],
+  );
+  const userId = storedUser.rows[0]?.id;
+  check("akun tersimpan sebagai belum terverifikasi",
+    Boolean(userId) && storedUser.rows[0].email_verified_at === null);
+
+  const storedCode = await query(
+    `SELECT id, token_hash, attempts, used_at
+       FROM email_verification_tokens
+      WHERE user_id=$1 ORDER BY id DESC LIMIT 1`,
+    [userId],
+  );
+  check("kode hanya tersimpan sebagai HMAC SHA-256",
+    /^[a-f0-9]{64}$/.test(storedCode.rows[0]?.token_hash ?? ""));
+
+  const unverifiedLogin = await call("/auth/login", {
+    method: "POST",
+    body: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  check("login ditolak sebelum email terverifikasi",
+    unverifiedLogin.status === 403 && unverifiedLogin.body?.code === "EMAIL_NOT_VERIFIED",
+    `${unverifiedLogin.status} ${unverifiedLogin.body?.code ?? ""}`);
+
+  const invalidCode = storedCode.rows[0].token_hash ===
+    hashEmailVerificationCode(userId, "000000", env.jwt.accessSecret)
+    ? "000001"
+    : "000000";
+  const invalidVerification = await call("/auth/verify-email", {
+    method: "POST",
+    body: { email: TEST_EMAIL, code: invalidCode },
+  });
+  check("kode salah ditolak tanpa detail sensitif",
+    invalidVerification.status === 401 && invalidVerification.body?.code === "TOKEN_INVALID");
+  const afterInvalid = await query(
+    "SELECT attempts FROM email_verification_tokens WHERE id=$1",
+    [storedCode.rows[0]?.id],
+  );
+  check("percobaan kode salah tercatat", Number(afterInvalid.rows[0]?.attempts) === 1);
+
+  for (let attempt = 1; attempt < 5; attempt += 1) {
+    await call("/auth/verify-email", {
+      method: "POST",
+      body: { email: TEST_EMAIL, code: invalidCode },
+    });
+  }
+  const burnedCode = await query(
+    "SELECT attempts, used_at FROM email_verification_tokens WHERE id=$1",
+    [storedCode.rows[0]?.id],
+  );
+  check("kode dibakar setelah lima tebakan salah",
+    Number(burnedCode.rows[0]?.attempts) === 5 && burnedCode.rows[0]?.used_at !== null);
+
+  const immediateResend = await call("/auth/verify-email/resend", {
+    method: "POST",
+    body: { email: TEST_EMAIL },
+  });
+  check("resend selalu memberi respons generik", immediateResend.status === 200);
+  const beforeCooldown = await query(
+    "SELECT COUNT(*)::int total FROM email_verification_tokens WHERE user_id=$1",
+    [userId],
+  );
+  check("cooldown mencegah kode baru terlalu cepat", beforeCooldown.rows[0].total === 1);
+
+  await query(
+    "UPDATE email_verification_tokens SET created_at=NOW()-INTERVAL '2 minutes' WHERE id=$1",
+    [storedCode.rows[0].id],
+  );
+  const resend = await call("/auth/verify-email/resend", {
+    method: "POST",
+    body: { email: TEST_EMAIL },
+  });
+  check("resend setelah cooldown berhasil", resend.status === 200);
+  const resentCodes = await query(
+    `SELECT id, used_at FROM email_verification_tokens
+      WHERE user_id=$1 ORDER BY id DESC`,
+    [userId],
+  );
+  check("resend membakar kode lama dan membuat satu kode baru",
+    resentCodes.rows.length === 2 && resentCodes.rows[1].used_at !== null && resentCodes.rows[0].used_at === null);
+
+  // Kode asli hanya ada di email. Untuk smoke otomatis, ganti HASH pada
+  // fixture dengan kode yang diketahui; API tetap tidak pernah menerimanya
+  // dari jalur lain dan seluruh transaksi verifikasi tetap diuji nyata.
+  const verificationCode = "483921";
+  const activeCodeId = resentCodes.rows[0].id;
+  await query(
+    "UPDATE email_verification_tokens SET token_hash=$2 WHERE id=$1",
+    [activeCodeId, hashEmailVerificationCode(userId, verificationCode, env.jwt.accessSecret)],
+  );
+  const verifiedJar = new Jar();
+  const verified = await call("/auth/verify-email", {
+    method: "POST",
+    jar: verifiedJar,
+    body: { email: TEST_EMAIL, code: verificationCode },
+  });
+  check("kode benar memverifikasi sekaligus masuk", verified.status === 200);
+  check("status email terverifikasi dikembalikan", verified.body?.data?.user?.emailVerified === true);
+  check("access token diterbitkan setelah verifikasi",
+    typeof verified.body?.data?.accessToken === "string");
+  const verifiedCookie = verified.setCookie[0] ?? "";
+  check("cookie HttpOnly dipasang setelah verifikasi", /HttpOnly/i.test(verifiedCookie));
+  check("cookie dibatasi ke path auth", /Path=\/api\/v1\/auth/i.test(verifiedCookie),
+    verifiedCookie.match(/Path=[^;]+/i)?.[0] ?? "");
+
+  const replay = await call("/auth/verify-email", {
+    method: "POST",
+    body: { email: TEST_EMAIL, code: verificationCode },
+  });
+  check("kode yang sudah dipakai tidak dapat diputar ulang", replay.status === 401);
 
   // ── Login ─────────────────────────────────────────────────────────────
   console.log(c.b("\n  Login"));
@@ -234,10 +349,14 @@ async function main() {
   console.log(c.dim(`  Bersihkan akun uji:`));
   console.log(c.dim(`    DELETE FROM users WHERE email LIKE '%@signlearn.test';\n`));
 
-  process.exit(failed === 0 ? 0 : 1);
+  await query("DELETE FROM users WHERE id=$1", [userId]);
+  await closePool();
+  process.exitCode = failed === 0 ? 0 : 1;
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(`\n  ${c.no("Smoke test error:")} ${err.message}\n`);
-  process.exit(1);
+  await query("DELETE FROM users WHERE email=$1", [TEST_EMAIL]).catch(() => {});
+  await closePool().catch(() => {});
+  process.exitCode = 1;
 });

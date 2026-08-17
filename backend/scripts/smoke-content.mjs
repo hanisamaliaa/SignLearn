@@ -15,7 +15,7 @@
 
 import {
   call, check, section, summary, requireServer,
-  registerUser, loginAdmin, c,
+  registerUser, loginAdmin, grantPremiumFixture, closeHarnessDatabase, c,
 } from "./lib/harness.mjs";
 
 async function main() {
@@ -24,6 +24,7 @@ async function main() {
 
   const admin = await loginAdmin();
   const learner = await registerUser("murid");
+  await grantPremiumFixture(learner.id);
   const stamp = Date.now();
 
   // ── Courses: tulis ─────────────────────────────────────────────────────
@@ -225,18 +226,24 @@ async function main() {
   const quizId = quiz.data?.quiz?.id;
 
   const questionIds = [];
-  for (const [text, correct] of [["1 + 1 = ?", 1], ["2 + 2 = ?", 2]]) {
+  const correctIndexes = [1, 2, 0, 3, 1];
+  for (const [index, correct] of correctIndexes.entries()) {
     const res = await call(`/courses/${courseId}/quizzes/${quizId}/questions`, {
       token: admin.token,
       method: "POST",
-      body: { question: text, options: ["1", "2", "4", "8"], correctIndex: correct },
+      body: {
+        question: `Soal adaptif ${index + 1}`,
+        options: ["A", "B", "C", "D"],
+        correctIndex: correct,
+      },
     });
     questionIds.push(res.data?.question?.id);
   }
-  check("dua pertanyaan dibuat", questionIds.every((id) => typeof id === "string"));
+  check("lima pertanyaan adaptif dibuat",
+    questionIds.length === 5 && questionIds.every((id) => typeof id === "string"));
 
   const quizAfter = await call(`/courses/${courseId}/quizzes/${quizId}`, { token: admin.token });
-  check("totalQuestions diselaraskan otomatis", quizAfter.data?.quiz?.totalQuestions === 2,
+  check("totalQuestions diselaraskan otomatis", quizAfter.data?.quiz?.totalQuestions === 5,
     `${quizAfter.data?.quiz?.totalQuestions}`);
 
   // Inti keamanan kuis: kunci jawaban tidak pernah sampai ke peserta.
@@ -258,10 +265,18 @@ async function main() {
   });
   check("admin TIDAK dapat mengerjakan kuis", adminSubmit.status === 403, adminSubmit.body?.code);
 
+  const started = await call(`/courses/${courseId}/quizzes/${quizId}/start`, {
+    token: learner.token,
+    method: "POST",
+  });
+  const sessionId = started.data?.session?.id;
+  check("sesi quiz Premium berisi lima soal", started.status === 201 &&
+    Boolean(sessionId) && started.data?.questions?.length === 5);
+
   const partialAnswers = await call(`/courses/${courseId}/quizzes/${quizId}/submit`, {
     token: learner.token,
     method: "POST",
-    body: { answers: [{ questionId: questionIds[0], selectedIndex: 1 }] },
+    body: { sessionId, answers: [{ questionId: questionIds[0], selectedIndex: correctIndexes[0] }] },
   });
   check("jawaban tidak lengkap ditolak", partialAnswers.status === 422,
     `${partialAnswers.status}`);
@@ -270,9 +285,12 @@ async function main() {
     token: learner.token,
     method: "POST",
     body: {
+      sessionId,
       answers: [
-        { questionId: questionIds[0], selectedIndex: 1 },
-        { questionId: questionIds[1], selectedIndex: 2 },
+        ...questionIds.map((id, index) => ({
+          questionId: id,
+          selectedIndex: correctIndexes[index],
+        })),
         { questionId: "99999999", selectedIndex: 0 },
       ],
     },
@@ -284,29 +302,38 @@ async function main() {
     token: learner.token,
     method: "POST",
     body: {
+      sessionId,
       score: 100,
       passed: true,
-      answers: [
-        { questionId: questionIds[0], selectedIndex: 1 }, // benar
-        { questionId: questionIds[1], selectedIndex: 0 }, // salah
-      ],
+      answers: questionIds.map((id, index) => ({
+        questionId: id,
+        selectedIndex: index < 2
+          ? correctIndexes[index]
+          : (correctIndexes[index] + 1) % 4,
+      })),
     },
   });
   check("pengerjaan berhasil", halfRight.status === 201, `${halfRight.status}`);
   check("skor dihitung server, bukan diambil dari klien",
-    halfRight.data?.result?.score === 50, `${halfRight.data?.result?.score}`);
-  check("KKM per kuis diterapkan (50 < 70)", halfRight.data?.result?.passed === false);
+    halfRight.data?.result?.score === 40, `${halfRight.data?.result?.score}`);
+  check("KKM per kuis diterapkan (40 < 70)", halfRight.data?.result?.passed === false);
   check("review menjelaskan jawaban salah",
-    halfRight.data?.result?.review?.filter((r) => !r.isCorrect).length === 1);
+    halfRight.data?.result?.review?.filter((r) => !r.isCorrect).length === 3);
+
+  const retry = await call(`/courses/${courseId}/quizzes/${quizId}/start`, {
+    token: learner.token,
+    method: "POST",
+  });
 
   const allRight = await call(`/courses/${courseId}/quizzes/${quizId}/submit`, {
     token: learner.token,
     method: "POST",
     body: {
-      answers: [
-        { questionId: questionIds[0], selectedIndex: 1 },
-        { questionId: questionIds[1], selectedIndex: 2 },
-      ],
+      sessionId: retry.data?.session?.id,
+      answers: questionIds.map((id, index) => ({
+        questionId: id,
+        selectedIndex: correctIndexes[index],
+      })),
     },
   });
   check("skor sempurna lulus", allRight.data?.result?.score === 100 &&
@@ -379,9 +406,9 @@ async function main() {
   const lockedId = locked.data?.lesson?.id;
 
   const blocked = await call(`/lessons/${lockedId}`, { token: learner.token });
-  check("pelajaran terkunci ditolak untuk peserta", blocked.status === 403,
-    blocked.body?.code);
-  check("kode error LESSON_LOCKED", blocked.body?.code === "LESSON_LOCKED", blocked.body?.code);
+  check("materi tetap gratis walau flag isLocked aktif", blocked.status === 200,
+    `${blocked.status}`);
+  check("flag kunci tetap tersedia sebagai metadata", blocked.data?.lesson?.isLocked === true);
 
   const adminSeesLocked = await call(`/lessons/${lockedId}`, { token: admin.token });
   check("admin tetap dapat membuka pelajaran terkunci", adminSeesLocked.status === 200,
@@ -390,8 +417,8 @@ async function main() {
   const bypass = await call(`/progress/lessons/${lockedId}`, {
     token: learner.token, method: "PUT", body: { status: "completed" },
   });
-  check("kunci tidak dapat dilewati lewat endpoint progres", bypass.status === 403,
-    bypass.body?.code);
+  check("progres materi gratis tetap dapat disimpan", bypass.status === 200,
+    `${bypass.status}`);
 
   // Menyelesaikan pelajaran sebelumnya membuka yang terkunci.
   for (const id of lessonIds.slice(1)) {
@@ -440,4 +467,4 @@ async function main() {
 main().catch((err) => {
   console.error(`\n  ${c.no("Test berhenti:")} ${err.message}\n`);
   process.exitCode = 1;
-});
+}).finally(() => closeHarnessDatabase());

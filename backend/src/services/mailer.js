@@ -163,3 +163,42 @@ export function sendPasswordResetCode({ to, name, code, expiresMinutes }) {
     html,
   });
 }
+
+/** Email aktivasi akun. Kode tidak pernah dikembalikan melalui API. */
+export function sendRegistrationVerificationCode({ to, name, code, expiresMinutes }) {
+  const greeting = name ? `Halo ${name},` : "Halo,";
+  const spaced = String(code).split("").join(" ");
+  const text = [
+    greeting,
+    "",
+    "Selamat datang di SignLearn. Gunakan kode berikut untuk memverifikasi akunmu:",
+    "",
+    `    ${spaced}`,
+    "",
+    `Kode berlaku ${expiresMinutes} menit dan hanya bisa dipakai sekali.`,
+    "",
+    "Kalau kamu tidak membuat akun ini, abaikan email ini.",
+    "Jangan bagikan kode kepada siapa pun.",
+    "",
+    "— SignLearn",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1A2332">
+      <p style="margin:0 0 16px">${escapeHtml(greeting)}</p>
+      <p style="margin:0 0 20px">Selamat datang di SignLearn. Verifikasi akunmu dengan kode berikut:</p>
+      <p style="margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:10px;text-align:center;padding:16px;background:#EAF3FF;border-radius:12px;color:#2F6FE4">
+        ${escapeHtml(code)}
+      </p>
+      <p style="margin:0 0 16px">Kode berlaku <strong>${escapeHtml(expiresMinutes)} menit</strong> dan hanya bisa dipakai sekali.</p>
+      <p style="margin:0;color:#5A6B82;font-size:14px">Kalau kamu tidak membuat akun ini, abaikan email ini. Jangan bagikan kode kepada siapa pun.</p>
+    </div>
+  `.trim();
+
+  return sendMail({
+    to,
+    subject: `Kode verifikasi akun SignLearn: ${code}`,
+    text,
+    html,
+  });
+}

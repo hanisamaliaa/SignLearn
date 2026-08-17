@@ -3,16 +3,18 @@ import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ERROR_CODES } from "../constants/errorCodes.js";
 import {
-  generateOpaqueToken,
+  generateEmailVerificationCode,
   generateResetCode,
+  hashEmailVerificationCode,
   hashResetCode,
-  hashToken,
+  safeEqual,
 } from "../utils/crypto.js";
 import { withTransaction } from "../config/database.js";
 import * as userRepo from "../repositories/userRepository.js";
 import * as resetRepo from "../repositories/passwordResetRepository.js";
+import * as verificationRepo from "../repositories/emailVerificationRepository.js";
 import * as tokenService from "./tokenService.js";
-import { sendPasswordResetCode } from "./mailer.js";
+import { sendPasswordResetCode, sendRegistrationVerificationCode } from "./mailer.js";
 
 /**
  * Auth service — seluruh aturan bisnis autentikasi.
@@ -43,26 +45,149 @@ export function verifyPassword(password, hash) {
 // ─── Register ────────────────────────────────────────────────────────────
 
 export async function register({ name, email, password, profile }, context = {}) {
-  if (await userRepo.emailExists(email)) {
-    throw ApiError.conflict("Email ini sudah terdaftar.");
+  const normalizedEmail = email.trim().toLowerCase();
+  const passwordHash = await hashPassword(password);
+  const code = env.security.emailVerificationEnabled
+    ? generateEmailVerificationCode()
+    : null;
+
+  let result;
+  try {
+    result = await withTransaction(async (client) => {
+      if (await userRepo.emailExists(normalizedEmail, client)) {
+        throw ApiError.conflict("Email ini sudah terdaftar.");
+      }
+
+      const user = await userRepo.create(
+        {
+          name,
+          email: normalizedEmail,
+          passwordHash,
+          profile: profile || "general",
+          role: "user",
+        },
+        client,
+      );
+
+      if (env.security.emailVerificationEnabled) {
+        const expiresAt = new Date(
+          Date.now() + env.security.emailVerificationTtlMinutes * 60_000,
+        );
+        await verificationRepo.insert(
+          {
+            userId: user.id,
+            tokenHash: hashEmailVerificationCode(user.id, code, env.jwt.accessSecret),
+            expiresAt,
+          },
+          client,
+        );
+        return { user, verificationRequired: true };
+      }
+
+      await userRepo.markEmailVerified(user.id, client);
+      const verifiedUser = await userRepo.findById(user.id, client);
+      const refresh = await tokenService.issueRefreshToken(verifiedUser.id, context, client);
+      return {
+        user: verifiedUser,
+        accessToken: tokenService.signAccessToken(verifiedUser),
+        refreshToken: refresh.token,
+        expiresIn: env.jwt.accessTtlSeconds,
+        verificationRequired: false,
+      };
+    });
+  } catch (error) {
+    if (error?.code === "23505") throw ApiError.conflict("Email ini sudah terdaftar.");
+    throw error;
   }
 
-  const user = await userRepo.create({
-    name,
-    email,
-    passwordHash: await hashPassword(password),
-    profile: profile || "general",
-    role: "user", // Peran selalu 'user'. Admin hanya dibuat lewat seed.
+  if (result.verificationRequired) {
+    await sendRegistrationVerificationCode({
+      to: result.user.email,
+      name: result.user.name,
+      code,
+      expiresMinutes: env.security.emailVerificationTtlMinutes,
+    });
+    return {
+      verificationRequired: true,
+      email: result.user.email,
+      expiresInMinutes: env.security.emailVerificationTtlMinutes,
+      resendCooldownSeconds: env.security.emailVerificationResendCooldownSeconds,
+    };
+  }
+
+  return result;
+}
+
+export async function verifyEmail({ email, code }, context = {}) {
+  const invalid = () =>
+    ApiError.unauthorized(
+      "Kode verifikasi tidak valid atau sudah kedaluwarsa. Minta kode baru untuk melanjutkan.",
+      ERROR_CODES.TOKEN_INVALID,
+    );
+
+  const user = await userRepo.findByEmailWithSecret(email);
+  if (!user || user.emailVerified) throw invalid();
+
+  const record = await verificationRepo.findActiveForUser(user.id);
+  if (!record) throw invalid();
+  const expected = hashEmailVerificationCode(user.id, code, env.jwt.accessSecret);
+  if (!safeEqual(record.tokenHash, expected)) {
+    await verificationRepo.registerFailedAttempt(
+      record.id,
+      env.security.emailVerificationMaxAttempts,
+    );
+    throw invalid();
+  }
+
+  return withTransaction(async (client) => {
+    const consumed = await verificationRepo.consume(record.id, user.id, client);
+    if (!consumed) throw invalid();
+    const marked = await userRepo.markEmailVerified(user.id, client);
+    if (!marked) throw invalid();
+    const verifiedUser = await userRepo.findById(user.id, client);
+    const refresh = await tokenService.issueRefreshToken(verifiedUser.id, context, client);
+    return {
+      user: verifiedUser,
+      accessToken: tokenService.signAccessToken(verifiedUser),
+      refreshToken: refresh.token,
+      expiresIn: env.jwt.accessTtlSeconds,
+    };
+  });
+}
+
+export async function resendEmailVerification(email) {
+  const user = await userRepo.findByEmailWithSecret(email);
+  if (!user || user.emailVerified || user.role !== "user") return;
+
+  let code = null;
+  await withTransaction(async (client) => {
+    await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [user.id]);
+    const latest = await verificationRepo.latestForUser(user.id, client);
+    const cooldownMs = env.security.emailVerificationResendCooldownSeconds * 1000;
+    if (latest && Date.now() - new Date(latest).getTime() < cooldownMs) return;
+
+    code = generateEmailVerificationCode();
+    await verificationRepo.invalidateForUser(user.id, client);
+    await verificationRepo.insert(
+      {
+        userId: user.id,
+        tokenHash: hashEmailVerificationCode(user.id, code, env.jwt.accessSecret),
+        expiresAt: new Date(
+          Date.now() + env.security.emailVerificationTtlMinutes * 60_000,
+        ),
+      },
+      client,
+    );
   });
 
-  const refresh = await tokenService.issueRefreshToken(user.id, context);
-
-  return {
-    user,
-    accessToken: tokenService.signAccessToken(user),
-    refreshToken: refresh.token,
-    expiresIn: env.jwt.accessTtlSeconds,
-  };
+  if (code) {
+    await sendRegistrationVerificationCode({
+      to: user.email,
+      name: user.name,
+      code,
+      expiresMinutes: env.security.emailVerificationTtlMinutes,
+    });
+  }
 }
 
 // ─── Login ───────────────────────────────────────────────────────────────
@@ -112,6 +237,13 @@ export async function login({ email, password }, context = {}) {
     );
   }
 
+  if (record.role === "user" && !record.emailVerified) {
+    throw ApiError.forbidden(
+      "Verifikasi alamat email sebelum masuk.",
+      ERROR_CODES.EMAIL_NOT_VERIFIED,
+    );
+  }
+
   await userRepo.clearFailedLogins(record.id);
 
   const { passwordHash, failedLoginAttempts, lockedUntil, ...user } = record;
@@ -147,6 +279,13 @@ export async function refresh(rawRefreshToken, context = {}) {
     throw ApiError.forbidden(
       "Akun Anda tidak aktif.",
       ERROR_CODES.ACCOUNT_SUSPENDED,
+    );
+  }
+  if (user.role === "user" && !user.emailVerified) {
+    await tokenService.revokeAllSessions(user.id);
+    throw ApiError.forbidden(
+      "Verifikasi alamat email sebelum melanjutkan.",
+      ERROR_CODES.EMAIL_NOT_VERIFIED,
     );
   }
 

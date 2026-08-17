@@ -9,7 +9,7 @@
 
 import {
   call, check, section, summary, requireServer,
-  registerUser, loginAdmin, TEST_PASSWORD, c,
+  registerUser, loginAdmin, closeHarnessDatabase, TEST_PASSWORD, c,
 } from "./lib/harness.mjs";
 
 async function main() {
@@ -283,4 +283,4 @@ async function main() {
 main().catch((err) => {
   console.error(`\n  ${c.no("Test berhenti:")} ${err.message}\n`);
   process.exitCode = 1;
-});
+}).finally(() => closeHarnessDatabase());

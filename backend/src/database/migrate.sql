@@ -147,6 +147,10 @@
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar                VARCHAR(500);
   ALTER TABLE users ALTER COLUMN avatar TYPE VARCHAR(500);
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_public_id      VARCHAR(500);
+  -- Default hanya dipakai saat kolom pertama kali ditambahkan agar akun lama
+  -- tetap dapat login. Setelah itu akun baru harus diverifikasi eksplisit.
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ DEFAULT NOW();
+  ALTER TABLE users ALTER COLUMN email_verified_at DROP DEFAULT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS profile               VARCHAR(50) DEFAULT 'general';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS status                VARCHAR(20) DEFAULT 'active';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT    DEFAULT 0;
@@ -419,10 +423,26 @@
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     subscription_id BIGINT NOT NULL REFERENCES subscriptions(id),
     order_id VARCHAR(100) NOT NULL UNIQUE,amount NUMERIC(12,2) NOT NULL,
+    provider VARCHAR(30) NOT NULL DEFAULT 'midtrans',
     payment_method VARCHAR(80),transaction_status VARCHAR(30) NOT NULL DEFAULT 'pending',
     transaction_id VARCHAR(120),snap_token TEXT,redirect_url TEXT,
     paid_at TIMESTAMPTZ,processed_at TIMESTAMPTZ,raw_notification JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  ALTER TABLE payments ADD COLUMN IF NOT EXISTS provider VARCHAR(30) NOT NULL DEFAULT 'midtrans';
+  DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chk_payments_provider') THEN
+      ALTER TABLE payments ADD CONSTRAINT chk_payments_provider CHECK(provider IN ('mock','midtrans'));
+    END IF;
+  END $$;
+  CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE TABLE IF NOT EXISTS lesson_quiz_sessions (
     id UUID PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -433,6 +453,7 @@
   );
   CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id,end_date DESC);
   CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id,created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_email_verification_user ON email_verification_tokens(user_id,created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_lesson_quiz_sessions_user ON lesson_quiz_sessions(user_id,created_at DESC);
   INSERT INTO subscription_plans(name,price,duration_days,status)
   SELECT 'Premium',29000,30,'active'
