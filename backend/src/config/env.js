@@ -168,7 +168,31 @@ export const env = Object.freeze({
     bcryptRounds: num(process.env.BCRYPT_ROUNDS, 12),
     maxFailedLogins: num(process.env.MAX_FAILED_LOGINS, 5),
     lockoutMinutes: num(process.env.LOCKOUT_MINUTES, 15),
-    passwordResetTtlMinutes: num(process.env.PASSWORD_RESET_TTL_MINUTES, 30),
+    // 15 menit, bukan 30. Kode enam digit hanya punya sejuta kemungkinan;
+    // memperpendek jendelanya adalah separuh dari pertahanan terhadap tebakan
+    // (separuh lainnya: batas percobaan di bawah).
+    passwordResetTtlMinutes: num(process.env.PASSWORD_RESET_TTL_MINUTES, 15),
+    // Kode dibakar setelah sekian tebakan salah.
+    passwordResetMaxAttempts: num(process.env.PASSWORD_RESET_MAX_ATTEMPTS, 5),
+  },
+
+  /**
+   * Pengiriman email.
+   *
+   * `enabled` diturunkan dari ada atau tidaknya SMTP_HOST, bukan dari saklar
+   * terpisah. Satu saklar yang bisa menyala tanpa host hanya menghasilkan
+   * kegagalan saat runtime; menurunkannya dari kredensial membuat keadaan
+   * "menyala tapi tidak bisa mengirim" mustahil terjadi.
+   */
+  mail: {
+    enabled: Boolean(process.env.SMTP_HOST),
+    host: process.env.SMTP_HOST || "",
+    port: num(process.env.SMTP_PORT, 587),
+    // 465 memakai TLS implisit; 587 memakai STARTTLS.
+    secure: bool(process.env.SMTP_SECURE, num(process.env.SMTP_PORT, 587) === 465),
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    from: process.env.MAIL_FROM || "SignLearn <no-reply@signlearn.local>",
   },
 
   corsOrigins,

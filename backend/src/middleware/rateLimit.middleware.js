@@ -102,6 +102,23 @@ export const forgotPasswordLimiter = make({
   message: "Terlalu banyak permintaan reset kata sandi. Coba lagi dalam 1 jam.",
 });
 
+/**
+ * Lupa kata sandi per-EMAIL.
+ *
+ * Pembatas per-IP saja tidak melindungi kotak masuk siapa pun: penyerang
+ * dengan sekumpulan proxy dapat membanjiri satu orang dengan email reset
+ * sampai ia menyerah memakai layanannya.
+ */
+export const forgotPasswordEmailLimiter = make({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || "").toLowerCase().trim();
+    return email ? `forgot:${email}` : `forgot-ip:${req.ip || "unknown"}`;
+  },
+  message: "Terlalu banyak permintaan reset untuk email ini. Coba lagi dalam 1 jam.",
+});
+
 export const refreshLimiter = make({
   windowMs: 15 * 60 * 1000,
   max: 30,

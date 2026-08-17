@@ -122,15 +122,18 @@ export const listSessions = asyncHandler(async (req, res) => {
 export const forgotPassword = asyncHandler(async (req, res) => {
   const result = await authService.requestPasswordReset(req.body.email);
 
-  // Respons IDENTIK baik email terdaftar maupun tidak.
-  const payload = env.isProduction ? null : { devToken: result.token };
-  success(res, payload, "Bila email terdaftar, tautan reset telah dikirim.");
+  // Respons IDENTIK baik email terdaftar maupun tidak, dan juga entah email
+  // berhasil terkirim atau gagal. Membedakannya membocorkan email mana yang
+  // memiliki akun.
+  const payload = env.isProduction ? null : { devCode: result.code };
+  success(res, payload, "Bila email terdaftar, kode reset telah dikirim.");
 });
 
 // ─── POST /auth/reset-password ───────────────────────────────────────────
 export const resetPassword = asyncHandler(async (req, res) => {
   await authService.resetPassword({
-    token: req.body.token,
+    email: req.body.email,
+    code: req.body.code,
     password: req.body.password,
   });
 

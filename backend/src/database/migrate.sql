@@ -191,6 +191,11 @@
   ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS created_at        TIMESTAMPTZ DEFAULT NOW();
   ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMPTZ DEFAULT NOW();
 
+  -- ── password_reset_tokens ──────────────────────────────────────
+  -- Kode reset enam digit dibatasi jumlah tebakannya; tanpa kolom ini sejuta
+  -- kemungkinan dapat dihabiskan mesin dalam hitungan menit.
+  ALTER TABLE password_reset_tokens ADD COLUMN IF NOT EXISTS attempts SMALLINT NOT NULL DEFAULT 0;
+
   -- ── quiz_questions ─────────────────────────────────────────────
   ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS question_type VARCHAR(30) DEFAULT 'multiple-choice';
   ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS options       JSONB       DEFAULT '[]'::jsonb;

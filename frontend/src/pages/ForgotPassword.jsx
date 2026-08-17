@@ -11,7 +11,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const [devToken, setDevToken] = useState("");
+  const [devCode, setDevCode] = useState("");
 
   /**
    * Meminta tautan reset.
@@ -37,10 +37,9 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       const payload = await authService.requestPasswordReset(email.trim());
-      // Di luar produksi server mengembalikan tokennya langsung karena
-      // pengiriman email belum tersambung; ini yang membuat alurnya dapat
-      // diselesaikan dan diuji tanpa SMTP.
-      setDevToken(payload?.devToken ?? "");
+      // Di luar produksi server mengembalikan kodenya langsung, sehingga
+      // alurnya dapat diselesaikan dan diuji tanpa kredensial SMTP.
+      setDevCode(payload?.devCode ?? "");
       setSent(true);
     } catch (requestError) {
       setError(requestError?.message ?? "Permintaan gagal dikirim. Coba lagi sebentar, ya.");
@@ -119,7 +118,7 @@ export default function ForgotPassword() {
                     Mengirim...
                   </span>
                 ) : (
-                  "Kirim Tautan Reset"
+                  "Kirim Kode Reset"
                 )}
               </Button>
             </form>
@@ -146,25 +145,27 @@ export default function ForgotPassword() {
                 sama untuk email terdaftar maupun tidak, agar halaman ini tidak
                 bisa dipakai memetakan akun siapa saja yang terdaftar. */}
             <p className="text-sm text-[var(--text-muted)] mb-2">
-              Bila email ini terdaftar, tautan reset kata sandi telah dikirim ke:
+              Bila email ini terdaftar, kode reset kata sandi telah dikirim ke:
             </p>
             <p className="font-semibold text-[var(--text)] mb-5">{email}</p>
 
-            {devToken && (
+            {devCode && (
               <div className="mb-6 rounded-xl border border-[#F4B400]/40 bg-[var(--warning-light)] p-4 text-left">
                 <p className="text-sm font-semibold text-[var(--text)]">
                   Mode pengembangan
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
-                  Pengiriman email belum tersambung, jadi server memberikan
-                  tautannya langsung di sini. Di produksi bagian ini tidak
-                  pernah muncul.
+                  SMTP belum dikonfigurasi, jadi server menampilkan kodenya
+                  langsung di sini. Di produksi bagian ini tidak pernah muncul.
+                </p>
+                <p className="my-3 text-center text-2xl font-extrabold tracking-[0.4em] text-[var(--primary)]">
+                  {devCode}
                 </p>
                 <Link
-                  to={`/reset-password?token=${encodeURIComponent(devToken)}`}
-                  className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  to={`/reset-password?email=${encodeURIComponent(email.trim())}`}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                 >
-                  Lanjut atur kata sandi baru
+                  Lanjut masukkan kode
                 </Link>
               </div>
             )}
@@ -175,8 +176,8 @@ export default function ForgotPassword() {
               </p>
               <ol className="space-y-1 list-decimal list-inside">
                 <li>Buka kotak masuk email Anda</li>
-                <li>Klik tautan reset kata sandi</li>
-                <li>Masukkan kata sandi baru Anda</li>
+                <li>Salin kode 6 angka dari email</li>
+                <li>Masukkan kode itu beserta kata sandi baru</li>
                 <li>Masuk dengan kata sandi baru</li>
               </ol>
             </div>
@@ -184,7 +185,7 @@ export default function ForgotPassword() {
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => { setSent(false); setDevToken(""); }}
+              onClick={() => { setSent(false); setDevCode(""); }}
             >
               Kirim Ulang Permintaan
             </Button>

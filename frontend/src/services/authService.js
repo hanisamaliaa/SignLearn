@@ -49,8 +49,17 @@ export async function requestPasswordReset(email) {
   return request({ method: "post", url: "/auth/forgot-password", data: { email } });
 }
 
-export async function resetPassword(token, password) {
-  return request({ method: "post", url: "/auth/reset-password", data: { token, password } });
+/**
+ * Menyetel kata sandi baru dengan kode dari email.
+ *
+ * Email ikut dikirim karena server mencari kodenya per pengguna: kode enam
+ * digit yang dicari lewat hash-nya sendiri akan cocok dengan reset milik siapa
+ * saja yang sedang aktif.
+ */
+export async function resetPassword(email, code, password) {
+  return request({
+    method: "post", url: "/auth/reset-password", data: { email, code, password },
+  });
 }
 
 export async function changePassword(currentPassword, newPassword) {
