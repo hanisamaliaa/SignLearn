@@ -37,6 +37,31 @@ function getTransport() {
   return transport;
 }
 
+/**
+ * Memeriksa koneksi dan kredensial SMTP tanpa mengirim apa pun.
+ *
+ * Dipanggil saat server menyala. Tanpa ini, kredensial yang salah baru
+ * ketahuan ketika ada pengguna sungguhan meminta reset — dan karena respons
+ * endpoint sengaja identik entah email terkirim atau gagal, orang itu hanya
+ * menunggu email yang tidak pernah datang.
+ *
+ * TIDAK mematikan proses saat gagal: email bukan dependensi inti seperti
+ * database, dan aplikasi tetap berguna tanpanya. Yang penting kegagalannya
+ * terlihat sejak awal, bukan tersembunyi.
+ */
+export async function verifyMailTransport() {
+  const mailer = getTransport();
+  if (!mailer) {
+    return { ok: false, message: "SMTP belum dikonfigurasi — email dicetak ke konsol." };
+  }
+  try {
+    await mailer.verify();
+    return { ok: true, message: `SMTP siap (${env.mail.host}:${env.mail.port}).` };
+  } catch (error) {
+    return { ok: false, message: `SMTP tidak dapat dipakai: ${error.message}` };
+  }
+}
+
 /** Hanya untuk pengujian: memaksa transport dibangun ulang. */
 export function resetTransportForTests() {
   transport = null;
