@@ -218,7 +218,7 @@ export default function Quiz() {
       {/* Header */}
       <header className="bg-[var(--surface)] border-b border-[var(--border)] px-6 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <BrandLogo className="quiz-brand" />
+          <BrandLogo className="quiz-brand" to="/dashboard" ariaLabel="SignLearn Kids, buka dashboard" />
           <div>
             <p className="text-sm font-bold text-[var(--text)]">
               {quiz?.title ?? "Kuis"}

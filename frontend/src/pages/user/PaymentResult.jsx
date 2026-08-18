@@ -15,6 +15,14 @@ const dateFmt = (v) =>
     ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(v))
     : "—";
 
+const statusLabel = (status) => ({
+  paid: "Berhasil",
+  pending: "Menunggu",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+  cancelled: "Dibatalkan",
+}[status] ?? status);
+
 const views = {
   paid: {
     icon: "🎉",
@@ -120,20 +128,15 @@ export default function PaymentResult() {
   const status = data?.payment?.status ?? "failed";
   const view = views[status] ?? views.failed;
   const payment = data?.payment;
-  const isMock = payment?.provider === "mock";
 
   return (
     <div className="payment-result-wrap">
       <Card className="payment-result-card">
         <div>{view.icon}</div>
-        <Badge variant={view.variant}>{isMock ? `DEMO • ${status}` : status}</Badge>
+        <Badge variant={view.variant}>{statusLabel(status)}</Badge>
         <h1>{view.title}</h1>
-        <p>{isMock && status === "paid" ? "Simulasi berhasil diproses." : view.subtitle}</p>
-        <p className="text-sm text-[var(--text-muted)]">
-          {isMock
-            ? "Mode demo tidak menagih uang nyata. Akses Premium diaktifkan untuk kebutuhan demonstrasi."
-            : view.description}
-        </p>
+        <p>{view.subtitle}</p>
+        <p className="text-sm text-[var(--text-muted)]">{view.description}</p>
 
         {status === "paid" && view.features && (
           <div className="mt-4 text-left">

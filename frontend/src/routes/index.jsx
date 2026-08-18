@@ -83,7 +83,7 @@ export default function AppRoutes() {
             <Route path="/premium" element={<Premium />} />
             <Route path="/premium/checkout" element={<PremiumCheckout />} />
             <Route path="/premium/payment" element={<PaymentResult />} />
-            <Route path="/premium/mock-payment" element={<MockPayment />} />
+            <Route path="/premium/payment/confirm" element={<MockPayment />} />
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/payments" element={<Subscription />} />
           </Route>

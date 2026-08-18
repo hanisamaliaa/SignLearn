@@ -9,7 +9,7 @@
 
 import {
   call, check, section, summary, requireServer,
-  registerUser, loginAdmin, closeHarnessDatabase, TEST_PASSWORD, c,
+  registerUser, loginAdmin, grantPremiumFixture, closeHarnessDatabase, TEST_PASSWORD, c,
 } from "./lib/harness.mjs";
 
 async function main() {
@@ -19,6 +19,7 @@ async function main() {
   const learner = await registerUser("siswa");
   const victim = await registerUser("korban");
   const admin = await loginAdmin();
+  await grantPremiumFixture(victim.id);
 
   // ── GET /users/profile ─────────────────────────────────────────────────
   section("GET /users/profile");
@@ -119,6 +120,8 @@ async function main() {
       .every((k) => k in (list.data?.pagination ?? {})));
   check("hash kata sandi tidak bocor di listing",
     !JSON.stringify(list.body ?? {}).toLowerCase().includes("passwordhash"));
+  check("status paket tersedia untuk setiap pengguna",
+    list.data?.items?.every((user) => typeof user.isPremium === "boolean") === true);
 
   const paged = await call("/users?page=1&limit=1", { token: admin.token });
   check("limit dipatuhi", paged.data?.items?.length === 1, `${paged.data?.items?.length}`);
@@ -132,6 +135,8 @@ async function main() {
   const searched = await call(`/users?q=${encodeURIComponent(victim.email)}`, { token: admin.token });
   check("pencarian q menemukan email", searched.data?.items?.length === 1,
     `${searched.data?.items?.length} hasil`);
+  check("pelanggan Premium ditandai beserta masa aktifnya",
+    searched.data?.items?.[0]?.isPremium === true && Boolean(searched.data.items[0].premiumUntil));
 
   const byRole = await call("/users?role=admin", { token: admin.token });
   check("filter role bekerja",
@@ -185,6 +190,12 @@ async function main() {
   check("status tersimpan", suspended.data?.user?.status === "suspended");
   check("profile tersimpan", suspended.data?.user?.profile === "deaf");
 
+  const activeTokenAfterSuspend = await call("/users/profile", { token: victim.token });
+  check("access token aktif langsung ditolak setelah suspend",
+    activeTokenAfterSuspend.status === 403 &&
+      activeTokenAfterSuspend.body?.code === "ACCOUNT_SUSPENDED",
+    `${activeTokenAfterSuspend.status} ${activeTokenAfterSuspend.body?.code ?? ""}`);
+
   // Akun yang ditangguhkan harus benar-benar tidak dapat masuk.
   const suspendedLogin = await call("/auth/login", {
     method: "POST", body: { email: victim.email, password: TEST_PASSWORD },
@@ -196,6 +207,12 @@ async function main() {
     token: admin.token, method: "PUT", body: { role: "admin", status: "active" },
   });
   check("admin dapat mengubah peran", promoted.data?.user?.role === "admin", `${promoted.status}`);
+
+  const revokedTokenAfterReactivate = await call("/users/profile", { token: victim.token });
+  check("token lama tetap tercabut setelah akun diaktifkan kembali",
+    revokedTokenAfterReactivate.status === 401 &&
+      revokedTokenAfterReactivate.body?.code === "TOKEN_INVALID",
+    `${revokedTokenAfterReactivate.status} ${revokedTokenAfterReactivate.body?.code ?? ""}`);
 
   const demoteBack = await call(`/users/${victim.id}`, {
     token: admin.token, method: "PUT", body: { role: "user" },

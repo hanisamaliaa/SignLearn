@@ -153,6 +153,7 @@
   ALTER TABLE users ALTER COLUMN email_verified_at DROP DEFAULT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS profile               VARCHAR(50) DEFAULT 'general';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS status                VARCHAR(20) DEFAULT 'active';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_version          INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT    DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until          TIMESTAMPTZ;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS join_date             DATE        DEFAULT CURRENT_DATE;
@@ -162,6 +163,7 @@
   -- ── refresh_tokens ─────────────────────────────────────────────
   ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS rotated_at TIMESTAMPTZ;
   ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+  ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS remember_me BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS user_agent VARCHAR(255);
   ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS ip_address INET;
 

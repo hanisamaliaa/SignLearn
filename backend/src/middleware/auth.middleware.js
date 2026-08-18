@@ -1,6 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ERROR_CODES } from "../constants/errorCodes.js";
 import { verifyAccessToken } from "../services/tokenService.js";
+import * as userRepository from "../repositories/userRepository.js";
 
 /**
  * Ekstrak Bearer token dari header Authorization.
@@ -24,7 +25,38 @@ function extractBearer(req) {
  * dari repository, karena token diterbitkan hingga 15 menit sebelumnya dan
  * bisa saja akun sudah di-suspend sejak itu.
  */
-export function authenticate(req, _res, next) {
+async function currentUserFromToken(token) {
+  const payload = verifyAccessToken(token);
+  const user = await userRepository.findAuthStateById(payload.sub);
+
+  if (!user) {
+    throw ApiError.unauthorized("Sesi tidak valid.", ERROR_CODES.TOKEN_INVALID);
+  }
+  if (user.status !== "active") {
+    throw ApiError.forbidden(
+      user.status === "suspended"
+        ? "Akun Anda ditangguhkan. Hubungi administrator."
+        : "Akun Anda tidak aktif.",
+      ERROR_CODES.ACCOUNT_SUSPENDED,
+    );
+  }
+  if (Number(payload.ver ?? 0) !== user.authVersion) {
+    throw ApiError.unauthorized(
+      "Sesi telah dicabut. Silakan masuk kembali.",
+      ERROR_CODES.TOKEN_INVALID,
+    );
+  }
+  if (user.role === "user" && !user.emailVerified) {
+    throw ApiError.forbidden(
+      "Verifikasi alamat email sebelum melanjutkan.",
+      ERROR_CODES.EMAIL_NOT_VERIFIED,
+    );
+  }
+
+  return user;
+}
+
+export async function authenticate(req, _res, next) {
   const token = extractBearer(req);
 
   if (!token) {
@@ -37,12 +69,10 @@ export function authenticate(req, _res, next) {
   }
 
   try {
-    const payload = verifyAccessToken(token);
-    req.user = {
-      id: String(payload.sub),
-      email: payload.email,
-      role: payload.role,
-    };
+    // Klaim JWT hanya membuktikan token pernah sah. Status dan peran dibaca
+    // ulang agar suspend, nonaktif, penghapusan, dan penurunan peran berlaku
+    // pada request berikutnya tanpa menunggu access token kedaluwarsa.
+    req.user = await currentUserFromToken(token);
     return next();
   } catch (err) {
     // Dinormalisasi errorHandler menjadi TOKEN_EXPIRED atau TOKEN_INVALID.
@@ -58,7 +88,7 @@ export function authenticate(req, _res, next) {
  * Dipakai endpoint yang berperilaku berbeda untuk tamu — misalnya `/courses`
  * yang menyertakan progres hanya bila pengguna sudah masuk.
  */
-export function optionalAuthenticate(req, _res, next) {
+export async function optionalAuthenticate(req, _res, next) {
   const token = extractBearer(req);
   if (!token) {
     req.user = null;
@@ -66,12 +96,7 @@ export function optionalAuthenticate(req, _res, next) {
   }
 
   try {
-    const payload = verifyAccessToken(token);
-    req.user = {
-      id: String(payload.sub),
-      email: payload.email,
-      role: payload.role,
-    };
+    req.user = await currentUserFromToken(token);
   } catch (error) {
     // Tanpa token berarti tamu; token yang DIKIRIM tetapi rusak/kedaluwarsa
     // tetap 401. Ini penting bagi klien admin: respons 401 memicu rotasi access

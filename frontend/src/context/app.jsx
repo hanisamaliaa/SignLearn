@@ -193,9 +193,9 @@ export function AppProvider({ children }) {
   // ─── Autentikasi ───────────────────────────────────────────────────────
 
   const login = useCallback(
-    async (email, password) => {
+    async (email, password, remember = false) => {
       try {
-        const user = await authService.login(email, password);
+        const user = await authService.login(email, password, remember);
         setCurrentUser(toUiUser(user));
         await loadFor(user);
         navigate(user.role === "admin" ? "/admin/dashboard" : "/dashboard");

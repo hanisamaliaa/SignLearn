@@ -9,7 +9,7 @@ const money = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-export default function MockPayment() {
+export default function PaymentConfirmation() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const orderId = params.get("order_id");
@@ -20,14 +20,14 @@ export default function MockPayment() {
 
   const load = useCallback(async () => {
     if (!orderId) {
-      setError("Order ID tidak ditemukan.");
+      setError("Nomor pesanan tidak ditemukan.");
       setLoading(false);
       return;
     }
     try {
       const result = await subscriptionService.getPaymentStatus(orderId);
       if (result.payment?.provider !== "mock") {
-        setError("Transaksi ini bukan checkout simulasi.");
+        setError("Transaksi ini menggunakan layanan pembayaran yang berbeda.");
         return;
       }
       setPayment(result.payment);
@@ -47,12 +47,12 @@ export default function MockPayment() {
     setSubmitting(action);
     setError("");
     try {
-      await subscriptionService.confirmMockPayment(orderId, action);
+      await subscriptionService.confirmPayment(orderId, action);
       navigate(`/premium/payment?order_id=${encodeURIComponent(orderId)}`, {
         replace: true,
       });
     } catch (failure) {
-      setError(failure.message || "Simulasi belum dapat diproses.");
+      setError(failure.message || "Konfirmasi pembayaran belum dapat diproses.");
       setSubmitting("");
     }
   }
@@ -63,7 +63,7 @@ export default function MockPayment() {
         <Card className="payment-result-card">
           <div className="flex flex-col items-center gap-3 py-8">
             <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--primary)] border-t-transparent" />
-            <p className="text-[var(--text-muted)]">Memuat simulasi checkout...</p>
+            <p className="text-[var(--text-muted)]">Memuat detail pembayaran...</p>
           </div>
         </Card>
       </div>
@@ -72,40 +72,51 @@ export default function MockPayment() {
 
   return (
     <div className="payment-result-wrap">
-      <Card className="payment-result-card">
-        <div className="text-5xl" aria-hidden="true">🧪</div>
-        <Badge variant="warning">MODE DEMO</Badge>
-        <h1>Simulasi Pembayaran</h1>
+      <Card className="payment-result-card payment-confirmation-card">
+        <div className="payment-confirmation-icon" aria-hidden="true">✓</div>
+        <Badge variant="success">Pembayaran Aman</Badge>
+        <h1>Konfirmasi Pembayaran</h1>
         <p className="text-sm text-[var(--text-muted)]">
-          Tidak ada kartu, rekening, atau uang nyata yang digunakan pada halaman ini.
+          Pastikan detail pesanan berikut sudah benar sebelum melanjutkan.
         </p>
 
         {payment && (
-          <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4 text-left">
-            <p className="text-xs text-[var(--text-muted)]">Order ID</p>
-            <p className="break-all font-mono text-sm font-bold text-[var(--text)]">{payment.orderId}</p>
-            <p className="mt-3 text-xs text-[var(--text-muted)]">Paket</p>
-            <p className="font-bold text-[var(--text)]">{payment.plan}</p>
-            <p className="mt-3 text-xs text-[var(--text-muted)]">Nilai simulasi</p>
-            <p className="text-xl font-extrabold text-[var(--text)]">{money.format(payment.amount)}</p>
+          <div className="payment-order-details">
+            <div>
+              <span>Nomor Pesanan</span>
+              <strong className="break-all font-mono">{payment.orderId}</strong>
+            </div>
+            <div>
+              <span>Paket</span>
+              <strong>{payment.plan}</strong>
+            </div>
+            <div>
+              <span>Metode</span>
+              <strong>SignLearn Checkout</strong>
+            </div>
+            <div className="payment-order-total">
+              <span>Total Pembayaran</span>
+              <strong>{money.format(payment.amount)}</strong>
+            </div>
           </div>
         )}
 
         {error && <Alert type="danger" message={error} />}
 
         {payment?.status === "pending" ? (
-          <div className="payment-result-actions">
-            <Button onClick={() => finish("complete")} disabled={Boolean(submitting)}>
-              {submitting === "complete" ? "Mengaktifkan..." : "Simulasikan Berhasil"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => finish("cancel")}
-              disabled={Boolean(submitting)}
-            >
-              {submitting === "cancel" ? "Membatalkan..." : "Batalkan Simulasi"}
-            </Button>
-          </div>
+          <>
+            <div className="payment-result-actions">
+              <Button onClick={() => finish("complete")} disabled={Boolean(submitting)}>
+                {submitting === "complete" ? "Memproses..." : "Bayar & Aktifkan Premium"}
+              </Button>
+              <Button variant="secondary" onClick={() => finish("cancel")} disabled={Boolean(submitting)}>
+                {submitting === "cancel" ? "Membatalkan..." : "Batalkan Pesanan"}
+              </Button>
+            </div>
+            <p className="payment-confirmation-note">
+              Premium akan aktif segera setelah pembayaran berhasil dikonfirmasi.
+            </p>
+          </>
         ) : payment ? (
           <Button
             onClick={() =>

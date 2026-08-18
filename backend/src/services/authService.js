@@ -192,7 +192,7 @@ export async function resendEmailVerification(email) {
 
 // ─── Login ───────────────────────────────────────────────────────────────
 
-export async function login({ email, password }, context = {}) {
+export async function login({ email, password, remember = false }, context = {}) {
   const record = await userRepo.findByEmailWithSecret(email);
 
   // Selalu jalankan bcrypt, bahkan untuk email yang tidak ada (lihat DUMMY_HASH).
@@ -246,13 +246,18 @@ export async function login({ email, password }, context = {}) {
 
   await userRepo.clearFailedLogins(record.id);
 
+  const authVersion = record.authVersion;
   const { passwordHash, failedLoginAttempts, lockedUntil, ...user } = record;
-  const refresh = await tokenService.issueRefreshToken(user.id, context);
+  const refresh = await tokenService.issueRefreshToken(user.id, {
+    ...context,
+    rememberMe: Boolean(remember),
+  });
 
   return {
     user,
-    accessToken: tokenService.signAccessToken(user),
+    accessToken: tokenService.signAccessToken({ ...user, authVersion }),
     refreshToken: refresh.token,
+    rememberMe: refresh.rememberMe,
     expiresIn: env.jwt.accessTtlSeconds,
   };
 }
@@ -293,6 +298,7 @@ export async function refresh(rawRefreshToken, context = {}) {
     user,
     accessToken: tokenService.signAccessToken(user),
     refreshToken: rotated.token,
+    rememberMe: rotated.rememberMe,
     expiresIn: env.jwt.accessTtlSeconds,
   };
 }

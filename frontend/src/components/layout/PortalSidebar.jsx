@@ -31,7 +31,14 @@ export default function PortalSidebar({
         } flex-shrink-0`}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <BrandLogo className="portal-brand" />
+          <BrandLogo
+            className="portal-brand"
+            to={isAdmin ? "/admin/dashboard" : "/dashboard"}
+            ariaLabel={`SignLearn Kids, buka dashboard ${isAdmin ? "admin" : "pengguna"}`}
+            onClick={() => {
+              if (typeof window !== "undefined" && window.innerWidth < 1024) onClose();
+            }}
+          />
         </div>
         <button
           type="button"

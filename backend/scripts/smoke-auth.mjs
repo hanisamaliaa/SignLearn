@@ -263,6 +263,32 @@ async function main() {
   const accessToken = login.body?.data?.accessToken;
   check("access token diterbitkan", typeof accessToken === "string" && accessToken.length > 40);
   check("TTL 15 menit", login.body?.data?.expiresIn === 900, `${login.body?.data?.expiresIn}s`);
+  const sessionCookie = login.setCookie[0] ?? "";
+  check("tanpa Ingat saya memakai cookie sesi browser",
+    Boolean(sessionCookie) && !/Max-Age=|Expires=/i.test(sessionCookie));
+
+  const rememberedJar = new Jar();
+  const rememberedLogin = await call("/auth/login", {
+    method: "POST",
+    jar: rememberedJar,
+    body: { email: TEST_EMAIL, password: TEST_PASSWORD, remember: true },
+  });
+  const rememberedCookie = rememberedLogin.setCookie[0] ?? "";
+  check("Ingat saya memasang cookie persisten",
+    rememberedLogin.status === 200 && /Max-Age=/i.test(rememberedCookie));
+  const rememberedRefresh = await call("/auth/refresh", {
+    method: "POST",
+    jar: rememberedJar,
+  });
+  check("preferensi Ingat saya bertahan setelah rotasi token",
+    rememberedRefresh.status === 200 && /Max-Age=/i.test(rememberedRefresh.setCookie[0] ?? ""));
+
+  const invalidRemember = await call("/auth/login", {
+    method: "POST",
+    body: { email: TEST_EMAIL, password: TEST_PASSWORD, remember: "true" },
+  });
+  check("nilai Ingat saya non-boolean ditolak", invalidRemember.status === 422,
+    `${invalidRemember.status}`);
 
   const wrong = await call("/auth/login", {
     method: "POST", body: { email: TEST_EMAIL, password: "SalahSekali9!" },
@@ -296,6 +322,8 @@ async function main() {
   const refreshed = await call("/auth/refresh", { method: "POST", jar: loginJar });
   check("refresh berhasil", refreshed.status === 200, `${refreshed.status}`);
   check("token dirotasi", loginJar.header() !== before);
+  check("rotasi mempertahankan cookie sesi tanpa Ingat saya",
+    !/Max-Age=|Expires=/i.test(refreshed.setCookie[0] ?? ""));
   /**
    * Yang diuji: token yang diterima BEKERJA — bukan bahwa stringnya berbeda.
    *

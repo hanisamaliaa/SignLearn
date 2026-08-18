@@ -37,11 +37,16 @@ function baseOptions() {
   };
 }
 
-export function refreshCookieOptions() {
-  return {
-    ...baseOptions(),
-    maxAge: env.refreshToken.ttlDays * 24 * 60 * 60 * 1000,
-  };
+export function refreshCookieOptions(rememberMe = false) {
+  const options = baseOptions();
+
+  // Tanpa "Ingat saya", cookie sengaja menjadi session cookie dan hilang saat
+  // browser ditutup. Token tetap dapat dirotasi selama sesi browser berjalan.
+  if (rememberMe) {
+    options.maxAge = env.refreshToken.ttlDays * 24 * 60 * 60 * 1000;
+  }
+
+  return options;
 }
 
 /** Atribut identik dengan set, tanpa maxAge — syarat agar penghapusan berhasil. */

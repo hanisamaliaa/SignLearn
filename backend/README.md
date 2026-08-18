@@ -73,14 +73,19 @@ backend/
 
 - JWT dikirim melalui `Authorization: Bearer <token>`.
 - TTL bawaan 900 detik.
-- Klaim memuat ID, email, dan peran.
+- Klaim memuat ID, email, peran, dan versi otorisasi akun.
 - Issuer dan audience diverifikasi saat token dibaca.
+- Setiap request terlindungi memeriksa status serta versi otorisasi terbaru di
+  database, sehingga suspend, nonaktif, perubahan peran, dan reset password
+  berlaku seketika meskipun JWT belum kedaluwarsa.
 
 ### Refresh token
 
 - Token acak opaque; database hanya menyimpan hash SHA-256.
 - Browser menerima token melalui cookie `HttpOnly`.
 - Cookie dibatasi ke path `/api/v1/auth`.
+- Login tanpa `remember` memakai session cookie; `remember: true` memakai cookie
+  persisten. Preferensi ini dipertahankan saat token dirotasi.
 - Refresh token dirotasi setiap digunakan.
 - Penggunaan kembali token yang sudah dirotasi mencabut seluruh token dalam family yang sama.
 - Endpoint sesi memungkinkan pengguna melihat sesi dan logout dari seluruh perangkat.
@@ -278,6 +283,8 @@ Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check b
 | --- | --- | --- | --- |
 | GET | `/api/health` | Status server, database, uptime | Publik |
 | POST | `/auth/register` | Registrasi akun `user` | Publik |
+| POST | `/auth/verify-email` | Verifikasi email dengan kode enam digit | Publik |
+| POST | `/auth/verify-email/resend` | Kirim ulang kode verifikasi | Publik |
 | POST | `/auth/login` | Login dan penerbitan sesi | Publik |
 | POST | `/auth/refresh` | Rotasi refresh token | Refresh cookie |
 | POST | `/auth/logout` | Cabut sesi saat ini | Refresh cookie bila ada |
@@ -296,6 +303,18 @@ Tabel berikut merangkum seluruh route yang terdaftar. Path selain health check b
 | POST | `/users/profile/avatar` | Upload/ganti foto profil | Auth |
 | GET | `/users` | List/filter pengguna | Admin |
 | GET, PUT, DELETE | `/users/:id` | Detail, update, atau nonaktifkan pengguna | Admin |
+
+### Subscription dan pembayaran
+
+| Method | Endpoint | Deskripsi | Akses |
+| --- | --- | --- | --- |
+| GET | `/subscription/me` | Status Premium dan paket tersedia | User |
+| POST | `/subscription/checkout` | Buat pesanan Premium | User |
+| GET | `/subscription/payment-history` | Riwayat pembayaran sendiri | User |
+| GET | `/subscription/payments/:orderId` | Status pembayaran milik sendiri | User |
+| POST | `/subscription/payments/:orderId/confirm` | Konfirmasi checkout internal | User |
+| POST | `/payments/midtrans/webhook` | Notifikasi tervalidasi Midtrans | Gateway |
+| GET | `/admin/subscriptions`, `/admin/payments` | Audit langganan dan pembayaran | Admin |
 
 ### Courses, lessons, quizzes, dan questions
 

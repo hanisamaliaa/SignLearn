@@ -116,7 +116,9 @@ Data akun, konten, progres, dan profil berasal dari backend. Preferensi pada
 `SettingsProvider` saat ini hanya diperbarui pada objek pengguna di memori dan
 belum memiliki endpoint persistensi; nilainya kembali ke default setelah sesi
 dimuat ulang. Preferensi aksesibilitas dan email yang dipilih pada opsi “ingat
-saya” disimpan di `localStorage`; access token tidak disimpan di sana.
+saya” disimpan di `localStorage`; access token dan kata sandi tidak disimpan di
+sana. Nilai “ingat saya” juga dikirim ke backend untuk menentukan apakah cookie
+refresh hanya hidup selama sesi browser atau persisten selama TTL refresh token.
 
 ## Autentikasi
 
@@ -125,7 +127,7 @@ saya” disimpan di `localStorage`; access token tidak disimpan di sana.
 3. Axios memasang `Authorization: Bearer <token>` pada request berikutnya.
 4. Refresh token dikelola browser sebagai cookie `HttpOnly` karena API client memakai `withCredentials: true`.
 5. Saat menerima `TOKEN_EXPIRED` atau `TOKEN_MISSING`, interceptor menjalankan satu refresh request bersama (single-flight), memperbarui token, lalu mencoba request sekali lagi.
-6. Token invalid atau refresh gagal mengakhiri sesi frontend.
+6. Token invalid, akun nonaktif/ditangguhkan, atau refresh gagal mengakhiri sesi frontend.
 
 Pemulihan sesi saat reload juga memakai single-flight agar React Strict Mode tidak mengirim dua rotasi refresh token bersamaan.
 

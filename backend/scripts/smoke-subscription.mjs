@@ -30,12 +30,12 @@ async function main() {
   buyer = await registerUser("premium-buyer");
   otherUser = await registerUser("premium-other");
 
-  section("Konfigurasi checkout demo");
+  section("Konfigurasi checkout internal");
   const mine = await call("/subscription/me", { token: buyer.token });
   check("status langganan dapat dibaca", mine.status === 200, `${mine.status}`);
-  check("provider mock dinyatakan transparan",
-    mine.data?.paymentProvider === "mock" && mine.data?.paymentEnvironment === "demo");
-  check("checkout demo aktif", mine.data?.paymentConfigured === true);
+  check("provider checkout internal terkonfigurasi",
+    mine.data?.paymentProvider === "mock" && mine.data?.paymentEnvironment === "internal");
+  check("checkout aktif", mine.data?.paymentConfigured === true);
   check("akun baru belum Premium", mine.data?.isPremium === false);
   const plan = mine.data?.plans?.[0];
   check("paket aktif tersedia dari server", Boolean(plan?.id && plan?.price > 0));
@@ -55,34 +55,34 @@ async function main() {
   });
   const cancelledOrderId = cancelledOrder.data?.checkout?.orderId;
   check("order pending dibuat", cancelledOrder.status === 201 && Boolean(cancelledOrderId));
-  check("redirect hanya menuju halaman mock internal",
-    cancelledOrder.data?.checkout?.redirectUrl?.includes("/premium/mock-payment?order_id="));
+  check("redirect menuju halaman konfirmasi pembayaran",
+    cancelledOrder.data?.checkout?.redirectUrl?.includes("/premium/payment/confirm?order_id="));
 
   const foreignRead = await call(`/subscription/payments/${cancelledOrderId}`, {
     token: otherUser.token,
   });
   check("pengguna lain tidak dapat membaca order", foreignRead.status === 404);
   const foreignConfirm = await call(
-    `/subscription/payments/${cancelledOrderId}/mock-confirm`,
+    `/subscription/payments/${cancelledOrderId}/confirm`,
     { method: "POST", token: otherUser.token, body: { action: "complete" } },
   );
   check("pengguna lain tidak dapat mengaktifkan order", foreignConfirm.status === 404);
 
   const invalidAction = await call(
-    `/subscription/payments/${cancelledOrderId}/mock-confirm`,
+    `/subscription/payments/${cancelledOrderId}/confirm`,
     { method: "POST", token: buyer.token, body: { action: "paid" } },
   );
-  check("aksi simulasi selain allowlist ditolak", invalidAction.status === 422);
+  check("aksi konfirmasi selain allowlist ditolak", invalidAction.status === 422);
 
   const cancelled = await call(
-    `/subscription/payments/${cancelledOrderId}/mock-confirm`,
+    `/subscription/payments/${cancelledOrderId}/confirm`,
     { method: "POST", token: buyer.token, body: { action: "cancel" } },
   );
   check("order dapat dibatalkan", cancelled.data?.payment?.status === "cancelled");
   check("pembatalan tidak membuka Premium", cancelled.data?.isPremium === false);
 
   const cancelReplay = await call(
-    `/subscription/payments/${cancelledOrderId}/mock-confirm`,
+    `/subscription/payments/${cancelledOrderId}/confirm`,
     { method: "POST", token: buyer.token, body: { action: "complete" } },
   );
   check("order batal tidak dapat diubah menjadi paid", cancelReplay.data?.payment?.status === "cancelled");
@@ -96,7 +96,7 @@ async function main() {
   const orderId = checkout.data?.checkout?.orderId;
   check("order aktivasi dibuat", checkout.status === 201 && Boolean(orderId));
 
-  const completed = await call(`/subscription/payments/${orderId}/mock-confirm`, {
+  const completed = await call(`/subscription/payments/${orderId}/confirm`, {
     method: "POST",
     token: buyer.token,
     body: { action: "complete" },
@@ -113,7 +113,7 @@ async function main() {
   check("masa aktif mengikuti durasi paket", Math.abs(durationDays - plan.durationDays) < 0.01,
     `${durationDays} hari`);
 
-  const replay = await call(`/subscription/payments/${orderId}/mock-confirm`, {
+  const replay = await call(`/subscription/payments/${orderId}/confirm`, {
     method: "POST",
     token: buyer.token,
     body: { action: "complete" },
@@ -134,7 +134,7 @@ async function main() {
       persisted.rows[0]?.status === "active");
 
   const history = await call("/subscription/payment-history", { token: buyer.token });
-  check("riwayat menampilkan provider demo",
+  check("riwayat menampilkan provider checkout",
     history.data?.items?.some((item) => item.orderId === orderId && item.provider === "mock"));
 
   const raceCheckout = await call("/subscription/checkout", {
@@ -144,12 +144,12 @@ async function main() {
   });
   const raceOrderId = raceCheckout.data?.checkout?.orderId;
   const [raceComplete, raceCancel] = await Promise.all([
-    call(`/subscription/payments/${raceOrderId}/mock-confirm`, {
+    call(`/subscription/payments/${raceOrderId}/confirm`, {
       method: "POST",
       token: buyer.token,
       body: { action: "complete" },
     }),
-    call(`/subscription/payments/${raceOrderId}/mock-confirm`, {
+    call(`/subscription/payments/${raceOrderId}/confirm`, {
       method: "POST",
       token: buyer.token,
       body: { action: "cancel" },
@@ -164,7 +164,7 @@ async function main() {
   check("race complete/cancel berakhir pada satu status terminal",
     ["paid", "cancelled"].includes(terminalStatus), terminalStatus);
   const opposite = terminalStatus === "paid" ? "cancel" : "complete";
-  const terminalReplay = await call(`/subscription/payments/${raceOrderId}/mock-confirm`, {
+  const terminalReplay = await call(`/subscription/payments/${raceOrderId}/confirm`, {
     method: "POST",
     token: buyer.token,
     body: { action: opposite },

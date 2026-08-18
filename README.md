@@ -37,9 +37,10 @@ Materi BISINDO digital sering tersebar dan belum menyediakan satu alur yang meng
 ### Main Features
 
 - Halaman publik, panduan orang tua, informasi BISINDO, dan kebijakan privasi.
-- Registrasi, login, pemulihan sesi, reset kata sandi, dan pengelolaan profil.
+- Registrasi dengan verifikasi email, login dengan sesi opsional “ingat saya”, reset kata sandi, dan pengelolaan profil.
 - Dashboard pembelajar, daftar kursus, pelajaran, kuis fullscreen, hasil, dan progres.
 - Dashboard administrator untuk pengguna, kursus, pelajaran, kuis, laporan, dan bank kata.
+- Checkout Premium berpenampilan production, aktivasi entitlement di server, riwayat pembayaran, dan status Premium/Gratis pada manajemen pengguna admin.
 - Penerjemah teks/suara menjadi ejaan alfabet BISINDO A-Z dengan batas kata yang jelas, kamus ilustrasi alfabet, bank kata terkelompok, serta kamera-ke-teks A-Z; seluruh mode tersedia dari sidebar portal pengguna.
 - Tema terang/gelap, ukuran teks, kontras tinggi, reduced motion, subtitle, dan focus mode.
 - Access token berumur pendek, rotasi refresh token, rate limiting, validasi request, dan error envelope konsisten.
@@ -315,6 +316,7 @@ REST API memakai prefix `/api/v1`. Endpoint dikelompokkan menjadi:
 | Dashboard | `/dashboard` | Dashboard pembelajar, admin, dan laporan |
 | Admin | `/admin` | Statistik, aktivitas, hasil kuis, dan placeholder AI |
 | Translations | `/translations` | Bank kata BISINDO dan lookup publik |
+| Subscription | `/subscription`, `/payments` | Checkout, entitlement Premium, riwayat, dan webhook pembayaran |
 
 Seluruh respons sukses memakai envelope `{ success, message, data }`. Error memakai `{ success, status, code, message, errors? }`.
 

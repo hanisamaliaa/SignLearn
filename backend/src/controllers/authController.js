@@ -31,8 +31,8 @@ function requestContext(req) {
  * harus menyimpannya sendiri — dan satu-satunya tempat penyimpanan yang
  * tersedia bagi JavaScript adalah tempat yang juga dapat dibaca XSS.
  */
-function setRefreshCookie(res, token) {
-  res.cookie(REFRESH_COOKIE_NAME, token, refreshCookieOptions());
+function setRefreshCookie(res, token, rememberMe = false) {
+  res.cookie(REFRESH_COOKIE_NAME, token, refreshCookieOptions(rememberMe));
 }
 
 function clearRefreshCookie(res) {
@@ -64,7 +64,7 @@ export const register = asyncHandler(async (req, res) => {
     return;
   }
 
-  setRefreshCookie(res, result.refreshToken);
+  setRefreshCookie(res, result.refreshToken, result.rememberMe);
   created(res, sessionPayload(result), "Pendaftaran berhasil.");
 });
 
@@ -73,7 +73,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     { email: req.body.email, code: req.body.code },
     requestContext(req),
   );
-  setRefreshCookie(res, result.refreshToken);
+  setRefreshCookie(res, result.refreshToken, result.rememberMe);
   success(res, sessionPayload(result), "Email berhasil diverifikasi.");
 });
 
@@ -88,11 +88,14 @@ export const resendEmailVerification = asyncHandler(async (req, res) => {
 
 // ─── POST /auth/login ────────────────────────────────────────────────────
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, remember = false } = req.body;
 
-  const result = await authService.login({ email, password }, requestContext(req));
+  const result = await authService.login(
+    { email, password, remember },
+    requestContext(req),
+  );
 
-  setRefreshCookie(res, result.refreshToken);
+  setRefreshCookie(res, result.refreshToken, result.rememberMe);
   success(res, sessionPayload(result), "Berhasil masuk.");
 });
 
@@ -105,7 +108,7 @@ export const refresh = asyncHandler(async (req, res) => {
 
   const result = await authService.refresh(token, requestContext(req));
 
-  setRefreshCookie(res, result.refreshToken);
+  setRefreshCookie(res, result.refreshToken, result.rememberMe);
   success(res, sessionPayload(result), "Sesi diperbarui.");
 });
 
