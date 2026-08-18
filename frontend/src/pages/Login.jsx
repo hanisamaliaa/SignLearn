@@ -61,10 +61,15 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const result = await login(email.trim(), password);
+      const result = await login(email.trim(), password, remember);
       if (!result.success) {
         if (result.code === "EMAIL_NOT_VERIFIED") {
           navigate("/verify-email", { state: { email: email.trim() } });
+          return;
+        }
+        if (result.code === "ACCOUNT_SUSPENDED") {
+          setAuthError("Akun ini sedang tidak aktif. Hubungi administrator untuk bantuan.");
+          setLoading(false);
           return;
         }
         setAuthError("Email atau kata sandi belum cocok. Coba lagi, ya.");

@@ -124,7 +124,7 @@ export default function Subscription() {
                     <td className="font-mono text-xs">{p.orderId}</td>
                     <td>{p.plan}</td>
                     <td>{money.format(p.amount)}</td>
-                    <td>{p.provider === "mock" ? "Demo" : "Midtrans"}</td>
+                    <td>{p.provider === "mock" ? "SignLearn Checkout" : "Midtrans"}</td>
                     <td>
                       <Badge variant={statusVariant(p.status)}>
                         {statusLabel(p.status)}

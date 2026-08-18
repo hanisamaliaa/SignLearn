@@ -7,9 +7,9 @@ import { request, setAccessToken, clearAccessToken } from "./api";
  * dikelola browser. Yang disimpan di sini hanya access token, di memori.
  */
 
-export async function login(email, password) {
+export async function login(email, password, remember = false) {
   const payload = await request({
-    method: "post", url: "/auth/login", data: { email, password },
+    method: "post", url: "/auth/login", data: { email, password, remember },
   });
   setAccessToken(payload.accessToken);
   return payload.user;

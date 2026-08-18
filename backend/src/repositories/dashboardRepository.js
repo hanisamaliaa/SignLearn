@@ -101,6 +101,9 @@ export async function adminTotals() {
     `SELECT
        (SELECT COUNT(*)::int FROM users)                          AS users,
        (SELECT COUNT(*)::int FROM users WHERE status = 'active')  AS active_users,
+       (SELECT COUNT(DISTINCT user_id)::int
+          FROM subscriptions
+         WHERE status = 'active' AND end_date > NOW())            AS premium_users,
        (SELECT COUNT(*)::int FROM courses)                        AS courses,
        (SELECT COUNT(*)::int FROM lessons)                        AS lessons,
        (SELECT COUNT(*)::int FROM quizzes)                        AS quizzes`,
@@ -110,6 +113,7 @@ export async function adminTotals() {
   return {
     users: Number(r.users),
     activeUsers: Number(r.active_users),
+    premiumUsers: Number(r.premium_users),
     courses: Number(r.courses),
     lessons: Number(r.lessons),
     quizzes: Number(r.quizzes),

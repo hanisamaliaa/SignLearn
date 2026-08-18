@@ -71,6 +71,9 @@ export function validateLogin(body = {}) {
   if (!body.password) {
     errors.push(err("password", "Kata sandi wajib diisi."));
   }
+  if (body.remember !== undefined && typeof body.remember !== "boolean") {
+    errors.push(err("remember", "Pilihan Ingat saya harus berupa boolean."));
+  }
 
   return errors;
 }

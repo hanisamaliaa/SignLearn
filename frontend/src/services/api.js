@@ -148,6 +148,24 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const code = error.response?.data?.code;
 
+    // Status akun berubah di server saat pengguna masih membuka dashboard.
+    // Perlakukan inactive/suspended sebagai akhir sesi seketika, bukan sekadar
+    // error satu request yang membiarkan portal tetap terlihat dapat dipakai.
+    if (status === 403 && code === "ACCOUNT_SUSPENDED") {
+      clearAccessToken();
+      onSessionExpired();
+    }
+
+    if (
+      status === 401 &&
+      (code === "TOKEN_INVALID" || code === "TOKEN_REUSED") &&
+      !original?.url?.includes("/auth/login") &&
+      !original?.url?.includes("/auth/refresh")
+    ) {
+      clearAccessToken();
+      onSessionExpired();
+    }
+
     const canRetry =
       status === 401 &&
       original &&

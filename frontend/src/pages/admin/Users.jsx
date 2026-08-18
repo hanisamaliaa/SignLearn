@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Button, Badge, Input, Modal, Alert } from "../../components/ui/ui";
-import { SearchIcon, EditIcon, TrashIcon, EyeIcon } from "../../components/ui/Icons";
+import { SearchIcon, EditIcon, TrashIcon, EyeIcon, EyeOffIcon } from "../../components/ui/Icons";
 import { adminService, userService } from "../../services";
 import {
   useAdminResource,
@@ -52,6 +52,11 @@ const STATUS_LABEL = {
 
 const PAGE_SIZE = 20;
 
+const dateFmt = (value) =>
+  value
+    ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(value))
+    : null;
+
 export default function AdminUsers() {
   const { currentUser } = useApp();
   const { flash, show, clear } = useFlash();
@@ -65,6 +70,7 @@ export default function AdminUsers() {
   const [form, setForm] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const [deactivateTarget, setDeactivateTarget] = useState(null);
 
   /**
@@ -96,7 +102,7 @@ export default function AdminUsers() {
     return { list, stats };
   }, [page, search, filterStatus]);
 
-  const { data, loading, error, reload } = useAdminResource(load, [
+  const { data, loading, error, reload, setData } = useAdminResource(load, [
     page,
     search,
     filterStatus,
@@ -111,6 +117,7 @@ export default function AdminUsers() {
     return [
       { label: "Total Pengguna", value: stats.users, color: "var(--chart-blue)" },
       { label: "Aktif", value: stats.activeUsers, color: "var(--chart-green)" },
+      { label: "Premium", value: stats.premiumUsers ?? 0, color: "#F4B400" },
       {
         // `adminTotals` hanya menghitung status='active'; sisanya adalah
         // gabungan `inactive` dan `suspended`. Labelnya menyebut keduanya
@@ -183,16 +190,31 @@ export default function AdminUsers() {
   }
 
   async function handleToggleStatus(user) {
+    if (statusUpdatingId) return;
     const next = user.status === "active" ? "inactive" : "active";
+    setStatusUpdatingId(user.id);
     const outcome = await runMutation(() =>
       userService.updateUser(user.id, { status: next }),
     );
 
     if (!outcome.ok) {
+      setStatusUpdatingId(null);
       show("danger", outcome.message);
       return;
     }
+    setData((current) => current
+      ? {
+          ...current,
+          list: {
+            ...current.list,
+            items: current.list.items.map((item) =>
+              String(item.id) === String(user.id) ? outcome.result : item,
+            ),
+          },
+        }
+      : current);
     await reload();
+    setStatusUpdatingId(null);
     show("success", `Pengguna kini ${STATUS_LABEL[next].toLowerCase()}.`);
   }
 
@@ -265,7 +287,7 @@ export default function AdminUsers() {
       </Card>
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {summary.map((s) => (
             <div
               key={s.label}
@@ -285,7 +307,7 @@ export default function AdminUsers() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)]">
-                {["Pengguna", "Profil", "Peran", "Status", "Bergabung", "Aksi"].map((col) => (
+                {["Pengguna", "Profil", "Peran", "Paket", "Status", "Bergabung", "Aksi"].map((col) => (
                   <th
                     key={col}
                     className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide"
@@ -328,6 +350,18 @@ export default function AdminUsers() {
                     </Badge>
                   </td>
                   <td className="px-4 py-4">
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge variant={user.isPremium ? "warning" : "muted"}>
+                        {user.isPremium ? "Premium" : "Gratis"}
+                      </Badge>
+                      {user.isPremium && user.premiumUntil && (
+                        <span className="text-[10px] text-[var(--text-subtle)] whitespace-nowrap">
+                          hingga {dateFmt(user.premiumUntil)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
                     <Badge
                       variant={
                         user.status === "active"
@@ -360,8 +394,14 @@ export default function AdminUsers() {
                       */}
                       <button
                         onClick={() => handleToggleStatus(user)}
-                        disabled={isSelf(user)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--warning-light)] hover:text-[#F4B400] transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        disabled={isSelf(user) || statusUpdatingId === user.id}
+                        aria-label={user.status === "active" ? `Nonaktifkan ${user.name}` : `Aktifkan ${user.name}`}
+                        aria-pressed={user.status !== "active"}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent ${
+                          user.status === "active"
+                            ? "text-[var(--text-muted)] hover:bg-[var(--warning-light)] hover:text-[#F4B400]"
+                            : "bg-[var(--danger-light)] text-[#E74C3C] hover:bg-[var(--primary-light)] hover:text-[var(--primary)]"
+                        }`}
                         title={
                           isSelf(user)
                             ? "Tidak dapat mengubah status akun sendiri"
@@ -370,7 +410,7 @@ export default function AdminUsers() {
                               : "Aktifkan"
                         }
                       >
-                        <EyeIcon size={14} />
+                        {user.status === "active" ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
                       </button>
 
                       <button

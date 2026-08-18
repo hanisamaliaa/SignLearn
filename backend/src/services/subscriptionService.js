@@ -32,7 +32,7 @@ export async function getMine(userId) {
     paymentProvider: env.payment.provider,
     paymentEnvironment:
       env.payment.provider === "mock"
-        ? "demo"
+        ? "internal"
         : env.midtrans.isProduction
           ? "production"
           : "sandbox",
@@ -55,12 +55,12 @@ export async function checkout(user, planId) {
   if (!pending) throw ApiError.notFound("Paket Premium tidak ditemukan.");
 
   if (env.payment.provider === "mock") {
-    const redirectUrl = `${env.frontendUrl}/premium/mock-payment?order_id=${encodeURIComponent(orderId)}`;
+    const redirectUrl = `${env.frontendUrl}/premium/payment/confirm?order_id=${encodeURIComponent(orderId)}`;
     await repo.saveSnap(orderId, null, redirectUrl);
     return {
       orderId,
       provider: "mock",
-      environment: "demo",
+      environment: "internal",
       redirectUrl,
     };
   }
@@ -147,7 +147,7 @@ export async function paymentStatus(userId, orderId) {
 
 export async function confirmMockPayment(userId, orderId, action) {
   if (env.payment.provider !== "mock" || !env.payment.mockEnabled) {
-    throw ApiError.notFound("Simulasi pembayaran tidak tersedia.");
+    throw ApiError.notFound("Konfirmasi pembayaran tidak tersedia.");
   }
 
   let payment = await repo.findUserPayment(userId, orderId);

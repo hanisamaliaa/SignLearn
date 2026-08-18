@@ -9,11 +9,19 @@ import { query } from "../config/database.js";
  */
 
 const USER_COLUMNS = `
-  u.id, u.name, u.email, u.phone, u.avatar, u.profile, u.status,
+  u.id, u.name, u.email, u.phone, u.avatar, u.profile, u.status, u.auth_version,
   u.email_verified_at,
   u.failed_login_attempts, u.locked_until,
   u.join_date, u.created_at, u.updated_at,
   r.name AS role
+`;
+
+const ADMIN_SUBSCRIPTION_COLUMNS = `
+  (SELECT MAX(s.end_date)
+     FROM subscriptions s
+    WHERE s.user_id = u.id
+      AND s.status = 'active'
+      AND s.end_date > NOW()) AS premium_until
 `;
 
 /**
@@ -28,7 +36,7 @@ const USER_COLUMNS = `
  */
 export function toUserDto(row) {
   if (!row) return null;
-  return {
+  const dto = {
     id: String(row.id),
     name: row.name,
     email: row.email,
@@ -45,6 +53,20 @@ export function toUserDto(row) {
     createdAt: row.created_at?.toISOString() ?? null,
     updatedAt: row.updated_at?.toISOString() ?? null,
   };
+
+  if (Object.prototype.hasOwnProperty.call(row, "premium_until")) {
+    dto.isPremium = Boolean(row.premium_until);
+    dto.premiumUntil = row.premium_until?.toISOString?.() ?? null;
+  }
+
+  // Diperlukan untuk menandatangani JWT dan sengaja non-enumerable agar tidak
+  // menjadi bagian dari kontrak atau respons JSON pengguna.
+  Object.defineProperty(dto, "authVersion", {
+    value: Number(row.auth_version ?? 0),
+    enumerable: false,
+  });
+
+  return dto;
 }
 
 /**
@@ -65,18 +87,17 @@ export async function findByEmailWithSecret(email, client) {
   );
   if (!rows[0]) return null;
 
-  return {
-    ...toUserDto(rows[0]),
-    passwordHash: rows[0].password_hash,
-    failedLoginAttempts: rows[0].failed_login_attempts,
-    lockedUntil: rows[0].locked_until,
-  };
+  const user = toUserDto(rows[0]);
+  user.passwordHash = rows[0].password_hash;
+  user.failedLoginAttempts = rows[0].failed_login_attempts;
+  user.lockedUntil = rows[0].locked_until;
+  return user;
 }
 
 export async function findById(id, client) {
   const run = client ? client.query.bind(client) : query;
   const { rows } = await run(
-    `SELECT ${USER_COLUMNS}
+    `SELECT ${USER_COLUMNS}, ${ADMIN_SUBSCRIPTION_COLUMNS}
        FROM users u
        JOIN roles r ON r.id = u.role_id
       WHERE u.id = $1
@@ -84,6 +105,32 @@ export async function findById(id, client) {
     [id],
   );
   return toUserDto(rows[0]);
+}
+
+/**
+ * Status autentikasi terkini untuk middleware pada setiap request terlindungi.
+ * Query ini sengaja ramping: middleware tidak memerlukan profil lengkap.
+ */
+export async function findAuthStateById(id) {
+  const { rows } = await query(
+    `SELECT u.id, u.email, u.status, u.auth_version, u.email_verified_at, r.name AS role
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+      WHERE u.id = $1
+      LIMIT 1`,
+    [id],
+  );
+  const row = rows[0];
+  return row
+    ? {
+        id: String(row.id),
+        email: row.email,
+        role: row.role,
+        status: row.status,
+        authVersion: Number(row.auth_version ?? 0),
+        emailVerified: Boolean(row.email_verified_at),
+      }
+    : null;
 }
 
 export async function findByIdWithSecret(id) {
@@ -96,7 +143,9 @@ export async function findByIdWithSecret(id) {
     [id],
   );
   if (!rows[0]) return null;
-  return { ...toUserDto(rows[0]), passwordHash: rows[0].password_hash };
+  const user = toUserDto(rows[0]);
+  user.passwordHash = rows[0].password_hash;
+  return user;
 }
 
 export async function emailExists(email, client) {
@@ -169,6 +218,7 @@ export async function updatePassword(userId, passwordHash, client) {
         SET password_hash = $2,
             failed_login_attempts = 0,
             locked_until = NULL,
+            auth_version = auth_version + 1,
             updated_at = NOW()
       WHERE id = $1
       RETURNING id`,
@@ -318,7 +368,7 @@ export async function findAll(
   values.push(limit, offset);
 
   const { rows } = await query(
-    `SELECT ${USER_COLUMNS}
+    `SELECT ${USER_COLUMNS}, ${ADMIN_SUBSCRIPTION_COLUMNS}
        FROM users u
        JOIN roles r ON r.id = u.role_id
        ${where}
@@ -391,6 +441,10 @@ export async function adminUpdate(userId, fields) {
     sets.push(`role_id = (SELECT id FROM roles WHERE name = $${values.length})`);
   }
 
+  if (fields.status !== undefined || fields.role !== undefined) {
+    sets.push("auth_version = auth_version + 1");
+  }
+
   if (sets.length === 0) return findById(userId);
 
   await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, values);
@@ -407,7 +461,9 @@ export async function adminUpdate(userId, fields) {
  */
 export async function softDelete(userId) {
   const { rowCount } = await query(
-    `UPDATE users SET status = 'inactive' WHERE id = $1`,
+    `UPDATE users
+        SET status = 'inactive', auth_version = auth_version + 1
+      WHERE id = $1`,
     [userId],
   );
   return rowCount > 0;

@@ -22,7 +22,7 @@ export const confirmMockPayment = asyncHandler(async (req, res) =>
   success(
     res,
     await service.confirmMockPayment(req.user.id, req.params.orderId, req.body.action),
-    "Simulasi pembayaran diproses.",
+    "Konfirmasi pembayaran diproses.",
   ));
 
 export const webhook = asyncHandler(async (req, res) =>

@@ -79,6 +79,7 @@ CREATE TABLE users (
                  CHECK (profile IN ('parent', 'deaf', 'general')),
   status         VARCHAR(20) NOT NULL DEFAULT 'active'
                  CHECK (status IN ('active', 'inactive', 'suspended')),
+  auth_version   INTEGER NOT NULL DEFAULT 0,
 
   -- Perlindungan brute-force. Dikunci per akun, bukan hanya per IP,
   -- karena serangan terdistribusi memakai ribuan IP untuk satu email.
@@ -126,6 +127,7 @@ CREATE TABLE refresh_tokens (
   expires_at  TIMESTAMPTZ NOT NULL,
   rotated_at  TIMESTAMPTZ,          -- terisi saat token ditukar
   revoked_at  TIMESTAMPTZ,          -- terisi saat dicabut paksa
+  remember_me BOOLEAN NOT NULL DEFAULT FALSE,
   user_agent  VARCHAR(255),
   ip_address  INET,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -9,20 +9,21 @@ import { query } from "../config/database.js";
  */
 
 export async function insert(
-  { userId, tokenHash, familyId, expiresAt, userAgent, ipAddress },
+  { userId, tokenHash, familyId, expiresAt, rememberMe = false, userAgent, ipAddress },
   client,
 ) {
   const run = client ? client.query.bind(client) : query;
   const { rows } = await run(
     `INSERT INTO refresh_tokens
-       (user_id, token_hash, family_id, expires_at, user_agent, ip_address)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (user_id, token_hash, family_id, expires_at, remember_me, user_agent, ip_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
     [
       userId,
       tokenHash,
       familyId,
       expiresAt,
+      Boolean(rememberMe),
       userAgent?.slice(0, 255) ?? null,
       ipAddress ?? null,
     ],
@@ -33,7 +34,7 @@ export async function insert(
 /** Mengambil token berdasarkan hash, termasuk yang sudah dirotasi atau dicabut. */
 export async function findByHash(tokenHash) {
   const { rows } = await query(
-    `SELECT id, user_id, token_hash, family_id, expires_at,
+    `SELECT id, user_id, token_hash, family_id, expires_at, remember_me,
             rotated_at, revoked_at, created_at
        FROM refresh_tokens
       WHERE token_hash = $1
@@ -51,6 +52,7 @@ export async function findByHash(tokenHash) {
     rotatedAt: r.rotated_at,
     revokedAt: r.revoked_at,
     createdAt: r.created_at,
+    rememberMe: Boolean(r.remember_me),
     isActive: !r.rotated_at && !r.revoked_at && r.expires_at > new Date(),
   };
 }
@@ -120,7 +122,7 @@ export async function purgeExpired(retentionDays = 30) {
 /** Daftar sesi aktif — untuk halaman "perangkat yang masuk". */
 export async function listActiveForUser(userId) {
   const { rows } = await query(
-    `SELECT id, user_agent, ip_address, created_at, expires_at
+    `SELECT id, user_agent, ip_address, remember_me, created_at, expires_at
        FROM refresh_tokens
       WHERE user_id = $1
         AND revoked_at IS NULL
@@ -133,6 +135,7 @@ export async function listActiveForUser(userId) {
     id: String(r.id),
     userAgent: r.user_agent,
     ipAddress: r.ip_address,
+    rememberMe: Boolean(r.remember_me),
     createdAt: r.created_at.toISOString(),
     expiresAt: r.expires_at.toISOString(),
   }));

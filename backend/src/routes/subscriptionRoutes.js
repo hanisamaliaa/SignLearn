@@ -18,6 +18,14 @@ subscriptionRoutes.post(
 subscriptionRoutes.get("/payment-history", controller.history);
 subscriptionRoutes.get("/payments/:orderId", controller.paymentStatus);
 subscriptionRoutes.post(
+  "/payments/:orderId/confirm",
+  paymentCheckoutLimiter,
+  validate(validateMockPayment),
+  controller.confirmMockPayment,
+);
+// Alias kompatibilitas untuk transaksi tertunda dari versi sebelum URL publik
+// checkout dinetralkan. Klien baru selalu memakai endpoint /confirm.
+subscriptionRoutes.post(
   "/payments/:orderId/mock-confirm",
   paymentCheckoutLimiter,
   validate(validateMockPayment),

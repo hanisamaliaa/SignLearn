@@ -9,5 +9,5 @@ export function validateCheckout(body = {}) {
 export function validateMockPayment(body = {}) {
   return ["complete", "cancel"].includes(body.action)
     ? []
-    : [err("action", "Aksi simulasi pembayaran tidak valid.")];
+    : [err("action", "Aksi konfirmasi pembayaran tidak valid.")];
 }

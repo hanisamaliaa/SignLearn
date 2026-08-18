@@ -26,7 +26,7 @@ import * as refreshRepo from "../repositories/refreshTokenRepository.js";
 
 export function signAccessToken(user) {
   return jwt.sign(
-    { email: user.email, role: user.role },
+    { email: user.email, role: user.role, ver: Number(user.authVersion ?? 0) },
     env.jwt.accessSecret,
     {
       subject: String(user.id),
@@ -73,13 +73,14 @@ export async function issueRefreshToken(userId, context = {}, client) {
       tokenHash: hashToken(token),
       familyId,
       expiresAt,
+      rememberMe: Boolean(context.rememberMe),
       userAgent: context.userAgent,
       ipAddress: context.ipAddress,
     },
     client,
   );
 
-  return { token, familyId, expiresAt };
+  return { token, familyId, expiresAt, rememberMe: Boolean(context.rememberMe) };
 }
 
 /**
@@ -134,6 +135,7 @@ export async function rotateRefreshToken(rawToken, context = {}) {
         tokenHash: hashToken(token),
         familyId: existing.familyId, // family dipertahankan agar rantai terlacak
         expiresAt,
+        rememberMe: existing.rememberMe,
         userAgent: context.userAgent,
         ipAddress: context.ipAddress,
       },
@@ -141,7 +143,12 @@ export async function rotateRefreshToken(rawToken, context = {}) {
     );
   });
 
-  return { userId: existing.userId, token, expiresAt };
+  return {
+    userId: existing.userId,
+    token,
+    expiresAt,
+    rememberMe: existing.rememberMe,
+  };
 }
 
 export async function revokeRefreshToken(rawToken) {
