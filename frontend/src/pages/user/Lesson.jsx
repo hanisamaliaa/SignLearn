@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useApp } from "../../context/app";
 import { Card, Button, Alert } from "../../components/ui/ui";
 import {
@@ -8,10 +9,43 @@ import {
   CheckCircleIcon,
   ClockIcon,
   LockIcon,
+  BookIcon,
 } from "../../components/ui/Icons";
 import YouTubeLesson from "../../features/lesson/YouTubeLesson";
 import { formatDuration } from "../../features/lesson/youtube";
 import { quizService } from "../../services";
+
+/* ── Animation variants ──────────────────────────────────────────── */
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.3, ease: "easeOut" },
+  },
+};
+
+const scaleFadeIn = {
+  hidden: { opacity: 0, scale: 0.997 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+  },
+};
 
 export default function Lesson() {
   const { selectedCourse, selectedLessonId, setSelectedLesson, startLesson, completeLesson, isPremium } =
@@ -115,33 +149,37 @@ export default function Lesson() {
   };
 
   return (
-    <div className="lesson-page animate-fade-in">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="lesson-header">
-        <div className="lesson-header-top">
-          <button
-            onClick={() => navigate("/course-detail")}
-            className="lesson-back-link"
-          >
-            <ArrowLeftIcon size={16} />
-            <span>Kembali ke {course.title}</span>
-          </button>
-          <span className="lesson-counter">
-            Pelajaran {index + 1} dari {totalLessons}
-          </span>
-        </div>
+    <motion.div
+      className="lesson-page"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* ── Top Bar ─────────────────────────────────────────────────── */}
+      <motion.header className="lesson-topbar" variants={fadeIn}>
+        <button
+          onClick={() => navigate("/course-detail")}
+          className="lesson-back-link"
+        >
+          <ArrowLeftIcon size={16} />
+          <span>Kembali ke {course.title}</span>
+        </button>
+        <span className="lesson-counter">
+          Pelajaran {index + 1} dari {totalLessons}
+        </span>
+      </motion.header>
 
-        <div className="lesson-header-info">
-          <span className="lesson-course-title">{course.title}</span>
-          <h1 className="lesson-title">{lesson.title}</h1>
-          {course.description && (
-            <p className="lesson-subtitle">{course.description}</p>
-          )}
-        </div>
-      </header>
+      {/* ── Lesson Header ───────────────────────────────────────────── */}
+      <motion.div className="lesson-header-info" variants={fadeUp}>
+        <span className="lesson-category">{course.title}</span>
+        <h1 className="lesson-title">{lesson.title}</h1>
+        {course.description && (
+          <p className="lesson-description">{course.description}</p>
+        )}
+      </motion.div>
 
-      {/* ── Video ──────────────────────────────────────────────────────── */}
-      <div className="lesson-video-section">
+      {/* ── Video Section ───────────────────────────────────────────── */}
+      <motion.div className="lesson-video-section" variants={scaleFadeIn}>
         <Card padding="none" className="lesson-video-card">
           <YouTubeLesson
             videoUrl={lesson.videoUrl}
@@ -188,7 +226,7 @@ export default function Lesson() {
         {error && (
           <Alert type="error" message={error} onClose={() => setError("")} />
         )}
-      </div>
+      </motion.div>
 
       {/* Pratinjau soal membantu anak mengingat materi tanpa membocorkan jawaban. */}
       {courseQuiz && (
@@ -245,96 +283,116 @@ export default function Lesson() {
         </Card>
       )}
 
-      {/* ── Course Progress ────────────────────────────────────────────── */}
-      <Card className="lesson-progress-card">
-        <div className="lesson-progress-card-header">
-          <h2 className="lesson-progress-card-title">Progres Kursus</h2>
-          {isCompleted && (
-            <span className="lesson-progress-complete-badge">
-              <CheckCircleIcon size={14} />
-              {allLessonsDone ? "Kursus selesai" : `${progressPct}%`}
-            </span>
-          )}
-        </div>
-
-        <div className="lesson-progress-card-body">
-          <div className="lesson-progress-card-text">
-            <span className="lesson-progress-card-stat">
-              {completedCount} dari {totalLessons} pelajaran selesai
-            </span>
-            <span className="lesson-progress-card-pct">{progressPct}%</span>
+      {/* ── Course Progress ──────────────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <Card className="lesson-progress-card">
+          <div className="lesson-progress-card-header">
+            <div className="lesson-progress-card-label">
+              <BookIcon size={16} />
+              <h2 className="lesson-progress-card-title">Progres Kursus</h2>
+            </div>
+            {isCompleted && (
+              <span className="lesson-progress-complete-badge">
+                <CheckCircleIcon size={14} />
+                {allLessonsDone ? "Kursus selesai" : `${progressPct}%`}
+              </span>
+            )}
           </div>
-          <div className="lesson-progress-card-track">
+
+          <div className="lesson-progress-card-body">
+            <div className="lesson-progress-card-text">
+              <span className="lesson-progress-card-stat">
+                {completedCount} dari {totalLessons} pelajaran selesai
+              </span>
+              <span className="lesson-progress-card-pct">{progressPct}%</span>
+            </div>
             <div
-              className="lesson-progress-card-fill"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
-
-        {allLessonsDone && isCompleted && (
-          <p className="lesson-progress-done-msg">
-            Hebat! Kursus ini sudah selesai.
-          </p>
-        )}
-      </Card>
-
-      {/* ── Next Step ──────────────────────────────────────────────────── */}
-      <Card className="lesson-next-step-card">
-        {isCompleted ? (
-          <div className="lesson-next-step-content">
-            <div className="lesson-next-step-text">
-              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
-              {nextLesson ? (
-                <p className="lesson-next-step-desc">
-                  Yuk, lanjut ke pelajaran berikutnya untuk terus belajar.
-                </p>
-              ) : allLessonsDone && courseQuiz ? (
-                <p className="lesson-next-step-desc">
-                  Pelajaran sudah selesai. Sekarang waktunya mencoba quiz untuk menguji apa yang sudah dipelajari.
-                </p>
-              ) : (
-                <p className="lesson-next-step-desc">
-                  Semua pelajaran sudah selesai!
-                </p>
-              )}
-            </div>
-            <div className="lesson-next-step-action">
-              {nextLesson ? (
-                <Button size="sm" onClick={() => goTo(nextLesson)}>
-                  Lanjut ke pelajaran berikutnya <ArrowRightIcon size={14} />
-                </Button>
-              ) : allLessonsDone && courseQuiz ? (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (!isPremium) {
-                      navigate("/course-detail");
-                      return;
-                    }
-                    setSelectedLesson(null);
-                    navigate("/quiz");
-                  }}
-                >
-                  {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
-                </Button>
-              ) : null}
+              className="lesson-progress-card-track"
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Progres kursus: ${progressPct}%`}
+            >
+              <div
+                className="lesson-progress-card-fill"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
           </div>
-        ) : (
-          <div className="lesson-next-step-content">
-            <div className="lesson-next-step-text">
-              <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
-              <p className="lesson-next-step-desc">
-                Tandai pelajaran ini selesai untuk melanjutkan ke pelajaran berikutnya.
-              </p>
-            </div>
-          </div>
-        )}
-      </Card>
 
-      {/* ── Bottom Navigation ──────────────────────────────────────────── */}
-      <div className="lesson-nav-row">
+          {allLessonsDone && isCompleted && (
+            <p className="lesson-progress-done-msg">
+              Hebat! Kursus ini sudah selesai.
+            </p>
+          )}
+        </Card>
+      </motion.div>
+
+      {/* ── Next Step ────────────────────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <Card className="lesson-next-step-card">
+          {isCompleted ? (
+            <div className="lesson-next-step-content">
+              <div className="lesson-next-step-text">
+                <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+                {nextLesson ? (
+                  <p className="lesson-next-step-desc">
+                    Yuk, lanjut ke pelajaran berikutnya untuk terus belajar.
+                  </p>
+                ) : allLessonsDone && courseQuiz ? (
+                  <p className="lesson-next-step-desc">
+                    Kamu sudah menyelesaikan pelajaran ini. Sekarang coba kuisnya untuk menguji kemampuanmu.
+                  </p>
+                ) : (
+                  <p className="lesson-next-step-desc">
+                    Semua pelajaran sudah selesai!
+                  </p>
+                )}
+              </div>
+              <div className="lesson-next-step-action">
+                {nextLesson ? (
+                  <Button size="sm" onClick={() => goTo(nextLesson)}>
+                    Lanjut ke pelajaran berikutnya <ArrowRightIcon size={14} />
+                  </Button>
+                ) : allLessonsDone && courseQuiz ? (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (!isPremium) {
+                        navigate("/course-detail");
+                        return;
+                      }
+                      // `setSelectedLesson`, bukan `selectLesson`. Nama kedua
+                      // hanya hidup di dalam context; berkas ini menerimanya
+                      // sebagai `setSelectedLesson` lewat destrukturisasi
+                      // useApp di atas. Sisi main memakai nama yang salah,
+                      // sehingga tombol di bawah akan melempar ReferenceError
+                      // persis saat anak menekannya.
+                      setSelectedLesson(null);
+                      navigate("/quiz");
+                    }}
+                  >
+                    {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="lesson-next-step-content">
+              <div className="lesson-next-step-text">
+                <h2 className="lesson-next-step-title">Langkah Berikutnya</h2>
+                <p className="lesson-next-step-desc">
+                  Tandai pelajaran ini selesai untuk melanjutkan ke pelajaran berikutnya.
+                </p>
+              </div>
+            </div>
+          )}
+        </Card>
+      </motion.div>
+
+      {/* ── Bottom Navigation ────────────────────────────────────────── */}
+      <motion.div className="lesson-nav-row" variants={fadeIn}>
         {prevLesson ? (
           <Button variant="outline" size="sm" onClick={() => goTo(prevLesson)}>
             <ArrowLeftIcon size={14} /> Pelajaran sebelumnya
@@ -350,7 +408,7 @@ export default function Lesson() {
             Pelajaran berikutnya <ArrowRightIcon size={14} />
           </Button>
         ) : null}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

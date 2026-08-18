@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LogoutIcon, MenuIcon } from "../ui/Icons";
 import BrandLogo from "../common/BrandLogo";
-import { SignLearnAvatar } from "../common/SignLearnAvatar";
+import SignLearnAvatar from "../common/SignLearnAvatar";
 
 export default function PortalSidebar({
   variant,

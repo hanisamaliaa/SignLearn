@@ -69,6 +69,17 @@ export function thumbnailUrl(videoId, quality = "maxresdefault") {
   return `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
 }
 
+/**
+ * Urutan kualitas thumbnail dari yang paling tinggi ke fallback terakhir.
+ * Digunakan oleh player untuk mencoba satu per satu sampai gambar berhasil
+ * dimuat.
+ */
+export const THUMBNAIL_QUALITY_CHAIN = [
+  "maxresdefault",
+  "sddefault",
+  "hqdefault",
+];
+
 export const FALLBACK_THUMBNAIL_QUALITY = "hqdefault";
 
 /** Tautan tonton untuk jalur mundur saat player menolak memutar. */
