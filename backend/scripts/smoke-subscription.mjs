@@ -58,6 +58,14 @@ async function main() {
   check("redirect menuju halaman konfirmasi pembayaran",
     cancelledOrder.data?.checkout?.redirectUrl?.includes("/premium/payment/confirm?order_id="));
 
+  const duplicatePending = await call("/subscription/checkout", {
+    method: "POST",
+    token: buyer.token,
+    body: { planId: plan.id },
+  });
+  check("dua checkout pending untuk akun yang sama ditolak", duplicatePending.status === 409,
+    `${duplicatePending.status}`);
+
   const foreignRead = await call(`/subscription/payments/${cancelledOrderId}`, {
     token: otherUser.token,
   });
@@ -122,6 +130,34 @@ async function main() {
   check("konfirmasi ulang tidak menggandakan masa aktif",
     replay.data?.subscription?.endDate === completed.data?.subscription?.endDate);
 
+  const interleavedCheckout = await call("/subscription/checkout", {
+    method: "POST",
+    token: buyer.token,
+    body: { planId: plan.id },
+  });
+  const interleavedOrderId = interleavedCheckout.data?.checkout?.orderId;
+  const [interleavedComplete, simultaneousCheckout] = await Promise.all([
+    call(`/subscription/payments/${interleavedOrderId}/confirm`, {
+      method: "POST",
+      token: buyer.token,
+      body: { action: "complete" },
+    }),
+    call("/subscription/checkout", {
+      method: "POST",
+      token: buyer.token,
+      body: { planId: plan.id },
+    }),
+  ]);
+  check("konfirmasi dan checkout baru bersamaan tidak deadlock",
+    interleavedComplete.status === 200 && [201, 409].includes(simultaneousCheckout.status),
+    `${interleavedComplete.status}/${simultaneousCheckout.status}`);
+  if (simultaneousCheckout.status === 201) {
+    await call(
+      `/subscription/payments/${simultaneousCheckout.data.checkout.orderId}/confirm`,
+      { method: "POST", token: buyer.token, body: { action: "cancel" } },
+    );
+  }
+
   const persisted = await query(
     `SELECT pay.transaction_status, pay.provider, s.status
        FROM payments pay JOIN subscriptions s ON s.id=pay.subscription_id
@@ -171,6 +207,67 @@ async function main() {
   });
   check("status terminal tidak dapat ditimpa request lawan",
     terminalReplay.data?.payment?.status === terminalStatus);
+
+  section("Batas perpanjangan 180 hari");
+  let extensionState = await call("/subscription/me", { token: buyer.token });
+  let extensionPurchases = 0;
+  while (extensionState.data?.extensionPolicy?.canExtend && extensionPurchases < 8) {
+    const extensionCheckout = await call("/subscription/checkout", {
+      method: "POST",
+      token: buyer.token,
+      body: { planId: plan.id },
+    });
+    const extensionOrderId = extensionCheckout.data?.checkout?.orderId;
+    check(`checkout perpanjangan ${extensionPurchases + 1} dibuat`,
+      extensionCheckout.status === 201 && Boolean(extensionOrderId));
+
+    const extensionComplete = await call(
+      `/subscription/payments/${extensionOrderId}/confirm`,
+      { method: "POST", token: buyer.token, body: { action: "complete" } },
+    );
+    check(`perpanjangan ${extensionPurchases + 1} menambah masa aktif`,
+      extensionComplete.status === 200 && extensionComplete.data?.payment?.status === "paid");
+    extensionState = extensionComplete;
+    extensionPurchases += 1;
+  }
+
+  check("kebijakan server berhenti pada batas 180 hari",
+    extensionState.data?.extensionPolicy?.canExtend === false &&
+      extensionState.data?.extensionPolicy?.maxAdvanceDays === 180,
+    `${extensionState.data?.extensionPolicy?.remainingDays ?? "?"} hari`);
+  const blockedExtension = await call("/subscription/checkout", {
+    method: "POST",
+    token: buyer.token,
+    body: { planId: plan.id },
+  });
+  check("checkout di atas batas ditolak 409", blockedExtension.status === 409,
+    `${blockedExtension.status}`);
+
+  await query(
+    `UPDATE subscriptions
+        SET end_date=NOW() + INTERVAL '150 days'
+      WHERE id=(SELECT id FROM subscriptions
+                 WHERE user_id=$1 AND status='active'
+                 ORDER BY end_date DESC LIMIT 1)`,
+    [buyer.id],
+  );
+  const at150Days = await call("/subscription/me", { token: buyer.token });
+  check("saat tersisa 150 hari pengguna boleh menambah lagi",
+    at150Days.data?.extensionPolicy?.canExtend === true,
+    `${at150Days.data?.extensionPolicy?.remainingDays ?? "?"} hari`);
+  const finalCheckout = await call("/subscription/checkout", {
+    method: "POST",
+    token: buyer.token,
+    body: { planId: plan.id },
+  });
+  const finalOrderId = finalCheckout.data?.checkout?.orderId;
+  const finalComplete = await call(`/subscription/payments/${finalOrderId}/confirm`, {
+    method: "POST",
+    token: buyer.token,
+    body: { action: "complete" },
+  });
+  check("tambahan 30 hari setelah menunggu berhasil",
+    finalComplete.status === 200 && finalComplete.data?.extensionPolicy?.canExtend === false);
 
   const quiz = await query(
     "SELECT id, course_id FROM quizzes ORDER BY id LIMIT 1",

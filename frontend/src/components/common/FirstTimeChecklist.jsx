@@ -295,7 +295,7 @@ export default function FirstTimeChecklist({ userId, summary, quizHistory = [] }
       };
 
   return createPortal(
-    <div className="guided-tour-layer" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title">
+    <div className={`guided-tour-layer${spotlight ? " has-spotlight" : ""}`} role="dialog" aria-modal="true" aria-labelledby="guided-tour-title">
       <div className="guided-tour-backdrop" aria-hidden="true" />
 
       {spotlight && (
@@ -371,7 +371,7 @@ export default function FirstTimeChecklist({ userId, summary, quizHistory = [] }
               className="guided-tour-primary"
               onClick={() => {
                 setShowClosingModal(false);
-                navigate("/parent-guide");
+                navigate("/guide");
               }}
             >
               Lihat Panduan Orang Tua

@@ -7,12 +7,14 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   ClockIcon,
+  LockIcon,
 } from "../../components/ui/Icons";
 import YouTubeLesson from "../../features/lesson/YouTubeLesson";
 import { formatDuration } from "../../features/lesson/youtube";
+import { quizService } from "../../services";
 
 export default function Lesson() {
-  const { selectedCourse, selectedLessonId, selectLesson, startLesson, completeLesson, isPremium } =
+  const { selectedCourse, selectedLessonId, setSelectedLesson, startLesson, completeLesson, isPremium } =
     useApp();
   const navigate = useNavigate();
 
@@ -20,6 +22,9 @@ export default function Lesson() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [justCompleted, setJustCompleted] = useState(false);
+  const [quizPreview, setQuizPreview] = useState(null);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizError, setQuizError] = useState("");
 
   const course = selectedCourse || { lessons: [] };
   const lessons = course.lessons ?? [];
@@ -29,11 +34,45 @@ export default function Lesson() {
     lessons[0];
 
   const lessonId = lesson?.id;
+  const courseQuiz =
+    course.quizzes?.find((quiz) => quiz.lessonId === lessonId) ??
+    course.quizzes?.[0] ??
+    null;
+
   useEffect(() => {
     setDuration(null);
     setError("");
     setJustCompleted(false);
   }, [lessonId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setQuizPreview(null);
+    setQuizError("");
+
+    if (!courseQuiz || !course.id || !isPremium) {
+      setQuizLoading(false);
+      return () => { cancelled = true; };
+    }
+
+    setQuizLoading(true);
+    quizService.getQuizById(course.id, courseQuiz.id)
+      .then((payload) => {
+        if (!cancelled) setQuizPreview(payload);
+      })
+      .catch((failure) => {
+        if (!cancelled) setQuizError(failure?.message || "Pratinjau kuis belum dapat dimuat.");
+      })
+      .finally(() => {
+        if (!cancelled) setQuizLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [course.id, courseQuiz?.id, isPremium]);
+
+  useEffect(() => {
+    if (!lesson) navigate("/course-detail", { replace: true });
+  }, [lesson, navigate]);
 
   const markStarted = useCallback(() => {
     if (lessonId) startLesson(lessonId);
@@ -50,7 +89,6 @@ export default function Lesson() {
   }, [lessonId, saving, completeLesson]);
 
   if (!lesson) {
-    navigate("/course-detail");
     return null;
   }
 
@@ -60,16 +98,19 @@ export default function Lesson() {
   const isCompleted = justCompleted || lesson.status === "completed";
   const shownDuration = formatDuration(duration) ?? lesson.duration ?? null;
 
-  const completedCount = lessons.filter((l) => l.status === "completed" || l.id === lessonId && isCompleted).length;
+  const completedCount = lessons.filter(
+    (l) => l.status === "completed" || (l.id === lessonId && isCompleted),
+  ).length;
   const totalLessons = lessons.length;
   const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  const courseQuiz = course.quizzes?.[0] ?? null;
-  const allLessonsDone = totalLessons > 0 && lessons.every((l) => l.status === "completed" || l.id === lessonId && isCompleted);
+  const allLessonsDone = totalLessons > 0 && lessons.every(
+    (l) => l.status === "completed" || (l.id === lessonId && isCompleted),
+  );
 
   const goTo = (target) => {
     if (!target) return;
-    selectLesson(target.id);
+    setSelectedLesson(target.id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -149,6 +190,61 @@ export default function Lesson() {
         )}
       </div>
 
+      {/* Pratinjau soal membantu anak mengingat materi tanpa membocorkan jawaban. */}
+      {courseQuiz && (
+        <Card className="lesson-quiz-preview-card">
+          <div className="lesson-quiz-preview-heading">
+            <div className="lesson-quiz-preview-icon" aria-hidden="true">?</div>
+            <div>
+              <span>LATIHAN SETELAH MENONTON</span>
+              <h2>{courseQuiz.title || "Coba ingat materi ini"}</h2>
+              <p>Kenali bentuk soalnya, lalu selesaikan pelajaran sebelum mulai kuis.</p>
+            </div>
+            <span className="lesson-quiz-count">
+              {quizPreview?.questions?.length ?? courseQuiz.totalQuestions ?? 0} soal
+            </span>
+          </div>
+
+          {quizLoading ? (
+            <div className="lesson-quiz-loading" aria-live="polite">
+              <span /> Memuat pratinjau soal...
+            </div>
+          ) : !isPremium ? (
+            <div className="lesson-quiz-locked-row">
+              <LockIcon size={20} />
+              <div>
+                <strong>Pratinjau soal tersedia untuk Premium</strong>
+                <span>Materi dan video tetap dapat dipelajari secara gratis.</span>
+              </div>
+              <Button size="sm" onClick={() => navigate("/premium")}>Lihat Premium</Button>
+            </div>
+          ) : quizError ? (
+            <Alert type="warning" message={quizError} />
+          ) : quizPreview?.questions?.length ? (
+            <ol className="lesson-question-rows">
+              {quizPreview.questions.map((question, questionIndex) => (
+                <li key={question.id}>
+                  <span className="lesson-question-number">{questionIndex + 1}</span>
+                  <div>
+                    <strong>{question.question}</strong>
+                    <span>
+                      {question.questionType === "camera-spell"
+                        ? "Jawab dengan kamera BISINDO"
+                        : `${question.options?.length ?? 0} pilihan jawaban`}
+                    </span>
+                  </div>
+                  <span className="lesson-question-kind">
+                    {question.questionType === "camera-spell" ? "Kamera" : "Pilihan"}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="lesson-quiz-empty">Pertanyaan sedang disiapkan oleh pengajar.</p>
+          )}
+        </Card>
+      )}
+
       {/* ── Course Progress ────────────────────────────────────────────── */}
       <Card className="lesson-progress-card">
         <div className="lesson-progress-card-header">
@@ -216,7 +312,7 @@ export default function Lesson() {
                       navigate("/course-detail");
                       return;
                     }
-                    selectLesson(null);
+                    setSelectedLesson(null);
                     navigate("/quiz");
                   }}
                 >
@@ -252,20 +348,6 @@ export default function Lesson() {
             disabled={nextLesson.status === "locked"}
           >
             Pelajaran berikutnya <ArrowRightIcon size={14} />
-          </Button>
-        ) : allLessonsDone && courseQuiz ? (
-          <Button
-            size="sm"
-            onClick={() => {
-              if (!isPremium) {
-                navigate("/course-detail");
-                return;
-              }
-              selectLesson(null);
-              navigate("/quiz");
-            }}
-          >
-            {isPremium ? "Mulai Quiz" : "🔒 Quiz Premium"} <ArrowRightIcon size={14} />
           </Button>
         ) : null}
       </div>

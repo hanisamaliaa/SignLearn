@@ -141,12 +141,20 @@ async function main() {
   check("cookie sesi belum dipasang", cookieLine === "");
 
   const storedUser = await query(
-    `SELECT id, email_verified_at FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`,
+    `SELECT id, email_verified_at, avatar, join_date::text,
+            TO_CHAR(created_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') AS jakarta_created_date
+       FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`,
     [TEST_EMAIL],
   );
   const userId = storedUser.rows[0]?.id;
   check("akun tersimpan sebagai belum terverifikasi",
     Boolean(userId) && storedUser.rows[0].email_verified_at === null);
+  check("avatar bawaan langsung tersimpan", storedUser.rows[0]?.avatar === "luna");
+  check(
+    "tanggal bergabung sama dengan tanggal pendaftaran di Jakarta",
+    storedUser.rows[0]?.join_date === storedUser.rows[0]?.jakarta_created_date,
+    storedUser.rows[0]?.join_date,
+  );
 
   const storedCode = await query(
     `SELECT id, token_hash, attempts, used_at

@@ -52,7 +52,7 @@ function ProfileRow({ icon, title, description, onClick, active, disabled, trail
       onClick={onClick}
       disabled={disabled}
       aria-expanded={active}
-      className={`group flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all duration-150 ${
+      className={`profile-section-row group flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all duration-150 ${
         active
           ? "border-[#2e86bf] bg-[#f5fbff] shadow-sm"
           : "border-[var(--border)] bg-[var(--surface)] hover:border-[#b8d7e9] hover:bg-[#fbfdff]"
@@ -236,7 +236,7 @@ export default function Profile() {
   const activeAvatar = resolveAvatarId(avatar);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="profile-page space-y-6 animate-fade-in">
       <header>
         <p className="mb-1 text-sm font-bold text-[#2e86bf]">AKUN SAYA</p>
         <h1 className="text-2xl font-extrabold text-[var(--text)]">Profil Saya</h1>
@@ -482,7 +482,7 @@ export default function Profile() {
         </div>
 
         <div className="space-y-4">
-          <Card className="border-[#cfe0f0] bg-gradient-to-b from-[#eef7ff] to-[var(--surface)] text-center">
+          <Card className="profile-summary-card border-[#cfe0f0] bg-gradient-to-b from-[#eef7ff] to-[var(--surface)] text-center">
             <div className="flex justify-center">
               <SignLearnAvatar
                 id={activeAvatar}
@@ -510,7 +510,7 @@ export default function Profile() {
           </Card>
 
           {profileIncomplete && (
-            <Card className="border-[#f2dfae] bg-[#fffaf0]">
+            <Card className="profile-incomplete-card border-[#f2dfae] bg-[#fffaf0]">
               <div className="flex gap-3">
                 <span className="text-xl" aria-hidden="true">⚠️</span>
                 <div>

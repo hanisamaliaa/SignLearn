@@ -64,7 +64,10 @@ export default function Login() {
       const result = await login(email.trim(), password, remember);
       if (!result.success) {
         if (result.code === "EMAIL_NOT_VERIFIED") {
-          navigate("/verify-email", { state: { email: email.trim() } });
+          const normalizedEmail = email.trim();
+          navigate(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`, {
+            state: { email: normalizedEmail },
+          });
           return;
         }
         if (result.code === "ACCOUNT_SUSPENDED") {

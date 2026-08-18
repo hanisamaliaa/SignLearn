@@ -62,7 +62,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="settings-page space-y-6 animate-fade-in">
       <FloatingShapes count={2} />
 
       <div>

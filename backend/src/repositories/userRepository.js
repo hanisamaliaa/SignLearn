@@ -12,7 +12,7 @@ const USER_COLUMNS = `
   u.id, u.name, u.email, u.phone, u.avatar, u.profile, u.status, u.auth_version,
   u.email_verified_at,
   u.failed_login_attempts, u.locked_until,
-  u.join_date, u.created_at, u.updated_at,
+  TO_CHAR(u.join_date, 'YYYY-MM-DD') AS join_date, u.created_at, u.updated_at,
   r.name AS role
 `;
 
@@ -42,14 +42,12 @@ export function toUserDto(row) {
     email: row.email,
     role: row.role,
     phone: row.phone ?? null,
-    avatar: row.avatar ?? null,
+    avatar: row.avatar || "luna",
     profile: row.profile,
     status: row.status,
     emailVerified: Boolean(row.email_verified_at),
     emailVerifiedAt: row.email_verified_at?.toISOString?.() ?? null,
-    joinDate: row.join_date
-      ? new Date(row.join_date).toISOString().slice(0, 10)
-      : null,
+    joinDate: row.join_date ? String(row.join_date).slice(0, 10) : null,
     createdAt: row.created_at?.toISOString() ?? null,
     updatedAt: row.updated_at?.toISOString() ?? null,
   };

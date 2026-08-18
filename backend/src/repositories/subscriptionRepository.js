@@ -1,4 +1,10 @@
 import { query, withTransaction } from "../config/database.js";
+import {
+  buildExtensionPolicy,
+  MILLISECONDS_PER_DAY,
+  PREMIUM_MAX_ADVANCE_DAYS,
+  PREMIUM_EXTENSION_TOLERANCE_MS,
+} from "../constants/subscription.js";
 
 const iso = (value) => value?.toISOString?.() ?? value ?? null;
 
@@ -27,19 +33,75 @@ export async function subscriptionMe(userId) {
   const { rows } = await query(
     "SELECT id,name,price,duration_days FROM subscription_plans WHERE status='active' ORDER BY price",
   );
+  const plans = rows.map((row) => ({
+    id: String(row.id),
+    name: row.name,
+    price: Number(row.price),
+    durationDays: Number(row.duration_days),
+  }));
   return {
     isPremium: Boolean(active), subscription: active,
-    plans: rows.map((row) => ({ id: String(row.id), name: row.name, price: Number(row.price), durationDays: Number(row.duration_days) })),
+    plans,
+    extensionPolicy: buildExtensionPolicy(active, plans),
   };
 }
 
 export async function createPendingPayment(userId, planId, orderId, provider) {
   return withTransaction(async (client) => {
+    // Seluruh checkout pengguna diserialisasi agar dua tab tidak dapat
+    // melewati batas masa aktif secara bersamaan.
+    const owner = await client.query(
+      "SELECT id FROM users WHERE id=$1 FOR UPDATE",
+      [userId],
+    );
+    if (!owner.rowCount) return null;
+
     const plan = await client.query(
       "SELECT * FROM subscription_plans WHERE id=$1 AND status='active' FOR UPDATE",
       [planId],
     );
     if (!plan.rowCount) return null;
+
+    // Checkout lama tidak boleh memblokir akun selamanya. Order internal yang
+    // tidak diselesaikan dalam 30 menit ditutup sebelum membuat order baru.
+    const stale = await client.query(
+      `UPDATE payments
+          SET transaction_status='expired', processed_at=NOW()
+        WHERE user_id=$1 AND transaction_status='pending'
+          AND created_at < NOW() - INTERVAL '30 minutes'
+        RETURNING subscription_id`,
+      [userId],
+    );
+    if (stale.rowCount) {
+      await client.query(
+        "UPDATE subscriptions SET status='expired' WHERE id=ANY($1::bigint[]) AND status='pending'",
+        [stale.rows.map((row) => row.subscription_id)],
+      );
+    }
+
+    const pending = await client.query(
+      `SELECT order_id FROM payments
+        WHERE user_id=$1 AND transaction_status='pending'
+        ORDER BY created_at DESC LIMIT 1`,
+      [userId],
+    );
+    if (pending.rowCount) {
+      return { pendingExists: true, orderId: pending.rows[0].order_id };
+    }
+
+    const current = await activeSubscription(userId, client);
+    const nowMs = Date.now();
+    const startMs = Math.max(nowMs, current?.endDate ? Date.parse(current.endDate) : nowMs);
+    const projectedEndMs = startMs + Number(plan.rows[0].duration_days) * MILLISECONDS_PER_DAY;
+    const maxEndMs = nowMs + PREMIUM_MAX_ADVANCE_DAYS * MILLISECONDS_PER_DAY;
+    if (projectedEndMs > maxEndMs + PREMIUM_EXTENSION_TOLERANCE_MS) {
+      return {
+        limitExceeded: true,
+        maxAdvanceDays: PREMIUM_MAX_ADVANCE_DAYS,
+        currentEndDate: current?.endDate ?? null,
+      };
+    }
+
     const subscription = await client.query(
       "INSERT INTO subscriptions(user_id,plan_id,status) VALUES($1,$2,'pending') RETURNING id",
       [userId, planId],
@@ -104,7 +166,7 @@ export async function processNotification(notification) {
     const found = await client.query(
       `SELECT pay.*,s.plan_id,p.duration_days FROM payments pay
        JOIN subscriptions s ON s.id=pay.subscription_id JOIN subscription_plans p ON p.id=s.plan_id
-       WHERE pay.order_id=$1 FOR UPDATE`, [notification.order_id],
+       WHERE pay.order_id=$1 FOR UPDATE OF pay`, [notification.order_id],
     );
     if (!found.rowCount) return null;
     const payment=found.rows[0];
@@ -128,8 +190,33 @@ export async function processNotification(notification) {
       [payment.id,mapped,notification.payment_type,notification.transaction_id,paid,notification],
     );
     if (paid) {
+      await client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [payment.user_id]);
       const current=await activeSubscription(payment.user_id,client);
-      const start=current?.endDate??new Date().toISOString();
+      const nowMs = Date.now();
+      const startMs = Math.max(nowMs, current?.endDate ? Date.parse(current.endDate) : nowMs);
+      const projectedEndMs = startMs + Number(payment.duration_days) * MILLISECONDS_PER_DAY;
+      const maxEndMs = nowMs + PREMIUM_MAX_ADVANCE_DAYS * MILLISECONDS_PER_DAY;
+      if (projectedEndMs > maxEndMs + PREMIUM_EXTENSION_TOLERANCE_MS) {
+        await client.query(
+          `UPDATE payments
+              SET transaction_status='failed', processed_at=NOW(),
+                  raw_notification=$2
+            WHERE id=$1`,
+          [payment.id, { ...notification, reason: "premium_extension_limit" }],
+        );
+        await client.query(
+          "UPDATE subscriptions SET status='cancelled' WHERE id=$1",
+          [payment.subscription_id],
+        );
+        return {
+          duplicate: false,
+          activated: false,
+          status: "failed",
+          limitExceeded: true,
+          maxAdvanceDays: PREMIUM_MAX_ADVANCE_DAYS,
+        };
+      }
+      const start=new Date(startMs).toISOString();
       await client.query(
         `UPDATE subscriptions SET status='active',start_date=$2::timestamptz,
          end_date=$2::timestamptz+($3||' days')::interval WHERE id=$1`,

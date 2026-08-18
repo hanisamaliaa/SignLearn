@@ -152,7 +152,7 @@ export default function PortalSidebar({
           {isAdmin ? (
             <span className="admin-header-avatar" aria-hidden="true">A</span>
           ) : (
-            <SignLearnAvatar id={currentUser?.profile?.avatar} size="md" />
+            <SignLearnAvatar id={currentUser?.avatar || "luna"} size="md" />
           )}
           <div className="min-w-0">
             <p className="user-sidebar-profile-name truncate">{currentUser?.name || "Pengguna"}</p>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, Card } from "../../components/ui/ui";
 import { subscriptionService } from "../../services";
 
@@ -30,6 +31,7 @@ const statusLabel = (s) => {
 };
 
 export default function Subscription() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,9 @@ export default function Subscription() {
         )
       )
     : 0;
+  const extensionPolicy = data?.extensionPolicy;
+  const canExtend = Boolean(extensionPolicy?.canExtend);
+  const maxDays = extensionPolicy?.maxAdvanceDays ?? 180;
 
   return (
     <div className="space-y-5">
@@ -93,13 +98,43 @@ export default function Subscription() {
           </p>
         </div>
         <Button
-          onClick={() => {
-            window.location.assign("/premium");
-          }}
+          onClick={() => navigate(data?.isPremium ? "/premium/checkout" : "/premium")}
+          disabled={Boolean(data?.isPremium) && !canExtend}
         >
-          {data?.isPremium ? "Tambah Masa Aktif" : "Lihat Premium"}
+          {data?.isPremium
+            ? canExtend
+              ? "Tambah 30 Hari"
+              : "Batas Masa Aktif Tercapai"
+            : "Lihat Premium"}
         </Button>
       </Card>
+
+      {data?.isPremium && (
+        <Card className="subscription-policy-card">
+          <div>
+            <Badge variant={canExtend ? "success" : "warning"}>
+              {canExtend ? "DAPAT DIPERPANJANG" : "BATAS 180 HARI"}
+            </Badge>
+            <h2>Perpanjangan fleksibel, tanpa tagihan otomatis</h2>
+            <p>
+              Setiap pembelian menambah 30 hari dari tanggal berakhir saat ini.
+              Masa aktif dapat disimpan hingga maksimal {maxDays} hari ke depan.
+            </p>
+          </div>
+          <div className="subscription-policy-meter" aria-label={`${Math.min(days, maxDays)} dari ${maxDays} hari masa aktif`}>
+            <div className="subscription-policy-meter-copy">
+              <span>Masa aktif tersimpan</span>
+              <strong>{days} / {maxDays} hari</strong>
+            </div>
+            <div className="subscription-policy-track">
+              <span style={{ width: `${Math.min(100, (days / maxDays) * 100)}%` }} />
+            </div>
+            {!canExtend && (
+              <small>Kamu bisa menambah 30 hari lagi setelah sisa masa aktif menjadi 150 hari atau kurang.</small>
+            )}
+          </div>
+        </Card>
+      )}
 
       <Card padding="none">
         <div className="p-4">

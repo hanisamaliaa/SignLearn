@@ -42,6 +42,8 @@ const SUITES = [
   ["Konten & progres", "smoke-content.mjs"],
   ["Dashboard & admin", "smoke-dashboard.mjs"],
   ["Bank Kata & Kamus", "smoke-wordbank.mjs"],
+  ["Keamanan (adversarial)", "smoke-security.mjs"],
+  ["Keamanan unggah gambar", "smoke-upload-security.mjs"],
   ["Repository & transaksi", "smoke-db.mjs"],
 ];
 

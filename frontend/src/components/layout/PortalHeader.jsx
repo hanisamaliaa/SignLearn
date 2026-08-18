@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   BellIcon,
   ChevronDownIcon,
-  LogoutIcon,
   SettingsIcon,
   UserIcon,
 } from "../ui/Icons";
@@ -18,7 +17,6 @@ export default function PortalHeader({
   currentUser,
   isPremium,
   onAccessibility,
-  onLogout,
 }) {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -111,13 +109,6 @@ export default function PortalHeader({
                   className="admin-dropdown-item w-full text-left px-4 py-3 text-sm font-bold flex items-center gap-2"
                 >
                   <SettingsIcon size={15} /> Pengaturan
-                </button>
-                <div className="admin-dropdown-divider border-t" />
-                <button
-                  onClick={onLogout}
-                  className="admin-dropdown-danger w-full text-left px-4 py-3 text-sm font-bold flex items-center gap-2"
-                >
-                  <LogoutIcon size={15} /> Keluar
                 </button>
               </div>
             )}
@@ -217,10 +208,6 @@ export default function PortalHeader({
                 </button>
                 <button onClick={() => { navigate("/settings"); setProfileOpen(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
                   <SettingsIcon size={15} /> Pengaturan
-                </button>
-                <div className="border-t border-[var(--border)]" />
-                <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-[#E74C3C] hover:bg-[var(--danger-light)] transition-colors">
-                  <LogoutIcon size={15} /> Keluar
                 </button>
               </div>
             )}

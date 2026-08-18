@@ -53,6 +53,16 @@ export async function checkout(user, planId) {
     env.payment.provider,
   );
   if (!pending) throw ApiError.notFound("Paket Premium tidak ditemukan.");
+  if (pending.pendingExists) {
+    throw ApiError.conflict(
+      "Masih ada pembayaran yang menunggu konfirmasi. Selesaikan atau batalkan pembayaran tersebut terlebih dahulu.",
+    );
+  }
+  if (pending.limitExceeded) {
+    throw ApiError.conflict(
+      `Masa aktif Premium sudah mencapai batas ${pending.maxAdvanceDays} hari. Tambah lagi setelah sisa masa aktif berkurang.`,
+    );
+  }
 
   if (env.payment.provider === "mock") {
     const redirectUrl = `${env.frontendUrl}/premium/payment/confirm?order_id=${encodeURIComponent(orderId)}`;
@@ -140,6 +150,11 @@ export async function paymentStatus(userId, orderId) {
   ) {
     const result = await repo.processNotification(await verifyOrder(orderId));
     if (result?.amountMismatch) throw ApiError.conflict("Nominal transaksi tidak cocok.");
+    if (result?.limitExceeded) {
+      throw ApiError.conflict(
+        `Masa aktif Premium sudah mencapai batas ${result.maxAdvanceDays} hari.`,
+      );
+    }
     payment = await repo.findUserPayment(userId, orderId);
   }
   return resultFor(userId, payment);
@@ -166,6 +181,11 @@ export async function confirmMockPayment(userId, orderId, action) {
   });
   if (!result) throw ApiError.notFound("Transaksi tidak ditemukan.");
   if (result.amountMismatch) throw ApiError.conflict("Nominal transaksi tidak cocok.");
+  if (result.limitExceeded) {
+    throw ApiError.conflict(
+      `Masa aktif Premium sudah mencapai batas ${result.maxAdvanceDays} hari.`,
+    );
+  }
   payment = await repo.findUserPayment(userId, orderId);
   return resultFor(userId, payment);
 }
@@ -192,5 +212,10 @@ export async function webhook(body) {
   const result = await repo.processNotification(verified);
   if (!result) throw ApiError.notFound("Order pembayaran tidak ditemukan.");
   if (result.amountMismatch) throw ApiError.conflict("Nominal transaksi tidak cocok.");
+  if (result.limitExceeded) {
+    throw ApiError.conflict(
+      `Masa aktif Premium sudah mencapai batas ${result.maxAdvanceDays} hari.`,
+    );
+  }
   return result;
 }

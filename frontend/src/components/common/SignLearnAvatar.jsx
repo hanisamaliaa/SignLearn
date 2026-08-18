@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
-import avatar1 from "../../assets/avatars/avatar-1.png";
-import avatar2 from "../../assets/avatars/avatar-2.png";
-import avatar3 from "../../assets/avatars/avatar-3.png";
+// WebP 256 px, bukan PNG 1150 px. Ukuran render terbesar komponen ini adalah
+// `xl` (w-28 = 112 px), sehingga 256 px sudah cukup bahkan pada layar 2x DPR.
+// Versi PNG-nya berbobot 3,9 MB untuk tiga berkas — dan ketiganya diimpor
+// statis di sini, jadi setiap halaman yang menampilkan avatar menariknya
+// semua. Sekarang 28 KB.
+import avatar1 from "../../assets/avatars/avatar-1.webp";
+import avatar2 from "../../assets/avatars/avatar-2.webp";
+import avatar3 from "../../assets/avatars/avatar-3.webp";
 
 const AVATARS = {
   luna: {

@@ -18,3 +18,14 @@ test("checkout uses production-facing language and a neutral confirmation URL", 
   assert.match(routes, /premium\/payment\/confirm/);
   assert.doesNotMatch(routes, /premium\/mock-payment/);
 });
+
+test("premium extension has a visible limit and never loops back to premium", () => {
+  const subscription = source("../../pages/user/Subscription.jsx");
+  const checkout = source("../../pages/user/PremiumCheckout.jsx");
+
+  assert.match(subscription, /extensionPolicy/);
+  assert.match(subscription, /\/premium\/checkout/);
+  assert.doesNotMatch(subscription, /window\.location\.assign\("\/premium"\)/);
+  assert.match(checkout, /canPurchase/);
+  assert.match(checkout, /Batas Masa Aktif Tercapai/);
+});

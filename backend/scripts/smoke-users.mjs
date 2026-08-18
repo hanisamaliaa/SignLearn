@@ -36,6 +36,12 @@ async function main() {
   check("memuat field kontrak §5.1",
     ["id", "name", "email", "role", "phone", "avatar", "profile", "status", "joinDate"]
       .every((k) => k in (profile.data?.user ?? {})));
+  check("akun baru memakai avatar bawaan", profile.data?.user?.avatar === "luna");
+  check(
+    "tanggal bergabung mengikuti tanggal pembuatan di zona Jakarta",
+    profile.data?.user?.joinDate === learner.user?.joinDate,
+    profile.data?.user?.joinDate,
+  );
 
   // ── PUT /users/profile ─────────────────────────────────────────────────
   section("PUT /users/profile");

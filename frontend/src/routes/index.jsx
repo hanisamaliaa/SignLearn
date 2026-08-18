@@ -80,6 +80,7 @@ export default function AppRoutes() {
             <Route path="/progress" element={<Progress />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<UserSettings />} />
+            <Route path="/guide" element={<ParentGuide embedded />} />
             <Route path="/premium" element={<Premium />} />
             <Route path="/premium/checkout" element={<PremiumCheckout />} />
             <Route path="/premium/payment" element={<PaymentResult />} />

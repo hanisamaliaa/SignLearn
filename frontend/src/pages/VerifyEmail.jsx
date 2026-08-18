@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AuthBrandPanel, AuthCard, AuthField, AuthStatus, AuthSubmitButton, authEntrance } from "../components/auth/AuthUI";
 import { CheckCircleIcon, LockIcon, MailIcon } from "../components/ui/Icons";
@@ -15,15 +15,17 @@ const BENEFITS = [
 
 export default function VerifyEmail() {
   const { state } = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { verifyEmail } = useApp();
   const reducedMotion = useReducedMotion();
   const codeRef = useRef(null);
-  const [email, setEmail] = useState(state?.email || "");
+  const verificationEmail = state?.email || searchParams.get("email") || "";
+  const [email, setEmail] = useState(verificationEmail);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(
-    state?.email ? `Kode verifikasi telah dikirim ke ${state.email}.` : "",
+    verificationEmail ? `Kode verifikasi telah dikirim ke ${verificationEmail}.` : "",
   );
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -106,7 +108,7 @@ export default function VerifyEmail() {
           <AuthStatus error={error} onDismiss={() => setError("")} />
           {notice && (
             <div
-              className="mt-4 rounded-xl border border-[#a7d9be] bg-[#edf9f2] px-4 py-3 text-sm font-semibold text-[#246b45]"
+              className="auth-verification-notice mt-4 rounded-xl border px-4 py-3 text-sm font-semibold"
               role="status"
             >
               {notice}

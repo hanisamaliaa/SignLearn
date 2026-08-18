@@ -162,7 +162,6 @@ export default function PortalLayout({ variant }) {
           currentUser={currentUser}
           isPremium={isPremium}
           onAccessibility={() => setAccessibilityOpen(true)}
-          onLogout={handleLogout}
         />
         <main className="flex-1 overflow-y-auto" data-route-scroll-container>
           <div className="portal-route-content min-w-0 p-4 sm:p-6 xl:p-8 max-w-[1500px] w-full mx-auto animate-fade-in">

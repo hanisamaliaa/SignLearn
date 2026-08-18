@@ -146,6 +146,8 @@
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone                 VARCHAR(30);
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar                VARCHAR(500);
   ALTER TABLE users ALTER COLUMN avatar TYPE VARCHAR(500);
+  ALTER TABLE users ALTER COLUMN avatar SET DEFAULT 'luna';
+  UPDATE users SET avatar = 'luna' WHERE avatar IS NULL OR BTRIM(avatar) = '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_public_id      VARCHAR(500);
   -- Default hanya dipakai saat kolom pertama kali ditambahkan agar akun lama
   -- tetap dapat login. Setelah itu akun baru harus diverifikasi eksplisit.
@@ -157,8 +159,14 @@
   ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT    DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until          TIMESTAMPTZ;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS join_date             DATE        DEFAULT CURRENT_DATE;
+  ALTER TABLE users ALTER COLUMN join_date
+    SET DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date);
   ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at            TIMESTAMPTZ DEFAULT NOW();
   ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at            TIMESTAMPTZ DEFAULT NOW();
+  UPDATE users
+     SET join_date = (created_at AT TIME ZONE 'Asia/Jakarta')::date
+   WHERE created_at IS NOT NULL
+     AND join_date IS DISTINCT FROM (created_at AT TIME ZONE 'Asia/Jakarta')::date;
 
   -- ── refresh_tokens ─────────────────────────────────────────────
   ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS rotated_at TIMESTAMPTZ;
