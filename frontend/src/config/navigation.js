@@ -75,6 +75,13 @@ export const userNavSections = [
     label: "AKUN",
     items: [
       {
+        label: "Panduan Orang Tua",
+        page: "user/guide",
+        path: "/guide",
+        icon: BookIcon,
+        roles: ["user"],
+      },
+      {
         label: "Profil",
         page: "user/profile",
         path: "/profile",

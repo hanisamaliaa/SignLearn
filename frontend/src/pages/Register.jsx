@@ -170,10 +170,11 @@ export default function Register() {
       }
 
       if (result.verificationRequired) {
-        navigate("/verify-email", {
+        const verificationEmail = result.email || email.trim();
+        navigate(`/verify-email?email=${encodeURIComponent(verificationEmail)}`, {
           replace: true,
           state: {
-            email: result.email || email.trim(),
+            email: verificationEmail,
             resendCooldownSeconds: result.resendCooldownSeconds,
           },
         });

@@ -229,6 +229,7 @@ async function main() {
       translation: "U-J-I M-E-D-I-A",
       category: "Uji",
       status: "active",
+      signVideo: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
       aliases: [],
     },
   });
@@ -250,6 +251,25 @@ async function main() {
   createdPublicIds.add(translationMedia.public_id);
   check("URL dan public ID bank kata tersimpan", Boolean(translationMedia.url && translationMedia.public_id));
   await assertCdnImage(translationMedia.url, "gambar bank kata");
+
+  const learnerWord = await call(`/translations/${translationId}`, {
+    token: userToken,
+  });
+  check("kata aktif dapat dibaca dari dashboard pengguna", learnerWord.response.status === 200);
+  check(
+    "dashboard pengguna menerima gambar dan video bank kata",
+    learnerWord.data?.translation?.signImage === translationMedia.url &&
+      learnerWord.data?.translation?.signVideo === "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+  );
+
+  const learnerList = await call(`/translations?q=${encodeURIComponent(`Uji Media ${suffix}`)}`, {
+    token: userToken,
+  });
+  const listedWord = learnerList.data?.items?.find((item) => item.id === String(translationId));
+  check(
+    "daftar kamus pengguna mempertahankan kedua media",
+    listedWord?.signImage === translationMedia.url && Boolean(listedWord?.signVideo),
+  );
 
   console.log("\n  Cleanup lifecycle");
   const clearAvatar = await call("/users/profile", {

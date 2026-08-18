@@ -124,7 +124,9 @@ function aliases(value) {
 
 function fields(body, required) {
   const errors = [
-    ...text(body.word, "word", "Kata", { required, min: 2, max: 120 }),
+    // Bank kata mencakup abjad A-Z, sehingga entri satu huruf sah dan perlu
+    // dapat dikelola melalui dashboard admin seperti entri lainnya.
+    ...text(body.word, "word", "Kata", { required, min: 1, max: 120 }),
     ...text(body.translation, "translation", "Representasi BISINDO", { required, min: 1, max: 240 }),
     ...text(body.description, "description", "Deskripsi", { max: 2000 }),
     ...text(body.category, "category", "Kategori", { max: 100 }),

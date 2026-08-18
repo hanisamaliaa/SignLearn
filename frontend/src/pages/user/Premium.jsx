@@ -12,6 +12,8 @@ export default function Premium() {
   const navigate = useNavigate();
   const { isPremium, subscriptionState } = useApp();
   const plan = subscriptionState?.plans?.[0];
+  const canExtend = Boolean(subscriptionState?.extensionPolicy?.canExtend);
+  const premiumDestination = isPremium && !canExtend ? "/subscription" : "/premium/checkout";
 
   return (
     <div className="premium-page space-y-6 animate-fade-in">
@@ -24,8 +26,8 @@ export default function Premium() {
         <Badge variant="warning">SignLearn Premium ⭐</Badge>
         <h1>Belajar tetap gratis.<br />Evaluasi menjadi lebih personal.</h1>
         <p>Semua course, lesson, dan video tetap gratis. Premium membuka quiz 5 soal setelah lesson, pembahasan, dan riwayat hasil.</p>
-        <Button size="lg" onClick={() => navigate(isPremium ? "/subscription" : "/premium/checkout")}>
-          {isPremium ? "Lihat Langganan Saya" : "Jadi Premium"}
+        <Button size="lg" onClick={() => navigate(premiumDestination)}>
+          {isPremium ? (canExtend ? "Tambah 30 Hari" : "Lihat Langganan Saya") : "Jadi Premium"}
         </Button>
       </section>
 
@@ -63,8 +65,8 @@ export default function Premium() {
           <li>✓ Pembahasan jawaban</li>
           <li>✓ Analisis progress</li>
         </ul>
-        <Button size="lg" disabled={!plan} onClick={() => navigate(isPremium ? "/subscription" : "/premium/checkout")}>
-          {isPremium ? "Kelola Premium" : "Pilih Premium 30 Hari"}
+        <Button size="lg" disabled={!plan} onClick={() => navigate(premiumDestination)}>
+          {isPremium ? (canExtend ? "Perpanjang Premium" : "Kelola Premium") : "Pilih Premium 30 Hari"}
         </Button>
       </Card>
 

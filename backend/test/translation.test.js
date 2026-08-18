@@ -47,6 +47,14 @@ test("allows a one-character search because the dictionary is an alphabet", () =
   assert.deepEqual(validateTranslationQuery(null, null, { q: "Z" }), []);
 });
 
+test("allows a one-letter entry because the word bank includes the alphabet", () => {
+  assert.deepEqual(validateCreateTranslation({
+    word: "B",
+    translation: "B",
+    category: "Abjad",
+  }), []);
+});
+
 test("still rejects an absurdly long search", () => {
   assert.equal(validateTranslationQuery(null, null, { q: "x".repeat(200) }).length, 1);
 });

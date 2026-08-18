@@ -27,7 +27,11 @@
     "db:migrate": "node scripts/migrate.mjs",
     "gen:secret": "node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\"",
     "seed:wordbank": "node src/database/seedWordBank.js",
-    "smoke:wordbank": "node scripts/smoke-wordbank.mjs"
+    "seed:wordbank-media": "node scripts/seed-wordbank-media.mjs",
+    "smoke:wordbank": "node scripts/smoke-wordbank.mjs",
+    "smoke:security": "node scripts/smoke-security.mjs",
+    "smoke:upload-security": "node scripts/smoke-upload-security.mjs",
+    "clean:test-data": "node scripts/clean-test-data.mjs"
   },
   "keywords": [
     "signlearn",

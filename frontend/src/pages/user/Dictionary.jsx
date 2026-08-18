@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ArrowRightIcon, SearchIcon, XIcon } from "../../componen
 import { letterImage } from "../../features/bisindo/alphabetImages";
 import { groupByCategory, matchLetters, summarise } from "../../features/bisindo/dictionary";
 import { spellPhrase, toSpellingText } from "../../features/bisindo/spelling";
+import { parseYouTubeId } from "../../features/lesson/youtube";
 import { translationService } from "../../services";
 import { useReducedMotion } from "../../hooks/useLandingMotion";
 
@@ -305,9 +306,23 @@ export default function Dictionary() {
                   className="bisindo-word-card"
                   onClick={() => setDetail({ kind: "word", item })}
                 >
+                  {item.signImage && (
+                    <img
+                      className="bisindo-word-thumbnail"
+                      src={item.signImage}
+                      alt={`Pratinjau gerakan BISINDO untuk ${item.word}`}
+                      loading="lazy"
+                    />
+                  )}
                   <strong>{item.word}</strong>
                   <span className="bisindo-word-spelling">{toSpellingText(item.word) || item.translation}</span>
                   {item.description && <small>{item.description}</small>}
+                  {(item.signImage || item.signVideo) && (
+                    <span className="bisindo-word-media-badges" aria-label="Media tersedia">
+                      {item.signImage && <span>Gambar</span>}
+                      {item.signVideo && <span>Video</span>}
+                    </span>
+                  )}
                   {item.category && <span className="bisindo-word-category">{item.category}</span>}
                 </button>
               ))}
@@ -409,9 +424,42 @@ function DetailModal({ detail, onClose }) {
   }
 
   const { item } = detail;
+  const youtubeId = parseYouTubeId(item.signVideo);
   return (
     <Modal open onClose={onClose} title={item.word} size="lg">
       <div className="bisindo-detail">
+        {(item.signImage || item.signVideo) && (
+          <section className="bisindo-detail-media" aria-label={`Media gerakan ${item.word}`}>
+            {item.signImage && (
+              <figure>
+                <img src={item.signImage} alt={`Gerakan BISINDO untuk ${item.word}`} />
+                <figcaption>Gambar gerakan</figcaption>
+              </figure>
+            )}
+            {item.signVideo && (
+              <div className="bisindo-detail-video">
+                {youtubeId ? (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
+                    title={`Video gerakan BISINDO untuk ${item.word}`}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video controls playsInline preload="metadata" src={item.signVideo}>
+                    Browser kamu belum mendukung pemutar video.
+                  </video>
+                )}
+                <span>Video gerakan</span>
+              </div>
+            )}
+          </section>
+        )}
+        <div className="bisindo-detail-section-heading">
+          <strong>Ejaan alfabet BISINDO</strong>
+          <span>{item.translation}</span>
+        </div>
         <div className="bisindo-detail-spelling">
           {spelled.words.map((word, wordIndex) => (
             <div className="bisindo-detail-word" key={`${word.text}-${wordIndex}`}>

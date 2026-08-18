@@ -1,13 +1,9 @@
 import PublicPage from "./PublicPage";
 
-export default function ParentGuide() {
+const INTRO = "Dukung anak belajar dan mempraktikkan BISINDO bersama keluarga. SignLearn Kids membantu anak usia 6–12 tahun mempelajari dan mempraktikkan BISINDO melalui pembelajaran visual, aktivitas interaktif, dan materi yang dekat dengan kehidupan sehari-hari.";
+
+function ParentGuideContent() {
   return (
-    <PublicPage
-      eyebrow="Dukungan"
-      title="Panduan Orang Tua"
-      showBackToDashboard
-      intro="Dukung anak belajar dan mempraktikkan BISINDO bersama keluarga. SignLearn Kids membantu anak usia 6–12 tahun mempelajari dan mempraktikkan BISINDO melalui pembelajaran visual, aktivitas interaktif, dan materi yang dekat dengan kehidupan sehari-hari."
-    >
       <div className="grid gap-12">
         <section><h2 className="text-2xl font-bold">Mengenal SignLearn</h2>
           <p className="mt-3 leading-7">SignLearn Kids adalah platform pembelajaran BISINDO yang dirancang untuk membantu anak belajar secara bertahap dan terstruktur. Anak dapat mengenal tanda melalui materi visual, memahami konteks penggunaannya, berlatih, mengerjakan kuis, dan mempraktikkannya bersama keluarga.</p>
@@ -53,6 +49,33 @@ export default function ParentGuide() {
         </section>
         <section className="rounded-3xl border p-8"><h2 className="text-2xl font-bold">Belajar Bersama, Berkomunikasi Lebih Dekat</h2><p className="mt-3 leading-7">Mulai kenalkan BISINDO melalui aktivitas yang sederhana dan dekat dengan kehidupan sehari-hari.</p></section>
       </div>
+  );
+}
+
+export default function ParentGuide({ embedded = false }) {
+  if (embedded) {
+    return (
+      <div className="parent-guide-portal animate-fade-in">
+        <header className="parent-guide-portal-hero">
+          <span>PANDUAN KELUARGA</span>
+          <h1>Panduan Orang Tua</h1>
+          <p>{INTRO}</p>
+        </header>
+        <div className="parent-guide-portal-content">
+          <ParentGuideContent />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PublicPage
+      eyebrow="Dukungan"
+      title="Panduan Orang Tua"
+      showBackToDashboard
+      intro={INTRO}
+    >
+      <ParentGuideContent />
     </PublicPage>
   );
 }

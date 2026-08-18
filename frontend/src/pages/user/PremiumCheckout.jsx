@@ -12,16 +12,21 @@ const money = new Intl.NumberFormat("id-ID", {
 
 export default function PremiumCheckout() {
   const navigate = useNavigate();
-  const { currentUser, subscriptionState, subscriptionLoading } = useApp();
+  const { currentUser, isPremium, subscriptionState, subscriptionLoading } = useApp();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
   const plan = subscriptionState?.plans?.[0];
   const paymentReady = Boolean(subscriptionState?.paymentConfigured);
   const isSandbox = subscriptionState?.paymentEnvironment === "sandbox";
+  const eligibility = plan
+    ? subscriptionState?.extensionPolicy?.planEligibility?.[String(plan.id)]
+    : null;
+  const canPurchase = !isPremium || Boolean(eligibility?.canPurchase);
+  const projectedEndDate = eligibility?.projectedEndDate;
 
   async function pay() {
-    if (!plan || !paymentReady || creating) return;
+    if (!plan || !paymentReady || !canPurchase || creating) return;
     setCreating(true);
     setError("");
     try {
@@ -68,8 +73,12 @@ export default function PremiumCheckout() {
 
       <div className="checkout-heading">
         <Badge variant="success">Checkout Aman</Badge>
-        <h1>Selesaikan Pembayaran</h1>
-        <p>Periksa detail pesanan sebelum mengaktifkan SignLearn Premium.</p>
+        <h1>{isPremium ? "Perpanjang SignLearn Premium" : "Selesaikan Pembayaran"}</h1>
+        <p>
+          {isPremium
+            ? "Periksa detail penambahan masa aktif sebelum melanjutkan pembayaran."
+            : "Periksa detail pesanan sebelum mengaktifkan SignLearn Premium."}
+        </p>
       </div>
 
       <ol className="checkout-steps" aria-label="Tahapan checkout">
@@ -84,6 +93,13 @@ export default function PremiumCheckout() {
         <Alert
           type="warning"
           message="Pembayaran sedang tidak tersedia. Silakan coba kembali beberapa saat lagi."
+        />
+      )}
+
+      {isPremium && !canPurchase && (
+        <Alert
+          type="warning"
+          message={`Masa aktifmu telah mencapai batas ${subscriptionState?.extensionPolicy?.maxAdvanceDays ?? 180} hari. Kamu dapat menambah 30 hari lagi saat sisa masa aktif menjadi 150 hari atau kurang.`}
         />
       )}
 
@@ -145,19 +161,32 @@ export default function PremiumCheckout() {
             <strong>{money.format(plan?.price ?? 29000)}</strong>
           </div>
 
+          {isPremium && projectedEndDate && canPurchase && (
+            <div className="checkout-extension-note">
+              <span>Perkiraan aktif hingga</span>
+              <strong>
+                {new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(
+                  new Date(projectedEndDate),
+                )}
+              </strong>
+            </div>
+          )}
+
           <div className="checkout-total">
             <span>Total Pembayaran</span>
             <strong>{money.format(plan?.price ?? 29000)}</strong>
           </div>
 
-          <Button fullWidth size="lg" disabled={!plan || creating || !paymentReady} onClick={pay}>
+          <Button fullWidth size="lg" disabled={!plan || creating || !paymentReady || !canPurchase} onClick={pay}>
             {creating ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Menyiapkan pembayaran...
               </>
+            ) : !canPurchase ? (
+              "Batas Masa Aktif Tercapai"
             ) : paymentReady ? (
-              "Lanjutkan Pembayaran"
+              isPremium ? "Bayar dan Tambah 30 Hari" : "Lanjutkan Pembayaran"
             ) : (
               "Pembayaran Tidak Tersedia"
             )}

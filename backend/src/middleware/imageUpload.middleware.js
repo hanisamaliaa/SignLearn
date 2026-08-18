@@ -67,7 +67,27 @@ export function detectImageMime(buffer) {
 
 export function uploadSingleImage(req, res, next) {
   parser(req, res, (error) => {
-    if (error) return next(error);
+    if (error) {
+      // Multer melaporkan pelanggaran batas sebagai `MulterError`, dan error
+      // itu sudah diterjemahkan di error.middleware. Yang TIDAK ditangani
+      // adalah kegagalan parser di bawahnya: busboy melempar Error biasa
+      // ("Malformed part header") ketika header multipart rusak — misalnya
+      // nama berkas yang memuat null byte, muatan yang lazim dipakai memindai
+      // kerentanan. Error biasa berakhir sebagai 500.
+      //
+      // Itu jawaban yang salah dan mahal: permintaan rusak adalah kesalahan
+      // KLIEN, sedangkan 500 berarti "kami yang rusak". Setiap probe murah
+      // menghasilkan satu stack trace di log, sehingga insiden sungguhan
+      // tenggelam dalam derau yang dikendalikan penyerang.
+      if (!(error instanceof ApiError) && error.name !== "MulterError") {
+        return next(
+          ApiError.badRequest("Permintaan upload tidak dapat dibaca.", [
+            { field: "image", message: "Kirim satu gambar pada field 'image'." },
+          ]),
+        );
+      }
+      return next(error);
+    }
 
     if (!req.file?.buffer?.length) {
       return next(

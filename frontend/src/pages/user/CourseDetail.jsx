@@ -66,26 +66,23 @@ export default function CourseDetail() {
   };
 
   const handleCta = () => {
-    if (allLessonsCompleted && courseQuiz) {
-      handleQuizClick();
-    } else if (currentLesson) {
-      setSelectedLesson(currentLesson.id);
+    const lesson = currentLesson || course.lessons.find((item) => item.status !== "locked");
+    if (lesson) {
+      setSelectedLesson(lesson.id);
       navigate("/lesson");
     }
   };
 
   const ctaLabel = useMemo(() => {
     if (course.isLocked) return null;
-    if (allLessonsCompleted && courseQuiz) {
-      return isPremium ? "Mulai Quiz Akhir" : "Buka Quiz dengan Premium";
-    }
+    if (allLessonsCompleted) return null;
     if (currentLesson) {
       const idx = course.lessons.findIndex((l) => l.id === currentLesson.id);
       return `Lanjutkan Pelajaran ${idx + 1}`;
     }
     if (course.lessons.length > 0) return "Mulai Belajar";
     return null;
-  }, [currentLesson, allLessonsCompleted, courseQuiz, isPremium, course.lessons]);
+  }, [currentLesson, allLessonsCompleted, course.isLocked, course.lessons]);
 
   return (
     <div className="course-detail space-y-6 animate-fade-in">
@@ -284,11 +281,7 @@ export default function CourseDetail() {
           {/* Context-aware CTA */}
           {ctaLabel && (
             <Button fullWidth size="lg" onClick={handleCta}>
-              {allLessonsCompleted && courseQuiz ? (
-                isPremium ? "🧠 " : "🔒 "
-              ) : (
-                <PlayIcon size={16} />
-              )}
+              <PlayIcon size={16} />
               {ctaLabel}
             </Button>
           )}

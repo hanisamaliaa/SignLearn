@@ -72,7 +72,7 @@ CREATE TABLE users (
   email          VARCHAR(190) NOT NULL,
   password_hash  VARCHAR(255) NOT NULL,
   phone          VARCHAR(30),
-  avatar         VARCHAR(500),
+  avatar         VARCHAR(500) DEFAULT 'luna',
   avatar_public_id VARCHAR(500),
   email_verified_at TIMESTAMPTZ,
   profile        VARCHAR(50) NOT NULL DEFAULT 'general'
@@ -86,7 +86,7 @@ CREATE TABLE users (
   failed_login_attempts SMALLINT NOT NULL DEFAULT 0,
   locked_until          TIMESTAMPTZ,
 
-  join_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+  join_date      DATE NOT NULL DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

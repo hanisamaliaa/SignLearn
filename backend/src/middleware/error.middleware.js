@@ -103,7 +103,22 @@ export function errorHandler(err, req, res, _next) {
     );
   }
 
-  const body = { success: false, status, code, message };
+  // Pesan 5xx yang tidak kita tulis sendiri TIDAK diteruskan ke klien.
+  //
+  // `normalize()` memakai `err.message` sebagai cadangan, sehingga teks dari
+  // library apa pun yang belum diterjemahkan akan sampai ke pengguna —
+  // "Malformed part header", "connect ECONNREFUSED 10.0.0.5:5432", atau pesan
+  // PostgreSQL yang menyebut nama tabel dan kolom. Stack sudah ditahan di
+  // bawah; pesannya perlu ditahan dengan alasan yang sama.
+  //
+  // 4xx tetap apa adanya: pesannya memang ditujukan kepada pengguna dan
+  // menjelaskan apa yang harus mereka perbaiki.
+  const safeMessage =
+    status >= 500 && !(err instanceof ApiError)
+      ? "Terjadi kesalahan pada server."
+      : message;
+
+  const body = { success: false, status, code, message: safeMessage };
   if (errors?.length) body.errors = errors;
 
   // Stack trace TIDAK PERNAH keluar di produksi. Ia membocorkan struktur

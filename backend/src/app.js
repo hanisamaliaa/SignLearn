@@ -8,6 +8,8 @@ import { env } from "./config/env.js";
 import { testConnection } from "./config/database.js";
 import { globalLimiter } from "./middleware/rateLimit.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
+import { ApiError } from "./utils/ApiError.js";
+import { ERROR_CODES } from "./constants/errorCodes.js";
 import routes from "./routes/index.js";
 import { isCloudinaryConfigured } from "./services/cloudinaryService.js";
 
@@ -51,7 +53,17 @@ app.use(
       if (!origin) return callback(null, true);
       if (!env.isProduction) return callback(null, true);
       if (env.corsOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("Origin tidak diizinkan oleh kebijakan CORS."));
+
+      // ApiError 403, bukan Error biasa. Error biasa berakhir sebagai 500
+      // dengan stack trace penuh di log — padahal origin asing bukan kegagalan
+      // server melainkan permintaan yang memang ditolak. Setiap pemindai di
+      // internet akan memicunya, dan log produksi jadi penuh "kesalahan" yang
+      // sepenuhnya dikendalikan orang luar sehingga insiden nyata tenggelam.
+      return callback(
+        new ApiError(403, "Origin tidak diizinkan oleh kebijakan CORS.", {
+          code: ERROR_CODES.FORBIDDEN,
+        }),
+      );
     },
     credentials: true,
     exposedHeaders: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
